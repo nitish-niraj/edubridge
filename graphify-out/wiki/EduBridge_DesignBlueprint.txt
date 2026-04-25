@@ -1,0 +1,174 @@
+
+EduBridge
+Design & Feature Blueprint
+Three-Portal Design System  �  Student  �  Teacher  �  Admin
+
+??  Student Portal � Bloom Theme
+??  Teacher Portal � Calm & Simple
+??  Admin Portal � Clean & Functional
+
+For use by AI coding agents � includes colour tokens, typography, component rules & full feature specs per portal
+
+
+Design Philosophy Overview
+EduBridge has three completely distinct user groups � each with radically different needs, ages, and comfort levels with technology. The design system is split into three separate visual identities that share zero visual overlap, so each user feels the platform was built specifically for them.
+
+?? STUDENT PORTAL
+Ages 10�25
+Bold, playful, Bloom-inspired. Warm corals, sunshine yellow, fresh mint. Bubbly rounded cards. Illustrated micro-details. Energetic and joyful.
+
+?? TEACHER PORTAL
+Ages 55�75
+Extremely simple. Generous whitespace. Sage green + white. Very large text (18px base). No gradients. No animations. Every element labeled clearly.
+
+?? ADMIN PORTAL
+Platform team
+Functional & efficient. Slate/blue-gray. Data-dense tables. Standard dashboard conventions. Dark sidebar, white content area.
+
+
+SECTION 1 � STUDENT PORTAL  ??  Bloom Design System
+
+Student Portal � Bloom Visual Identity
+Inspired by the Bloom typeface from Google Fonts � a design language built for children and young learners. Warm, rounded, illustrated, energetic. Think colourful sticker-book meets modern edtech.
+
+1.1  Colour Palette
+??  These are the ONLY colours allowed on the student portal. Do not add corporate blue, grey or white backgrounds. Every surface should feel warm.
+
+Design Element
+Value / Token
+How to Implement in Blade + Vue
+Primary � Bloom Coral
+#E8553E  /  rgb(232,85,62)
+Main CTA buttons, active nav items, selected tags. CSS: --s-coral: #E8553E
+Secondary � Sunshine
+#F5C518  /  rgb(245,197,24)
+Accent highlights, star ratings, badge backgrounds. CSS: --s-yellow: #F5C518
+Success � Fresh Mint
+#4CB87E  /  rgb(76,184,126)
+Completed sessions, verified badges, positive feedback. CSS: --s-mint: #4CB87E
+Warm Peach
+#FFAB76  /  rgb(255,171,118)
+Hover states on cards, secondary buttons. CSS: --s-peach: #FFAB76
+Soft Lavender
+#9B72CF  /  rgb(155,114,207)
+Subject tags for Arts/Languages, illustration accents. CSS: --s-lavender: #9B72CF
+Sky Blue
+#5BC4E5  /  rgb(91,196,229)
+Subject tags for Science, online status dot. CSS: --s-sky: #5BC4E5
+Page Background
+#FFF8F0  /  rgb(255,248,240)
+All page backgrounds � warm cream, NEVER pure white. CSS: --s-bg: #FFF8F0
+Card Background
+#FFFFFF  /  rgb(255,255,255)
+Card surfaces only. With box-shadow: 0 4px 20px rgba(232,85,62,0.08)
+Body Text
+#2D2D2D  /  rgb(45,45,45)
+All readable text. NOT black � this is softer. CSS: --s-text: #2D2D2D
+Muted Text
+#9CA3AF  /  rgb(156,163,175)
+Timestamps, metadata, placeholder text
+
+1.2  Typography
+Design Element
+Value / Token
+How to Implement in Blade + Vue
+Display / Hero Font
+Fredoka One (Google Fonts)
+Import: @import url Fredoka+One. Use for page titles, hero text, large numbers. font-family: "Fredoka One", cursive
+UI Font (headings)
+Nunito (Google Fonts)
+Import: Nunito:wght@400;600;700;800. Use for all h2�h4, nav labels, card titles. font-family: "Nunito", sans-serif
+Body / Reading Font
+Nunito weight 400
+All paragraph text, descriptions, messages. font-size: 16px, line-height: 1.7
+Base font size
+18px (NOT 14px or 16px)
+Students are young but readability is priority. Set html { font-size: 18px } in student CSS
+Heading Scale
+h1:2.2rem  h2:1.6rem  h3:1.25rem
+All in Nunito Bold (700). h1 in Fredoka One on landing/dashboard pages
+Font Colours (body)
+#2D2D2D on cream bg
+Passes WCAG AA contrast. Never use gray text below #777 on cream background
+Letter spacing
+headings: -0.02em
+Slightly tight for Fredoka gives it a sticker/stamp feel
+
+1.3  Spacing, Shapes & Motion
+Design Element
+Value / Token
+How to Implement in Blade + Vue
+Border radius � cards
+border-radius: 20px
+All cards, modals, panels. Use 20px. Feels bubbly and safe, not corporate.
+Border radius � buttons
+border-radius: 50px (pill shape)
+ALL buttons are pill-shaped. Never square buttons on student side.
+Border radius � inputs
+border-radius: 14px
+Form inputs, search boxes. Rounded but not pill.
+Border radius � tags/badges
+border-radius: 100px
+Subject tags, status badges � fully rounded pills.
+Shadows
+box-shadow: 0 4px 20px rgba(232,85,62,0.10)
+Soft coral-tinted shadow on all cards. On hover: 0 8px 30px rgba(232,85,62,0.18)
+Card hover animation
+transform: translateY(-4px) scale(1.01)
+On hover, cards gently lift. Transition: all 0.25s cubic-bezier(0.34,1.56,0.64,1)
+Button press animation
+transform: scale(0.96)
+On :active, buttons slightly shrink. Transition: 0.1s ease
+Page transitions
+Vue <Transition name="fade-up">
+New pages slide up gently: translateY(20px) ? translateY(0), opacity 0?1, 0.3s
+Illustrations
+Undraw.co or custom SVG spots
+Add small spot illustrations on empty states, success screens, onboarding. Use coral palette fill.
+Grid layout
+CSS Grid, 3 cols on desktop, 1 on mobile
+Teacher cards in a 3-column grid. Gap: 24px. On tablet: 2 cols. On mobile: 1 col.
+
+1.4  Component Design Rules
+Design Element
+Value / Token
+How to Implement in Blade + Vue
+Primary Button
+.btn-primary: bg=#E8553E, text=white, font=Nunito 700, padding=14px 32px, radius=50px, NO border
+Hover: bg=#D44433 (darken 8%). Active: scale(0.96). Disabled: opacity 0.4, cursor not-allowed.
+Secondary Button
+.btn-secondary: bg=white, text=#E8553E, border=2px solid #E8553E, same padding
+Hover: bg=#FFF3EF
+Ghost Button
+.btn-ghost: bg=transparent, text=#9CA3AF, no border
+Used for cancel / skip actions only
+Subject Tags
+Pill shape, bg varies by subject category
+Math=#5BC4E5 (sky), Science=#4CB87E (mint), Languages=#9B72CF (lavender), Arts=#FFAB76 (peach), Other=#F5C518 (yellow). Text always white.
+Teacher Card
+20px radius card, white bg, coral shadow
+Avatar (80px circle, border: 3px solid #F5C518), Name in Nunito 700 20px, Star rating in #F5C518, Subject tags row, Price badge (FREE in mint, ?X/hr in coral), "View Profile" pill button
+Rating Stars
+Color: #F5C518, size: 20px
+Use filled/half/empty SVG stars. Never use emoji stars. Show numeric average beside them.
+Navigation (desktop)
+Left sidebar, bg=#FFF8F0, width=240px
+Logo at top, nav items as large 48px-tall clickable rows, active item: bg=#FFF3EF, left border: 4px solid #E8553E, icon + label in Nunito 600
+Navigation (mobile)
+Bottom tab bar, bg=white, height=64px
+5 icons max. Active icon filled coral. Inactive gray. Labels below icons in 11px Nunito.
+Input Fields
+bg=white, border=2px solid #E8E8E8, radius=14px
+Focus: border-color=#E8553E, box-shadow: 0 0 0 3px rgba(232,85,62,0.15). Label above (never placeholder-only).
+Toasts / Alerts
+Top-center, slide down, auto-dismiss 4s
+Success: bg=#4CB87E, Error: bg=#E8553E, Info: bg=#5BC4E5. All white text, pill shape 50px radius.
+Empty State
+Centered illustration + heading + CTA button
+Use Undraw SVGs coloured in coral. Heading: Nunito 700 22px. Sub-text: 16px muted. Button: primary coral pill.
+Loading Skeleton
+Shimmer animation, bg gradient from #F0EBE5 to #E5DED7
+Animate with CSS @keyframes shimmer. Use for teacher cards, message list, profile.
+
+1.5  Student Portal � Screen-by-Screen Feature & Design Spec
+...

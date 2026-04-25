@@ -1,0 +1,172 @@
+@import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Inter:wght@400;500;600;700&family=Nunito:wght@400;600;700&display=swap');
+
+@import "./animations.css";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body[data-portal="student"] {
+    background-color: var(--s-cream);
+    font-family: var(--s-font-body);
+    font-size: var(--s-base-size);
+    color: var(--s-text);
+  }
+  
+  body[data-portal="student"] h1,
+  body[data-portal="student"] h2,
+  body[data-portal="student"] h3,
+  body[data-portal="student"] h4,
+  body[data-portal="student"] h5,
+  body[data-portal="student"] h6,
+  body[data-portal="student"] .font-display {
+    font-family: var(--s-font-display);
+    font-weight: normal;
+  }
+  
+  body[data-portal="teacher"] {
+    background-color: var(--s-off-white);
+    font-family: 'Arial', sans-serif;
+    font-size: 20px;
+    color: var(--s-text);
+  }
+  
+  body[data-portal="teacher"] h1,
+  body[data-portal="teacher"] h2,
+  body[data-portal="teacher"] h3,
+  body[data-portal="teacher"] h4,
+  body[data-portal="teacher"] h5,
+  body[data-portal="teacher"] h6 {
+    font-family: 'Georgia', serif;
+    font-weight: normal;
+  }
+  
+  body[data-portal="admin"] {
+    background-color: #F8FAFC;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    color: #0F172A;
+  }
+}
+
+/* ============================================================
+  EduBridge — Unified Design System
+  Single shared theme for all portals.
+  Legacy --t-* and --a-* tokens are retained as aliases so
+  existing components continue to render correctly.
+   ============================================================ */
+
+/* ---------- GLOBAL THEME TOKENS ---------- */
+:root,
+body[data-portal],
+html[data-portal],
+body,
+html {
+  /* Colours */
+  --s-coral:       #E8553E;
+  --s-coral-dark:  #D44433;
+  --s-coral-light: #FF7A5C;
+  --s-yellow:      #F5C518;
+  --s-mint:        #4CB87E;
+  --s-mint-dark:   #3A9E68;
+  --s-peach:       #FFAB76;
+  --s-lavender:    #9B72CF;
+  --s-sky:         #5BC4E5;
+  --s-cream:       #FFF8F0;
+  --s-cream-dark:  #FFF0E0;
+  --s-white:       #FFFFFF;
+  --s-text:        #2D2D2D;
+  --s-text-muted:  #9CA3AF;
+  --s-border:      #F0E8E0;
+
+  /* Typography */
+  --s-font-display: 'Fredoka One', cursive;
+  --s-font-body:    'Nunito', sans-serif;
+  --s-base-size:    18px;
+
+  /* Spacing */
+  --s-radius-card:   20px;
+  --s-radius-button: 50px;
+  --s-radius-input:  14px;
+  --s-radius-tag:    100px;
+
+  /* Shadows */
+  --s-shadow-card:  0 4px 20px rgba(232, 85, 62, 0.08);
+  --s-shadow-hover: 0 12px 40px rgba(232, 85, 62, 0.18);
+  --s-shadow-float: 0 20px 60px rgba(232, 85, 62, 0.22);
+  --t-shadow-form:  inset 0 2px 4px rgba(0,0,0,0.05);
+
+  /* Animation timing */
+  --s-spring:  cubic-bezier(0.34, 1.56, 0.64, 1);
+  --s-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --s-ease-in:  cubic-bezier(0.7, 0, 0.84, 0);
+
+  /* Teacher legacy aliases - properly mapped to sage green */
+  --t-sage:         #3D6B4F;
+  --t-sage-dark:    #2A4D38;
+  --t-sage-light:   #E8F0EB;
+  --t-mint-bg:      var(--s-off-white);
+  --t-border:       var(--s-border);
+  --t-bg:           var(--s-cream);
+  --t-white:        var(--s-white);
+  --t-text:         var(--s-text);
+  --t-text-muted:   var(--s-text-muted);
+  --t-success:      var(--s-mint);
+  --t-warning:      var(--s-yellow);
+  --t-font-heading: var(--s-font-display);
+  --t-font-body:    var(--s-font-body);
+  --t-base-size:    var(--s-base-size);
+  --t-radius-card:   var(--s-radius-card);
+  --t-radius-button: var(--s-radius-button);
+  --t-radius-input:  var(--s-radius-input);
+  --t-shadow-card:   var(--s-shadow-card);
+  --t-ease:          var(--s-ease-out);
+
+  /* Admin legacy aliases - updated to new scheme */
+  --a-navy:        #1E3A5F;
+  --a-blue:        #2563EB;
+  --a-green:       #16A34A;
+  --a-amber:       #D97706;
+  --a-red:         #DC2626;
+  --a-bg:          #F8FAFC;
+  --a-white:       #FFFFFF;
+  --a-border:      #E2E8F0;
+  --a-text:        #0F172A;
+  --a-text-muted:  #64748B;
+  --a-sidebar-bg:  #1E3A5F;
+  --a-row-hover:   #F1F5F9;
+  --a-font:        'Inter', sans-serif;
+  --a-base-size:   14px;
+}
+
+/* Global accessible focus state */
+:is(button, [href], input, textarea, select, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--s-coral);
+  outline-offset: 3px;
+}
+
+/* Teacher high contrast mode */
+body[data-portal="teacher"].high-contrast {
+  filter: contrast(1.24);
+}
+
+body[data-portal="teacher"].high-contrast .teacher-shell,
+body[data-portal="teacher"].high-contrast .teacher-main,
+body[data-portal="teacher"].high-contrast .teacher-page-frame {
+  background: #ffffff;
+}
+
+body[data-portal="teacher"].high-contrast .teacher-sidebar,
+body[data-portal="teacher"].high-contrast .teacher-header {
+  border-color: #111111;
+}
+
+body[data-portal="teacher"].high-contrast .teacher-nav-item--active {
+  background: #111111;
+  color: #ffffff;
+  border-left-color: #000000;
+}
+
+body[data-portal="teacher"].high-contrast :is(button, a, input, textarea, select) {
+  box-shadow: inset 0 0 0 1px #111111;
+}

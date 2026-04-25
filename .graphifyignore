@@ -1,0 +1,31 @@
+# Dependencies and vendor code
+vendor/
+node_modules/
+dist/
+
+# Build and cache artifacts
+bootstrap/cache/
+public/build/
+public/vendor/
+public/storage/
+storage/framework/
+storage/logs/
+
+# Environment and local cache files
+.env
+.env.*
+.phpunit.result.cache
+
+# Binary/media and report artifacts
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.pdf
+*.aux
+*.toc
+*.log
+
+# Generated code artifacts
+*.generated.py

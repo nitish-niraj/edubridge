@@ -1,0 +1,63 @@
+
+EduBridge
+Connecting Retired Teachers with Students
+
+Phase-by-Phase Development Guide
+Complete AI Agent Build Instructions
+
+Tech Stack: Laravel 10 (PHP 8.2) � Vue.js 3 � MySQL 8 � Pusher � Twilio � Razorpay
+7 Phases  |  10 Months  |  Academic Project 2025
+
+
+Project Overview & How to Use This Guide
+This document provides granular, AI-agent-ready instructions for building EduBridge � a web platform connecting retired teachers with students seeking personalized tutoring. Every phase is self-contained and can be handed directly to an AI coding agent.
+
+How to Use This Document
+� Each phase has a GOAL, DURATION, TECH CONTEXT, and a TASK TABLE.
+� The task table gives every individual component with a full description column � this is what you paste to an AI agent.
+� Phases must be completed in order. Each phase depends on the previous phase's output.
+� All backend is Laravel 10 (PHP 8.2). All frontend uses Vue.js 3 embedded in Laravel Blade templates.
+� Database: MySQL 8. Real-time: Pusher + Laravel Echo. Video: Twilio. Payments: Razorpay.
+
+Global Technical Standards (Apply to ALL Phases)
+� Project name: edubridge. Laravel project lives at /var/www/edubridge on the server.
+� All PHP must be PSR-12 compliant. All Vue components use the Composition API (setup()).
+� Every API route must return JSON. Use Laravel API Resources for all responses.
+� All DB migrations must use up() and down() methods properly.
+� Every controller method must have Form Request validation � no raw $request->input() without validation.
+� Soft deletes (SoftDeletes trait) on all major tables: users, bookings, messages.
+� All timestamps in UTC in the database. Display conversion happens on the frontend.
+� Use .env for all secrets � never hardcode API keys.
+� Write a Feature Test for every major API endpoint using PHPUnit.
+
+Database Naming Conventions
+� Table names: snake_case plural (teacher_profiles, booking_slots).
+� Foreign keys: table_singular_id pattern (teacher_id, student_id, booking_id).
+� JSON columns: use MySQL JSON type for arrays like subjects[], languages[].
+� Enum columns: use string with check constraints via Laravel enum cast.
+
+PHASE 1: Foundation � Laravel Setup, DB Schema, Authentication & Profiles
+Duration: Months 1�2  |  Goal: Get the skeleton of the app running with working login and profile pages
+
+Phase 1 Overview
+This is the most critical phase. Every other phase depends on a clean, well-structured foundation. The AI agent must set up the entire Laravel project from scratch, configure the database, build the role-based authentication system, and create working profile pages for both Teachers and Students. By the end of Phase 1, a user should be able to register as either a student or a teacher, verify their email, log in, and fill out their complete profile.
+
+Phase 1 � Environment & Stack
+� PHP 8.2, Composer, Laravel 10, Node.js 18+ (for Vite/npm)
+� MySQL 8 database: edubridge_db
+� Laravel Breeze (Blade + Vue starter kit) for authentication scaffolding
+� Spatie Laravel-Permission package for role management
+� Intervention Image package for profile photo resizing/upload
+� Laravel Telescope (dev only) for debugging
+
+Phase 1 � Task Breakdown
+Task / Component
+Detailed Description for AI Agent
+Files / Artifacts
+1.1 Laravel Project Setup
+Run: composer create-project laravel/laravel edubridge. Configure .env with DB credentials (DB_DATABASE=edubridge_db, DB_USERNAME, DB_PASSWORD). Set APP_NAME=EduBridge, APP_URL, APP_TIMEZONE=UTC. Install Laravel Breeze: composer require laravel/breeze --dev then php artisan breeze:install vue. Run npm install && npm run build. Confirm welcome page loads.
+composer.json, .env, routes/web.php
+1.2 Database Schema � Core Tables
+Create migrations in this order: (1) users table � id, name, email, phone (nullable, unique), password, role ENUM('student','teacher','admin'), email_verified_at, phone_verified_at, avatar (nullable), status ENUM('active','suspended','pending') default pending, remember_token, timestamps, softDeletes. (2) teacher_profiles � id, user_id (FK ? users.id, cascade delete), bio TEXT nullable, experience_years INT default 0, hourly_rate DECIMAL(8,2) nullable, is_free BOOLEAN default false, is_verified BOOLEAN default false, rating_avg DECIMAL(3,2) default 0.00, total_reviews INT default 0, subjects JSON nullable, languages JSON nullable, gender ENUM('male','female','other') nullable, timestamps. (3) student_profiles � id, user_id (FK), class_grade VARCHAR(20) nullable, school_name VARCHAR(150) nullable, subjects_needed JSON nullable, preferred_language VARCHAR(50) nullable, timestamps.
+database/migrations/*.php
+...
