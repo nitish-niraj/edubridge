@@ -16,6 +16,7 @@ class Conversation extends Model
 
     protected $fillable = [
         'created_by',
+        'direct_student_id',
         'title',
         'is_group',
         'subject',
@@ -38,6 +39,11 @@ class Conversation extends Model
     public function teacher(): BelongsTo
     {
         return $this->belongsTo(User::class, 'teacher_id');
+    }
+
+    public function directStudent(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'direct_student_id');
     }
 
     public function participants(): BelongsToMany
@@ -91,4 +97,3 @@ class Conversation extends Model
         return $code;
     }
 }
-

@@ -5,11 +5,13 @@ namespace App\Http\Controllers\Api;
 use App\Helpers\UploadSecurity;
 use App\Http\Controllers\Controller;
 use App\Events\MessageSent;
+use App\Events\UserTyping;
 use App\Http\Requests\Api\ConversationIndexRequest;
 use App\Http\Requests\Api\ConversationMessagesRequest;
 use App\Http\Requests\Api\MarkConversationReadRequest;
 use App\Http\Requests\Api\SendMessageRequest;
 use App\Http\Requests\Api\StartConversationRequest;
+use App\Http\Requests\Api\TypingRequest;
 use App\Http\Resources\ConversationResource;
 use App\Http\Resources\MessageResource;
 use App\Jobs\SendChatNotification;
@@ -62,26 +64,45 @@ class ChatController extends Controller
         [$conversation, $message] = DB::transaction(function () use ($studentId, $teacherId, $validated): array {
             $existing = Conversation::query()
                 ->where('is_group', false)
-                ->whereHas('participants', function ($query) use ($studentId): void {
-                    $query->where('users.id', $studentId);
-                })
-                ->whereHas('participants', function ($query) use ($teacherId): void {
-                    $query->where('users.id', $teacherId);
-                })
-                ->has('participants', '=', 2)
+                ->where('direct_student_id', $studentId)
+                ->where('teacher_id', $teacherId)
                 ->first();
 
             if (! $existing) {
-                $existing = Conversation::query()->create([
-                    'created_by' => $studentId,
-                    'is_group' => false,
-                ]);
-
-                $existing->participants()->syncWithoutDetaching([
-                    $studentId => ['joined_at' => now()],
-                    $teacherId => ['joined_at' => now()],
-                ]);
+                $existing = Conversation::query()
+                    ->where('is_group', false)
+                    ->whereHas('participants', function ($query) use ($studentId): void {
+                        $query->where('users.id', $studentId);
+                    })
+                    ->whereHas('participants', function ($query) use ($teacherId): void {
+                        $query->where('users.id', $teacherId);
+                    })
+                    ->has('participants', '=', 2)
+                    ->first();
             }
+
+            if (! $existing) {
+                $existing = Conversation::query()->firstOrCreate(
+                    [
+                        'direct_student_id' => $studentId,
+                        'teacher_id' => $teacherId,
+                        'is_group' => false,
+                    ],
+                    [
+                        'created_by' => $studentId,
+                    ]
+                );
+            } elseif (! $existing->direct_student_id || ! $existing->teacher_id) {
+                $existing->forceFill([
+                    'direct_student_id' => $studentId,
+                    'teacher_id' => $teacherId,
+                ])->save();
+            }
+
+            $existing->participants()->syncWithoutDetaching([
+                $studentId => ['joined_at' => now()],
+                $teacherId => ['joined_at' => now()],
+            ]);
 
             $message = $existing->messages()->create([
                 'sender_id' => $studentId,
@@ -147,12 +168,24 @@ class ChatController extends Controller
 
         $fileUrl = null;
         if ($request->hasFile('attachment')) {
+            $allowedMimes = $validated['type'] === 'image'
+                ? ['image/jpeg', 'image/png', 'image/webp']
+                : [
+                    'image/jpeg',
+                    'image/png',
+                    'image/webp',
+                    'application/pdf',
+                    'text/plain',
+                    'application/msword',
+                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                ];
+
             $path = UploadSecurity::storeValidatedFile(
                 $request->file('attachment'),
                 'public',
                 'chat-files',
                 'attachment',
-                ['image/jpeg', 'image/png', 'image/webp']
+                $allowedMimes
             );
             $fileUrl = '/storage/' . $path;
         }
@@ -188,6 +221,23 @@ class ChatController extends Controller
         return response()->json([
             'updated' => $updatedCount,
             'message' => 'Conversation marked as read.',
+        ]);
+    }
+
+    public function typing(TypingRequest $request, Conversation $conversation): JsonResponse
+    {
+        $request->validated();
+        $user = $request->user();
+        $this->assertParticipant($conversation, $user->id);
+
+        broadcast(new UserTyping(
+            conversationId: $conversation->id,
+            userId: $user->id,
+            name: $user->name
+        ))->toOthers();
+
+        return response()->json([
+            'message' => 'Typing event broadcast.',
         ]);
     }
 

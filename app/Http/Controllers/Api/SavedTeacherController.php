@@ -8,6 +8,7 @@ use App\Http\Requests\Api\SavedTeacherToggleRequest;
 use App\Http\Resources\TeacherCardResource;
 use App\Models\SavedTeacher;
 use App\Models\TeacherProfile;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
@@ -27,6 +28,16 @@ class SavedTeacherController extends Controller
             ->with('user:id,name,avatar,status')
             ->whereIn('user_id', $savedTeacherIds)
             ->where('is_verified', true)
+            ->whereNotNull('subjects')
+            ->where('subjects', '!=', '[]')
+            ->whereNotNull('languages')
+            ->where('languages', '!=', '[]')
+            ->whereHas('user', function (Builder $builder): void {
+                $builder->where('role', 'teacher')
+                    ->where('status', 'active')
+                    ->whereNotNull('avatar')
+                    ->where('avatar', '!=', '');
+            })
             ->orderByDesc('rating_avg')
             ->orderByDesc('total_reviews')
             ->addSelect('teacher_profiles.*')
@@ -46,10 +57,28 @@ class SavedTeacherController extends Controller
     {
         $validated = $request->validated();
         $studentId = $request->user()->id;
+        $teacherId = (int) $validated['teacher_id'];
+
+        $eligible = TeacherProfile::query()
+            ->where('user_id', $teacherId)
+            ->where('is_verified', true)
+            ->whereNotNull('subjects')
+            ->where('subjects', '!=', '[]')
+            ->whereNotNull('languages')
+            ->where('languages', '!=', '[]')
+            ->whereHas('user', function (Builder $builder): void {
+                $builder->where('role', 'teacher')
+                    ->where('status', 'active')
+                    ->whereNotNull('avatar')
+                    ->where('avatar', '!=', '');
+            })
+            ->exists();
+
+        abort_unless($eligible, 404, 'Teacher is not available to save.');
 
         SavedTeacher::query()->firstOrCreate([
             'student_id' => $studentId,
-            'teacher_id' => (int) $validated['teacher_id'],
+            'teacher_id' => $teacherId,
         ]);
 
         return response()->json([

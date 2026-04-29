@@ -25,6 +25,7 @@ const navItems = [
     { label: 'My Bookings', route: 'student.bookings', icon: '📅', activePrefix: '/student/bookings' },
     { label: 'Messages', route: 'student.chat', icon: '💬', activePrefix: '/student/chat' },
     { label: 'Profile', route: 'student.profile', icon: '👤', activePrefix: '/student/profile' },
+    { label: 'Settings', route: 'student.settings', icon: '⚙️', activePrefix: '/student/settings' },
 ];
 
 const isActive = (item) => {

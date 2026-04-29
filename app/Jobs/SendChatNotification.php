@@ -9,6 +9,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Pusher\Pusher;
@@ -48,6 +49,11 @@ class SendChatNotification implements ShouldQueue
             }
 
             if (! $participant->email) {
+                continue;
+            }
+
+            $throttleKey = "chat-notification:{$message->conversation_id}:{$participant->id}";
+            if (! Cache::add($throttleKey, now()->timestamp, now()->addHour())) {
                 continue;
             }
 

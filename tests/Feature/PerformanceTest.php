@@ -30,6 +30,7 @@ class PerformanceTest extends TestCase
             'name' => 'Cached Teacher',
             'role' => 'teacher',
             'status' => 'active',
+            'avatar' => '/storage/avatars/cached-teacher.jpg',
         ]);
 
         $teacher->assignRole('teacher');

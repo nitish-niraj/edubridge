@@ -45,6 +45,8 @@ Route::middleware('auth')->get('/account/profile', [AccountProfileController::cl
     ->name('account.profile');
 Route::middleware('auth')->patch('/account/profile', [AccountProfileController::class, 'update'])
     ->name('account.profile.update');
+Route::middleware('auth')->delete('/account/profile', [AccountProfileController::class, 'destroy'])
+    ->name('account.profile.destroy');
 
 // ─── Public Teacher Discovery ────────────────────────────────────────────────
 Route::get('/teachers', function () {
@@ -141,6 +143,7 @@ Route::middleware(['auth', 'role:student'])->prefix('student')->name('student.')
     Route::post('/onboarding', [OnboardingController::class, 'complete'])->name('onboarding.complete');
     Route::get('/profile',     [StudentProfileController::class, 'show'])->name('profile');
     Route::patch('/profile',   [StudentProfileController::class, 'update'])->name('profile.update');
+    Route::get('/settings', fn () => Inertia::render('Student/Settings'))->name('settings');
     Route::get('/saved-teachers', fn () => Inertia::render('Student/SavedTeachers'))->name('saved-teachers');
     Route::get('/chat', fn () => Inertia::render('Student/Chat'))->name('chat');
     Route::get('/bookings', fn () => Inertia::render('Student/MyBookings'))->name('bookings');

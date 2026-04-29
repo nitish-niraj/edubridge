@@ -6,7 +6,7 @@ import { useAnalytics } from '@/composables/useAnalytics';
 import { HeartIcon } from '@heroicons/vue/24/outline';
 import { HeartIcon as HeartSolidIcon } from '@heroicons/vue/24/solid';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
-import { usePage } from '@inertiajs/vue3';
+import { Link, usePage } from '@inertiajs/vue3';
 
 const props = defineProps({
     teacherId: {
@@ -37,6 +37,11 @@ let reviewObserver = null;
 let saveHeartTimer = null;
 
 const { trackEvent } = useAnalytics();
+
+const isTeacherOwner = computed(() => {
+    return currentUser.value?.role === 'teacher'
+        && Number(currentUser.value?.id) === Number(teacher.value?.teacher_id);
+});
 
 const heroParallax = computed(() => ({
     transform: `translateY(${Math.round(scrollY.value * 0.5)}px)`,
@@ -264,7 +269,12 @@ onBeforeUnmount(() => {
                         loading="lazy"
                     />
 
-                    <div class="action-row">
+                    <div v-if="isTeacherOwner" class="action-row">
+                        <Link :href="route('teacher.profile.show')" class="owner-profile-link">Open Teacher Profile</Link>
+                        <Link :href="route('teacher.dashboard')" class="owner-dashboard-link">Teacher Dashboard</Link>
+                    </div>
+
+                    <div v-else class="action-row">
                         <button class="save-btn" :class="{ 'is-saved': teacher.is_saved }" :disabled="saveBusy" @click="toggleSave">
                             <span class="save-heart-shell" :class="saveHeartFx ? `fx-${saveHeartFx}` : ''">
                                 <HeartIcon class="save-heart save-heart-outline" aria-hidden="true" />
@@ -334,12 +344,12 @@ onBeforeUnmount(() => {
                     </section>
                 </div>
 
-                <div class="desktop-cta">
+                <div v-if="!isTeacherOwner" class="desktop-cta">
                     <button class="message-btn" @click="startConversation">💬 Send Message</button>
                     <button class="book-btn" @click="bookSession($event)">📅 Book Session</button>
                 </div>
 
-                <div class="mobile-cta-bar" :class="{ 'mobile-cta-bar--visible': showMobileCta }">
+                <div v-if="!isTeacherOwner" class="mobile-cta-bar" :class="{ 'mobile-cta-bar--visible': showMobileCta }">
                     <button class="message-btn" @click="startConversation">💬 Send Message</button>
                     <button class="book-btn" @click="bookSession($event)">📅 Book Session</button>
                 </div>
@@ -531,7 +541,9 @@ h1 {
 }
 
 .save-btn,
-.report-link {
+.report-link,
+.owner-profile-link,
+.owner-dashboard-link {
     display: inline-flex;
     align-items: center;
     gap: 8px;
@@ -543,6 +555,7 @@ h1 {
     padding: 8px 14px;
     font-family: Nunito, sans-serif;
     cursor: pointer;
+    text-decoration: none;
 }
 
 .save-btn:disabled {
@@ -598,6 +611,11 @@ h1 {
 .report-link {
     color: #D44433;
     border: 1px solid #dbe3ef;
+}
+
+.owner-dashboard-link {
+    background: #e8553e;
+    color: #fff;
 }
 
 .bio-card,

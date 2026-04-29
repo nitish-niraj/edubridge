@@ -128,4 +128,38 @@ class ChatTest extends TestCase
         $response = $this->getJson("/api/conversations/{$conversation->id}/messages");
         $response->assertStatus(403);
     }
+
+    public function test_duplicate_conversation_prevention_returns_existing_conversation(): void
+    {
+        $student = User::factory()->create(['role' => 'student', 'status' => 'active']);
+        $teacher = User::factory()->create(['role' => 'teacher', 'status' => 'active']);
+
+        Sanctum::actingAs($student);
+
+        // First call creates the conversation
+        $response1 = $this->postJson('/api/conversations', [
+            'teacher_id' => $teacher->id,
+            'message' => 'Hello teacher!',
+        ]);
+
+        $response1->assertSuccessful();
+        $conversationId1 = $response1->json('data.id');
+
+        // Second call with same teacher should return the same conversation
+        $response2 = $this->postJson('/api/conversations', [
+            'teacher_id' => $teacher->id,
+            'message' => 'Follow up message',
+        ]);
+
+        $response2->assertSuccessful();
+        $conversationId2 = $response2->json('data.id');
+
+        $this->assertEquals($conversationId1, $conversationId2);
+
+        // Ensure we only have one conversation for this pair
+        $this->assertDatabaseCount('conversations', 1);
+        
+        // But we should have 2 messages
+        $this->assertDatabaseCount('messages', 2);
+    }
 }

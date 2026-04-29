@@ -32,7 +32,6 @@ class TeacherPublicProfileResource extends JsonResource
             'rating_avg' => (float) $this->rating_avg,
             'total_reviews' => (int) $this->total_reviews,
             'experience_years' => $this->experience_years,
-            'previous_school' => $this->previous_school,
             'is_free' => (bool) $this->is_free,
             'hourly_rate' => $this->is_free ? null : (float) $this->hourly_rate,
             'gender' => $this->gender,

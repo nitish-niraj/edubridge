@@ -109,8 +109,7 @@ class TeacherController extends Controller
 
         $query->where(function (Builder $builder) use ($keyword): void {
             $builder->whereHas('user', function (Builder $userQuery) use ($keyword): void {
-                $userQuery->where('name', 'like', "%{$keyword}%")
-                    ->orWhere('email', 'like', "%{$keyword}%");
+                $userQuery->where('name', 'like', "%{$keyword}%");
             })
                 ->orWhere('bio', 'like', "%{$keyword}%")
                 ->orWhere('subjects', 'like', '%"' . $keyword . '"%')
@@ -183,8 +182,15 @@ class TeacherController extends Controller
             ->select('teacher_profiles.*')
             ->with('user:id,name,avatar,status')
             ->where('is_verified', true)
+            ->whereNotNull('subjects')
+            ->where('subjects', '!=', '[]')
+            ->whereNotNull('languages')
+            ->where('languages', '!=', '[]')
             ->whereHas('user', function (Builder $builder): void {
-                $builder->where('role', 'teacher')->where('status', 'active');
+                $builder->where('role', 'teacher')
+                    ->where('status', 'active')
+                    ->whereNotNull('avatar')
+                    ->where('avatar', '!=', '');
             });
 
         if ($studentId) {
@@ -251,6 +257,12 @@ class TeacherController extends Controller
                         $builder->orWhereRaw('JSON_EXTRACT(availability, ?) = true', [$pathOn]);
                         $builder->orWhereRaw('JSON_EXTRACT(availability, ?) = 1', [$pathOn]);
                     }
+
+                    $builder->orWhereHas('user.teacherAvailability', function (Builder $availabilityQuery) use ($day): void {
+                        $availabilityQuery
+                            ->where('is_active', true)
+                            ->whereIn('day_of_week', $this->availabilityDayValues($day));
+                    });
                 }
             });
         }
@@ -298,6 +310,22 @@ class TeacherController extends Controller
             'sat' => ['sat', 'Sat', 'Saturday'],
             'sun' => ['sun', 'Sun', 'Sunday'],
             default => [$inputDay],
+        };
+    }
+
+    private function availabilityDayValues(string $inputDay): array
+    {
+        $normalized = strtolower(substr($inputDay, 0, 3));
+
+        return match ($normalized) {
+            'mon' => ['monday'],
+            'tue' => ['tuesday'],
+            'wed' => ['wednesday'],
+            'thu' => ['thursday'],
+            'fri' => ['friday'],
+            'sat' => ['saturday'],
+            'sun' => ['sunday'],
+            default => [strtolower($inputDay)],
         };
     }
 

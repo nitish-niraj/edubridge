@@ -45,8 +45,13 @@ const filters = ref({
 const allSubjects = ['Math', 'Science', 'Languages', 'Arts', 'Other'];
 const allLanguages = ['English', 'Hindi', 'Tamil', 'Telugu', 'Bengali', 'Marathi'];
 const allDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const ratingOptions = [
+    { label: '3+', value: 3 },
+    { label: '4+', value: 4 },
+    { label: '4.5+', value: 4.5 },
+];
 
-const isSearchMode = computed(() => searchQuery.value.trim().length > 0);
+const isSearchMode = computed(() => searchQuery.value.trim().length >= 2);
 const showInitialSkeleton = computed(() => isLoading.value && teachers.value.length === 0);
 const sortOptions = computed(() => {
     const base = [
@@ -494,8 +499,14 @@ onBeforeUnmount(() => {
                 <div class="filter-section">
                     <label>Minimum Rating</label>
                     <div class="rating-row">
-                        <button v-for="n in 5" :key="n" class="star-btn" :class="{ active: (filters.min_rating || 0) >= n }" @click="filters.min_rating = n">
-                            ★
+                        <button
+                            v-for="option in ratingOptions"
+                            :key="option.value"
+                            class="star-btn rating-filter-btn"
+                            :class="{ active: Number(filters.min_rating) === Number(option.value) }"
+                            @click="filters.min_rating = option.value"
+                        >
+                            {{ option.label }}
                         </button>
                     </div>
                 </div>
@@ -521,6 +532,7 @@ onBeforeUnmount(() => {
                         <option value="any">Any</option>
                         <option value="male">Male</option>
                         <option value="female">Female</option>
+                        <option value="other">Other</option>
                     </select>
                 </div>
 
@@ -533,6 +545,88 @@ onBeforeUnmount(() => {
             <div class="mobile-filter-sheet">
                 <div class="sheet-handle" />
                 <h3>Filters</h3>
+
+                <div class="filter-section">
+                    <label>Subjects</label>
+                    <div class="inline-grid">
+                        <button
+                            v-for="subject in allSubjects"
+                            :key="`mobile-subject-${subject}`"
+                            class="pill-btn"
+                            :class="{ active: filters.subjects.includes(subject) }"
+                            @click="filters.subjects = filters.subjects.includes(subject) ? filters.subjects.filter((s) => s !== subject) : [...filters.subjects, subject]"
+                        >
+                            {{ subject }}
+                        </button>
+                    </div>
+                </div>
+
+                <div class="filter-section">
+                    <label>Languages</label>
+                    <div class="inline-grid">
+                        <button
+                            v-for="language in allLanguages"
+                            :key="`mobile-language-${language}`"
+                            class="pill-btn"
+                            :class="{ active: filters.languages.includes(language) }"
+                            @click="filters.languages = filters.languages.includes(language) ? filters.languages.filter((l) => l !== language) : [...filters.languages, language]"
+                        >
+                            {{ language }}
+                        </button>
+                    </div>
+                </div>
+
+                <div class="filter-section">
+                    <label>Price</label>
+                    <select v-model="filters.price" class="field-select">
+                        <option value="any">Any</option>
+                        <option value="free">Free only</option>
+                        <option value="under_200">Under ₹200</option>
+                        <option value="200_500">₹200-500</option>
+                        <option value="500_plus">₹500+</option>
+                    </select>
+                </div>
+
+                <div class="filter-section">
+                    <label>Minimum Rating</label>
+                    <div class="rating-row">
+                        <button
+                            v-for="option in ratingOptions"
+                            :key="`mobile-rating-${option.value}`"
+                            class="star-btn rating-filter-btn"
+                            :class="{ active: Number(filters.min_rating) === Number(option.value) }"
+                            @click="filters.min_rating = option.value"
+                        >
+                            {{ option.label }}
+                        </button>
+                    </div>
+                </div>
+
+                <div class="filter-section">
+                    <label>Availability Day</label>
+                    <div class="inline-grid">
+                        <button
+                            v-for="day in allDays"
+                            :key="`mobile-day-${day}`"
+                            class="pill-btn"
+                            :class="{ active: filters.availability_days.includes(day) }"
+                            @click="filters.availability_days = filters.availability_days.includes(day) ? filters.availability_days.filter((d) => d !== day) : [...filters.availability_days, day]"
+                        >
+                            {{ day }}
+                        </button>
+                    </div>
+                </div>
+
+                <div class="filter-section">
+                    <label>Gender Preference</label>
+                    <select v-model="filters.gender" class="field-select">
+                        <option value="any">Any</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+
                 <button class="apply-btn" type="button" @click="applyFilters">Apply Filters</button>
                 <button class="clear-link" type="button" @click="clearFilters">Clear All</button>
             </div>
@@ -1044,6 +1138,13 @@ h3 {
     cursor: pointer;
 }
 
+.rating-filter-btn {
+    width: auto;
+    min-width: 48px;
+    padding: 0 10px;
+    font-weight: 700;
+}
+
 .star-btn.active {
     background: #fef3c7;
     color: #f59e0b;
@@ -1138,6 +1239,7 @@ h3 {
     border-radius: 20px 20px 0 0;
     padding: 18px;
     max-height: 75vh;
+    overflow-y: auto;
 }
 
 .sheet-handle {

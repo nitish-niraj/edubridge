@@ -32,7 +32,7 @@ class TeacherIndexRequest extends FormRequest
                     'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday',
                 ]),
             ],
-            'gender' => ['nullable', Rule::in(['any', 'male', 'female'])],
+            'gender' => ['nullable', Rule::in(['any', 'male', 'female', 'other'])],
             'sort' => ['nullable', Rule::in(['rating_desc', 'price_asc', 'price_desc', 'experienced', 'newest'])],
         ];
     }

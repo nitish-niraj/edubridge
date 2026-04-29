@@ -122,7 +122,7 @@ class ProfileController extends Controller
         return match ($role) {
             'teacher' => 'teacher.settings',
             'admin' => 'admin.settings.account',
-            default => 'student.profile',
+            default => 'student.settings',
         };
     }
 }

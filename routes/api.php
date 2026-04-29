@@ -51,6 +51,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/conversations/{conversation}/messages', [ChatController::class, 'messages']);
     Route::post('/conversations/{conversation}/messages', [ChatController::class, 'send'])->middleware('throttle:messages');
     Route::patch('/conversations/{conversation}/read', [ChatController::class, 'markRead']);
+    Route::post('/conversations/{conversation}/typing', [ChatController::class, 'typing'])->middleware('throttle:60,1');
 
     // ─── Group Chat Extensions ─────────────────────────────────────────
     Route::post('/conversations/{conversation}/announcements', [ChatController::class, 'announcement']);

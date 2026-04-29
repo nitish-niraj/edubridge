@@ -19,7 +19,7 @@ class SendMessageRequest extends FormRequest
             'body' => [
                 'nullable',
                 'string',
-                'max:5000',
+                'max:2000',
                 Rule::requiredIf(fn (): bool => $this->input('type') === 'text'),
             ],
             'attachment' => [

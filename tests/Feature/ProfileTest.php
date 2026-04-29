@@ -7,6 +7,7 @@ use App\Models\TeacherProfile;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -101,6 +102,24 @@ class ProfileTest extends TestCase
         $response = $this->get(route('student.profile'));
 
         $response->assertRedirect(route('login'));
+    }
+
+    public function test_student_settings_page_is_displayed(): void
+    {
+        $user = $this->makeStudent();
+
+        $response = $this->actingAs($user)->get(route('student.settings'));
+
+        $response->assertOk();
+    }
+
+    public function test_account_profile_redirect_sends_student_to_settings(): void
+    {
+        $user = $this->makeStudent();
+
+        $response = $this->actingAs($user)->get(route('account.profile'));
+
+        $response->assertRedirect(route('student.settings'));
     }
 
     public function test_shared_account_profile_update_persists_student_fields_and_avatar(): void
@@ -200,5 +219,27 @@ class ProfileTest extends TestCase
         ]);
 
         $this->assertStringContainsString('/storage/avatars/', (string) $user->fresh()->avatar);
+    }
+
+    public function test_student_can_soft_delete_account_from_settings(): void
+    {
+        $user = User::factory()->create([
+            'role' => 'student',
+            'status' => 'active',
+            'email_verified_at' => now(),
+            'password' => Hash::make('Password@123'),
+        ]);
+        $user->assignRole('student');
+        StudentProfile::factory()->create(['user_id' => $user->id]);
+
+        $response = $this->actingAs($user)->delete(route('account.profile.destroy'), [
+            'password' => 'Password@123',
+        ]);
+
+        $response->assertRedirect('/');
+        $this->assertGuest();
+        $this->assertSoftDeleted('users', [
+            'id' => $user->id,
+        ]);
     }
 }

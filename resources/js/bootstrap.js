@@ -25,10 +25,18 @@ window.Pusher = Pusher;
 const pusherKey = import.meta.env.VITE_PUSHER_APP_KEY;
 
 if (pusherKey) {
+    const pusherHost = import.meta.env.VITE_PUSHER_HOST;
+    const pusherScheme = import.meta.env.VITE_PUSHER_SCHEME || 'https';
+    const pusherPort = Number(import.meta.env.VITE_PUSHER_PORT || (pusherScheme === 'https' ? 443 : 80));
+
     window.Echo = new Echo({
         broadcaster: 'pusher',
         key: pusherKey,
         cluster: import.meta.env.VITE_PUSHER_APP_CLUSTER,
-        forceTLS: true,
+        wsHost: pusherHost || undefined,
+        wsPort: pusherPort,
+        wssPort: pusherPort,
+        forceTLS: pusherScheme === 'https',
+        enabledTransports: ['ws', 'wss'],
     });
 }

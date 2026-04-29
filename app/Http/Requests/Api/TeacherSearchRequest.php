@@ -24,7 +24,16 @@ class TeacherSearchRequest extends FormRequest
             'languages.*' => ['string', 'max:50'],
             'price' => ['nullable', Rule::in(['any', 'free', 'under_200', '200_500', '500_plus'])],
             'min_rating' => ['nullable', 'numeric', 'between:1,5'],
-            'gender' => ['nullable', Rule::in(['any', 'male', 'female'])],
+            'availability_days' => ['nullable', 'array'],
+            'availability_days.*' => [
+                'string',
+                Rule::in([
+                    'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun',
+                    'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun',
+                    'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday',
+                ]),
+            ],
+            'gender' => ['nullable', Rule::in(['any', 'male', 'female', 'other'])],
             'sort' => ['nullable', Rule::in(['relevance', 'rating_desc', 'price_asc', 'price_desc', 'experienced', 'newest'])],
         ];
     }

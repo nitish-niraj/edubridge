@@ -65,6 +65,19 @@ class VerifyOtpController extends Controller
     {
         $user = User::findOrFail((int) $request->validated('user_id'));
 
+        $latestOtp = Verification::where('user_id', $user->id)
+            ->where('type', 'email')
+            ->latest()
+            ->first();
+
+        if ($latestOtp && $latestOtp->created_at->gt(now()->subSeconds(60))) {
+            $seconds = max(1, 60 - (int) $latestOtp->created_at->diffInSeconds(now()));
+
+            return back()->withErrors([
+                'otp' => "Please wait {$seconds} seconds before requesting a new OTP.",
+            ]);
+        }
+
         try {
             if ($user->isStudent()) {
                 StudentAuthController::sendOtp($user, 'email');

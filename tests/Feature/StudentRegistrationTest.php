@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\StudentProfile;
 use App\Models\Verification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -115,5 +116,34 @@ class StudentRegistrationTest extends TestCase
             $this->assertNotNull($user->email_verified_at);
             $this->assertEquals('active', $user->status);
         }
+    }
+
+    public function test_otp_resend_is_rate_limited_for_sixty_seconds(): void
+    {
+        Mail::fake();
+
+        $user = User::factory()->create([
+            'role' => 'student',
+            'status' => 'pending',
+            'email_verified_at' => null,
+        ]);
+        $user->assignRole('student');
+
+        Verification::create([
+            'user_id' => $user->id,
+            'otp' => Hash::make('123456'),
+            'type' => 'email',
+            'expires_at' => now()->addMinutes(15),
+        ]);
+
+        $response = $this->from(route('verify.otp.form', ['user_id' => $user->id]))
+            ->post(route('verify.otp.resend'), [
+                'user_id' => $user->id,
+            ]);
+
+        $response->assertRedirect(route('verify.otp.form', ['user_id' => $user->id]));
+        $response->assertSessionHasErrors('otp');
+        Mail::assertNothingSent();
+        $this->assertSame(1, Verification::where('user_id', $user->id)->count());
     }
 }

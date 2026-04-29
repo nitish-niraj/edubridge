@@ -22,7 +22,7 @@ class StartConversationRequest extends FormRequest
                     $query->where('role', 'teacher')->where('status', 'active');
                 }),
             ],
-            'message' => ['required', 'string', 'max:5000'],
+            'message' => ['required', 'string', 'max:2000'],
         ];
     }
 }
