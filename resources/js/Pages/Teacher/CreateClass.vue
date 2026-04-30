@@ -24,7 +24,7 @@ const fieldErrors = ref({ name: '', subject: '', description: '', max_students: 
 const blurName        = () => { fieldErrors.value.name        = (validateRequired(form.value.name, 'Class name').error || validateLength(form.value.name, 3, 100, 'Class name').error) || ''; };
 const blurSubject     = () => { fieldErrors.value.subject     = validateSelect(form.value.subject, 'Please select a subject.').error || ''; };
 const blurDescription = () => { fieldErrors.value.description = validateLength(form.value.description, 0, 2000, 'Description').error || ''; };
-const blurStudents    = () => { fieldErrors.value.max_students = validateNumberRange(form.value.max_students, 2, 100, 'Max students').error || ''; };
+const blurStudents    = () => { fieldErrors.value.max_students = validateNumberRange(form.value.max_students, 2, 50, 'Max students').error || ''; };
 
 // Char counter for description
 const descCharCount = computed(() => charCount(form.value.description, 2000));
@@ -152,7 +152,7 @@ const copyLink = () => {
                     <label for="cc-max" style="display:block; font-family:'Fredoka One',cursive; font-size:15px; color:#333; margin-bottom:6px;">
                         Max Students
                     </label>
-                    <input id="cc-max" v-model.number="form.max_students" type="number" min="2" max="100"
+                    <input id="cc-max" v-model.number="form.max_students" type="number" min="2" max="50"
                         :aria-invalid="fieldErrors.max_students ? 'true' : 'false'"
                         aria-describedby="cc-max-error"
                         style="width:120px; height:56px; padding:0 16px; border:2px solid #F0E8E0; border-radius:12px; font-family:'Nunito',sans-serif; font-size:16px; color:#333; text-align:center;"

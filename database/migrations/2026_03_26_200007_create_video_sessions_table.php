@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('video_sessions', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('booking_id')->unique()->constrained('bookings')->cascadeOnDelete();
+            $table->foreignId('booking_id')->nullable()->unique()->constrained('bookings')->cascadeOnDelete();
             $table->foreignId('conversation_id')->nullable()->constrained('conversations')->nullOnDelete();
             $table->boolean('is_group')->default(false);
             $table->foreignId('host_id')->nullable()->constrained('users')->nullOnDelete();

@@ -4,6 +4,7 @@ import { ref, onMounted, computed } from 'vue';
 import axios from 'axios';
 
 const bookings = ref([]);
+const earningsSummary = ref({ this_month: 0, total: 0, pending: 0 });
 const loading = ref(true);
 const filter = ref('all');
 
@@ -13,6 +14,7 @@ const fetchBookings = async () => {
         const params = filter.value !== 'all' ? { status: filter.value } : {};
         const { data } = await axios.get('/api/bookings', { params });
         bookings.value = data.data || data;
+        earningsSummary.value = data.earnings_summary || earningsSummary.value;
     } catch (e) {
         console.error(e);
     } finally {
@@ -38,14 +40,11 @@ const formatTime = (d) => new Date(d).toLocaleTimeString('en-IN', { hour: '2-dig
 const canJoin = (b) => {
     if (b.status !== 'confirmed') return false;
     const mins = (new Date(b.start_at) - new Date()) / 60000;
-    return mins <= 30;
+    return mins <= 15;
 };
 
 const monthEarnings = computed(() => {
-    const now = new Date();
-    return bookings.value
-        .filter(b => b.status === 'completed' && new Date(b.start_at).getMonth() === now.getMonth())
-        .reduce((sum, b) => sum + parseFloat(b.teacher_payout || 0), 0);
+    return parseFloat(earningsSummary.value.this_month || 0);
 });
 
 const monthSessions = computed(() => {
@@ -56,9 +55,7 @@ const monthSessions = computed(() => {
 });
 
 const pendingRelease = computed(() => {
-    return bookings.value
-        .filter(b => b.payment_status === 'held')
-        .reduce((sum, b) => sum + parseFloat(b.teacher_payout || 0), 0);
+    return parseFloat(earningsSummary.value.pending || 0);
 });
 </script>
 
@@ -140,6 +137,7 @@ const pendingRelease = computed(() => {
             <div style="margin-top: 24px; padding: 16px 24px; background: #FFF3EF; border-radius: 12px; font-family: 'Fredoka One', cursive; font-size: 18px; color: #E8553E; display: flex; gap: 32px; flex-wrap: wrap;">
                 <span>Sessions this month: <strong>{{ monthSessions }}</strong></span>
                 <span>Earnings this month: <strong>₹{{ monthEarnings.toFixed(0) }}</strong></span>
+                <span>Total earnings: <strong>₹{{ parseFloat(earningsSummary.total || 0).toFixed(0) }}</strong></span>
                 <span>Pending release (temporary hold): <strong>₹{{ pendingRelease.toFixed(0) }}</strong></span>
             </div>
 

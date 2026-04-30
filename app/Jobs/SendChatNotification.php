@@ -2,8 +2,8 @@
 
 namespace App\Jobs;
 
-use App\Mail\NewMessageMail;
 use App\Models\Message;
+use App\Services\NotificationService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -11,7 +11,6 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Pusher\Pusher;
 use Throwable;
 
@@ -24,11 +23,12 @@ class SendChatNotification implements ShouldQueue
 
     public function __construct(public int $messageId) {}
 
-    public function handle(): void
+    public function handle(NotificationService $notifications): void
     {
         $message = Message::query()
             ->with([
                 'sender:id,name,avatar',
+                'conversation.participants.notificationPreferences',
                 'conversation.participants:id,name,email',
             ])
             ->find($this->messageId);
@@ -57,12 +57,13 @@ class SendChatNotification implements ShouldQueue
                 continue;
             }
 
-            Mail::to($participant->email)->send(new NewMessageMail(
+            $notifications->sendNewMessage(
+                recipient: $participant,
                 senderName: $message->sender?->name ?? 'Teacher',
                 senderAvatar: $message->sender?->avatar,
                 preview: $this->buildPreview($message->body, $message->type),
                 conversationId: $message->conversation_id
-            ));
+            );
         }
     }
 

@@ -2,12 +2,13 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Helpers\AuditLogger;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\ReviewIndexRequest;
 use App\Http\Resources\ReviewResource;
 use App\Models\Review;
+use App\Services\ReviewRatingService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
 class AdminReviewController extends Controller
 {
@@ -25,10 +26,18 @@ class AdminReviewController extends Controller
         return ReviewResource::collection($reviews)->response();
     }
 
-    public function toggleVisibility(int $id): JsonResponse
+    public function toggleVisibility(int $id, ReviewRatingService $ratings): JsonResponse
     {
         $review = Review::findOrFail($id);
         $review->update(['is_visible' => ! $review->is_visible]);
+        $ratings->recalculateForTeacher($review->reviewee_id);
+
+        AuditLogger::log(
+            $review->is_visible ? 'review.unhidden' : 'review.hidden',
+            'Review',
+            $review->id,
+            ['reviewee_id' => $review->reviewee_id]
+        );
 
         return response()->json([
             'is_visible' => (bool) $review->is_visible,

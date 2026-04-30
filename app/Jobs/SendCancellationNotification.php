@@ -2,14 +2,13 @@
 
 namespace App\Jobs;
 
-use App\Mail\BookingCancelledMail;
 use App\Models\Booking;
+use App\Services\NotificationService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Mail;
 
 class SendCancellationNotification implements ShouldQueue
 {
@@ -22,16 +21,8 @@ class SendCancellationNotification implements ShouldQueue
         public float   $refundAmount = 0
     ) {}
 
-    public function handle(): void
+    public function handle(NotificationService $notifications): void
     {
-        $this->booking->load('student', 'teacher');
-
-        // Email to student
-        Mail::to($this->booking->student->email)
-            ->send(new BookingCancelledMail($this->booking, $this->refundAmount, 'student'));
-
-        // Email to teacher
-        Mail::to($this->booking->teacher->email)
-            ->send(new BookingCancelledMail($this->booking, $this->refundAmount, 'teacher'));
+        $notifications->sendBookingCancelled($this->booking, $this->refundAmount);
     }
 }

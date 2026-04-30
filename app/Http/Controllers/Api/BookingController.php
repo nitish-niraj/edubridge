@@ -3,8 +3,13 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\BookingIndexRequest;
+use App\Http\Requests\Api\BookingStoreRequest;
+use App\Http\Requests\Api\TeacherAvailabilityPublicRequest;
+use App\Jobs\SendBookingConfirmationNotification;
 use App\Models\Booking;
 use App\Models\BookingSlot;
+use App\Models\TeacherEarning;
 use App\Models\TeacherProfile;
 use App\Models\User;
 use App\Services\BookingService;
@@ -22,9 +27,10 @@ class BookingController extends Controller
     /**
      * GET /api/teachers/{id}/availability?month=YYYY-MM
      */
-    public function teacherAvailability(int $id, Request $request): JsonResponse
+    public function teacherAvailability(int $id, TeacherAvailabilityPublicRequest $request): JsonResponse
     {
-        $month = $request->query('month', now()->format('Y-m'));
+        $validated = $request->validated();
+        $month = $validated['month'] ?? now()->format('Y-m');
         $start = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
         $end   = $start->copy()->endOfMonth();
 
@@ -51,14 +57,9 @@ class BookingController extends Controller
     /**
      * POST /api/bookings
      */
-    public function store(Request $request): JsonResponse
+    public function store(BookingStoreRequest $request): JsonResponse
     {
-        $request->validate([
-            'slot_id'      => 'required|exists:booking_slots,id',
-            'subject'      => 'nullable|string|max:100',
-            'notes'        => 'nullable|string|max:1000',
-            'session_type' => 'nullable|in:solo,group',
-        ]);
+        $validated = $request->validated();
 
         $student = auth()->user();
 
@@ -69,7 +70,7 @@ class BookingController extends Controller
         try {
             $bookingData = DB::transaction(function () use ($request, $student) {
                 // 1. Lock the slot for update
-                $slot = BookingSlot::where('id', $request->slot_id)->lockForUpdate()->firstOrFail();
+                $slot = BookingSlot::where('id', $validated['slot_id'])->lockForUpdate()->firstOrFail();
 
                 // 2. Check if already booked
                 if ($slot->is_booked) {
@@ -114,9 +115,9 @@ class BookingController extends Controller
                     'start_at'       => $slot->slot_date->format('Y-m-d') . ' ' . $slot->start_time,
                     'end_at'         => $slot->slot_date->format('Y-m-d') . ' ' . $slot->end_time,
                     'status'         => $isFree ? 'confirmed' : 'pending',
-                    'session_type'   => $request->input('session_type', 'solo'),
-                    'subject'        => $request->subject,
-                    'notes'          => $request->notes,
+                    'session_type'   => $validated['session_type'] ?? 'solo',
+                    'subject'        => $validated['subject'] ?? null,
+                    'notes'          => $validated['notes'] ?? null,
                     'price'          => $price,
                     'platform_fee'   => $platformFee,
                     'teacher_payout' => $teacherPayout,
@@ -136,6 +137,10 @@ class BookingController extends Controller
 
             $bookingData['booking']->load('student', 'teacher', 'slot');
 
+            if (! $bookingData['requires_payment']) {
+                SendBookingConfirmationNotification::dispatch($bookingData['booking']);
+            }
+
             return response()->json($bookingData, 201);
         } catch (\Exception $e) {
             $status = $e instanceof \Symfony\Component\HttpKernel\Exception\HttpException ? $e->getStatusCode() : 500;
@@ -146,8 +151,9 @@ class BookingController extends Controller
     /**
      * GET /api/bookings
      */
-    public function index(Request $request): JsonResponse
+    public function index(BookingIndexRequest $request): JsonResponse
     {
+        $validated = $request->validated();
         $user  = auth()->user();
         $query = Booking::query();
 
@@ -157,15 +163,35 @@ class BookingController extends Controller
             $query->where('teacher_id', $user->id);
         }
 
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
+        if (! empty($validated['status'])) {
+            $query->where('status', $validated['status']);
         }
 
         $bookings = $query->with(['student', 'teacher', 'slot', 'videoSession', 'review'])
             ->orderByDesc('start_at')
             ->paginate(20);
 
-        return response()->json($bookings);
+        $payload = $bookings->toArray();
+
+        if ($user->isTeacher()) {
+            $payload['earnings_summary'] = [
+                'this_month' => (float) TeacherEarning::query()
+                    ->where('teacher_id', $user->id)
+                    ->where('status', 'released')
+                    ->whereBetween('payout_date', [now()->startOfMonth(), now()->endOfMonth()])
+                    ->sum('net_amount'),
+                'total' => (float) TeacherEarning::query()
+                    ->where('teacher_id', $user->id)
+                    ->where('status', 'released')
+                    ->sum('net_amount'),
+                'pending' => (float) TeacherEarning::query()
+                    ->where('teacher_id', $user->id)
+                    ->where('status', 'pending')
+                    ->sum('net_amount'),
+            ];
+        }
+
+        return response()->json($payload);
     }
 
     /**

@@ -1,6 +1,6 @@
 <script setup>
 import axios from 'axios';
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { usePage, Link } from '@inertiajs/vue3';
 import { useAnalytics } from '@/composables/useAnalytics';
 
@@ -25,7 +25,10 @@ const elapsed = ref(0);
 const participantName = ref('');
 const expectedParticipantName = ref('Participant');
 const error = ref(null);
+const connectionError = ref(null);
+const connectionState = ref('idle');
 const loading = ref(true);
+const joining = ref(false);
 
 const showEndDialog = ref(false);
 const controlsVisible = ref(true);
@@ -44,6 +47,11 @@ let controlsHideTimer = null;
 let timerPulseTimeout = null;
 let earlyRefreshTimer = null;
 let localTracks = [];
+let VideoModule = null;
+let activeVideoTrack = null;
+let screenTrack = null;
+let screenShareRestorePromise = null;
+let endingCall = false;
 const remoteParticipantSids = ref([]);
 
 const isTeacher = computed(() => identity.value.startsWith('teacher-'));
@@ -113,11 +121,45 @@ const lobbySessionDetails = computed(() => {
     return `Booking #${props.bookingId} • ${durationText}`;
 });
 
+const connectionStatus = computed(() => {
+    if (connectionError.value) {
+        return connectionError.value;
+    }
+
+    if (connectionState.value === 'reconnecting') {
+        return 'Connection interrupted. Reconnecting...';
+    }
+
+    if (connectionState.value === 'disconnected') {
+        return 'Disconnected from the room. Rejoin when you are ready.';
+    }
+
+    if (connectionState.value === 'connected' && screenSharing.value) {
+        return 'Screen sharing is live.';
+    }
+
+    return '';
+});
+
+const connectionStatusClass = computed(() => ({
+    'connection-banner--error': Boolean(connectionError.value) || connectionState.value === 'disconnected',
+    'connection-banner--warning': connectionState.value === 'reconnecting',
+}));
+
 const resetControlsHideTimer = () => {
     window.clearTimeout(controlsHideTimer);
     controlsHideTimer = window.setTimeout(() => {
         controlsVisible.value = false;
     }, 3000);
+};
+
+const loadTwilioVideo = async () => {
+    if (!VideoModule) {
+        const module = await import('twilio-video');
+        VideoModule = module.default || module;
+    }
+
+    return VideoModule;
 };
 
 const handleUserActivity = () => {
@@ -175,6 +217,16 @@ const fetchToken = async () => {
     }
 };
 
+const refreshTokenForRejoin = async () => {
+    const previousRoomName = roomName.value;
+
+    await fetchToken();
+
+    if (previousRoomName && roomName.value && roomName.value !== previousRoomName) {
+        throw new Error('Unable to rejoin the original video room.');
+    }
+};
+
 const attachRemoteTrack = (track) => {
     const container = document.getElementById('remote-video');
     if (!container) return;
@@ -183,6 +235,102 @@ const attachRemoteTrack = (track) => {
 
 const detachTrackElements = (track) => {
     track.detach().forEach((element) => element.remove());
+};
+
+const attachLocalVideoTrack = (track) => {
+    const localContainer = document.getElementById('local-video');
+    if (!localContainer || track.kind !== 'video') return;
+
+    localContainer.querySelectorAll('video').forEach((element) => element.remove());
+    localContainer.appendChild(track.attach());
+};
+
+const removeLocalTrack = (track, shouldStop = true) => {
+    if (!track) return;
+
+    if (room?.localParticipant) {
+        room.localParticipant.unpublishTrack(track);
+    }
+
+    detachTrackElements(track);
+    localTracks = localTracks.filter((localTrack) => localTrack !== track);
+
+    if (activeVideoTrack === track) {
+        activeVideoTrack = null;
+    }
+
+    if (shouldStop) {
+        track.stop();
+    }
+};
+
+const replaceLocalVideoTrack = async (nextTrack, { stopCurrent = true } = {}) => {
+    if (activeVideoTrack) {
+        removeLocalTrack(activeVideoTrack, stopCurrent);
+    }
+
+    activeVideoTrack = nextTrack;
+    localTracks = [...localTracks.filter((track) => track.kind !== 'video'), nextTrack];
+
+    if (room?.localParticipant) {
+        await room.localParticipant.publishTrack(nextTrack);
+    }
+
+    if (cameraOff.value && !screenSharing.value) {
+        nextTrack.disable();
+    }
+
+    attachLocalVideoTrack(nextTrack);
+};
+
+const restoreCameraTrack = async () => {
+    if (screenShareRestorePromise) {
+        return screenShareRestorePromise;
+    }
+
+    screenShareRestorePromise = (async () => {
+        try {
+            if (screenTrack) {
+                removeLocalTrack(screenTrack);
+                screenTrack = null;
+            }
+
+            screenSharing.value = false;
+
+            const Video = await loadTwilioVideo();
+            const cameraTrack = await Video.createLocalVideoTrack({ width: 1280 });
+            await replaceLocalVideoTrack(cameraTrack, { stopCurrent: false });
+            connectionError.value = null;
+        } catch (restoreError) {
+            activeVideoTrack = null;
+            connectionError.value = `Screen sharing stopped, but camera could not restart: ${restoreError.message || restoreError}`;
+        } finally {
+            screenShareRestorePromise = null;
+        }
+    })();
+
+    return screenShareRestorePromise;
+};
+
+const cleanupRoom = () => {
+    if (screenTrack) {
+        screenTrack.mediaStreamTrack.onended = null;
+        screenTrack = null;
+    }
+
+    localTracks.forEach((track) => {
+        detachTrackElements(track);
+        track.stop();
+    });
+
+    localTracks = [];
+    activeVideoTrack = null;
+    room = null;
+    screenSharing.value = false;
+    remoteParticipantSids.value = [];
+    participantName.value = '';
+    window.clearInterval(timerInterval);
+    timerInterval = null;
 };
 
 const addRemoteParticipant = (participant) => {
@@ -217,40 +365,80 @@ const removeRemoteParticipant = (participant) => {
 };
 
 const connectToRoom = async () => {
-    if (!token.value) return;
+    if (joining.value) return;
 
     try {
-        const Video = await import('twilio-video');
+        joining.value = true;
+        connectionError.value = null;
+
+        if (connectionState.value === 'disconnected') {
+            await refreshTokenForRejoin();
+        }
+
+        if (!token.value) return;
+
+        connectionState.value = 'connecting';
+
+        const Video = await loadTwilioVideo();
+
         const tracks = await Video.createLocalTracks({
             audio: true,
             video: { width: 1280 },
         });
 
         localTracks = tracks;
+        activeVideoTrack = tracks.find((track) => track.kind === 'video') || null;
         room = await Video.connect(token.value, { name: roomName.value, tracks });
         connected.value = true;
+        connectionState.value = 'connected';
+        await nextTick();
 
-        const localContainer = document.getElementById('local-video');
         tracks.forEach((track) => {
-            if (track.kind === 'video' && localContainer) {
-                localContainer.appendChild(track.attach());
+            if (track.kind === 'video') {
+                attachLocalVideoTrack(track);
             }
         });
 
         room.participants.forEach(addRemoteParticipant);
         room.on('participantConnected', addRemoteParticipant);
         room.on('participantDisconnected', removeRemoteParticipant);
+        room.on('reconnecting', () => {
+            connectionError.value = null;
+            connectionState.value = 'reconnecting';
+            controlsVisible.value = true;
+        });
+        room.on('reconnected', () => {
+            connectionError.value = null;
+            connectionState.value = 'connected';
+        });
+        room.on('disconnected', (_disconnectedRoom, disconnectError) => {
+            const wasEndingCall = endingCall;
+            cleanupRoom();
+            connected.value = false;
+            connectionState.value = wasEndingCall ? 'idle' : 'disconnected';
 
-        timerInterval = window.setInterval(() => {
-            elapsed.value += 1;
-        }, 1000);
+            if (!wasEndingCall && disconnectError) {
+                connectionError.value = disconnectError.message || 'Disconnected from the video room.';
+            }
+        });
+
+        if (!timerInterval) {
+            timerInterval = window.setInterval(() => {
+                elapsed.value += 1;
+            }, 1000);
+        }
 
         controlsVisible.value = true;
         resetControlsHideTimer();
 
         await axios.patch(`/api/video-sessions/${props.bookingId}/start`);
     } catch (connectError) {
-        error.value = `Failed to connect: ${connectError.message || connectError}`;
+        cleanupRoom();
+        connected.value = false;
+        connectionState.value = 'disconnected';
+        connectionError.value = `Failed to connect: ${connectError.message || connectError}`;
+    } finally {
+        joining.value = false;
     }
 };
 
@@ -270,6 +458,9 @@ const toggleMute = () => {
 
 const toggleCamera = () => {
     cameraOff.value = !cameraOff.value;
+
+    if (screenSharing.value) return;
+
     localTracks
         .filter((track) => track.kind === 'video')
         .forEach((track) => (cameraOff.value ? track.disable() : track.enable()));
@@ -277,22 +468,44 @@ const toggleCamera = () => {
 
 const toggleScreenShare = async () => {
     if (screenSharing.value) {
-        screenSharing.value = false;
+        await restoreCameraTrack();
         return;
     }
 
     try {
+        connectionError.value = null;
+
+        const Video = await loadTwilioVideo();
+
         const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        const displayTrack = stream.getVideoTracks()[0];
+        if (!displayTrack) {
+            throw new Error('No screen video track was selected.');
+        }
+
+        screenTrack = new Video.LocalVideoTrack(displayTrack, { name: 'screen-share' });
         screenSharing.value = true;
-        stream.getVideoTracks()[0].onended = () => {
-            screenSharing.value = false;
+        displayTrack.onended = () => {
+            void restoreCameraTrack();
         };
-    } catch {
+
+        await replaceLocalVideoTrack(screenTrack);
+    } catch (shareError) {
+        if (screenTrack) {
+            removeLocalTrack(screenTrack);
+            screenTrack = null;
+        }
+
         screenSharing.value = false;
+        connectionError.value = shareError?.name === 'NotAllowedError'
+            ? 'Screen sharing was cancelled.'
+            : `Unable to start screen sharing: ${shareError.message || shareError}`;
     }
 };
 
 const performEndCall = async () => {
+    endingCall = true;
+
     try {
         if (isTeacher.value) {
             await axios.patch(`/api/video-sessions/${props.bookingId}/end`);
@@ -310,7 +523,7 @@ const performEndCall = async () => {
         room.disconnect();
     }
 
-    localTracks.forEach((track) => track.stop());
+    cleanupRoom();
     window.clearInterval(timerInterval);
 
     window.location.href = isTeacher.value
@@ -349,11 +562,13 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
+    endingCall = true;
+
     if (room) {
         room.disconnect();
     }
 
-    localTracks.forEach((track) => track.stop());
+    cleanupRoom();
 
     window.clearInterval(timerInterval);
     window.clearTimeout(controlsHideTimer);
@@ -385,14 +600,24 @@ onUnmounted(() => {
         </div>
 
         <div v-else-if="!connected" class="state-screen">
-            <h2>Ready to Join?</h2>
-            <p>Step in when you are set. Camera and microphone will initialize automatically.</p>
-            <button type="button" class="join-button" @click="connectToRoom">
-                Join Session
+            <h2>{{ connectionState === 'disconnected' ? 'Session disconnected' : 'Ready to Join?' }}</h2>
+            <p>{{ connectionStatus || 'Step in when you are set. Camera and microphone will initialize automatically.' }}</p>
+            <button type="button" class="join-button" :disabled="joining || loading" @click="connectToRoom">
+                {{ joining ? 'Joining...' : connectionState === 'disconnected' ? 'Rejoin Session' : 'Join Session' }}
             </button>
         </div>
 
         <template v-else>
+            <div
+                v-if="connectionStatus"
+                class="connection-banner"
+                :class="connectionStatusClass"
+                role="status"
+                aria-live="polite"
+            >
+                {{ connectionStatus }}
+            </div>
+
             <div id="remote-video" class="remote-video-layer" :class="{ 'remote-video-layer--active': hasRemoteParticipant }" />
 
             <div
@@ -571,6 +796,41 @@ onUnmounted(() => {
     background: linear-gradient(135deg, #e8553e 0%, #ff8a6d 100%);
     box-shadow: 0 16px 32px rgba(232, 85, 62, 0.38);
     cursor: pointer;
+}
+
+.join-button:disabled {
+    cursor: wait;
+    opacity: 0.72;
+}
+
+.connection-banner {
+    position: absolute;
+    top: 118px;
+    left: 50%;
+    z-index: 14;
+    transform: translateX(-50%);
+    max-width: min(520px, calc(100vw - 32px));
+    border-radius: 999px;
+    padding: 10px 16px;
+    background: rgba(12, 74, 110, 0.88);
+    border: 1px solid rgba(125, 211, 252, 0.42);
+    box-shadow: 0 18px 42px rgba(2, 6, 23, 0.32);
+    color: #eff6ff;
+    font-size: 13px;
+    font-weight: 800;
+    text-align: center;
+}
+
+.connection-banner--warning {
+    background: rgba(146, 64, 14, 0.9);
+    border-color: rgba(251, 191, 36, 0.5);
+    color: #fffbeb;
+}
+
+.connection-banner--error {
+    background: rgba(127, 29, 29, 0.92);
+    border-color: rgba(254, 202, 202, 0.45);
+    color: #fff1f2;
 }
 
 .remote-video-layer {
@@ -1156,6 +1416,12 @@ onUnmounted(() => {
 
     .top-strip {
         padding: 12px;
+    }
+
+    .connection-banner {
+        top: 96px;
+        width: calc(100vw - 28px);
+        border-radius: 16px;
     }
 
     .session-partner {

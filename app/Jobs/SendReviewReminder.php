@@ -10,18 +10,26 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 
-class SendBookingConfirmationNotification implements ShouldQueue
+class SendReviewReminder implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 3;
 
     public function __construct(
-        public Booking $booking
+        public int $bookingId
     ) {}
 
     public function handle(NotificationService $notifications): void
     {
-        $notifications->sendBookingConfirmed($this->booking);
+        $booking = Booking::query()
+            ->with(['student.notificationPreferences', 'teacher', 'review'])
+            ->find($this->bookingId);
+
+        if (! $booking) {
+            return;
+        }
+
+        $notifications->sendReviewReminder($booking);
     }
 }

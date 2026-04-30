@@ -38,6 +38,7 @@ class Kernel extends HttpKernel
             \Illuminate\View\Middleware\ShareErrorsFromSession::class,
             \App\Http\Middleware\VerifyCsrfToken::class,
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
+            \App\Http\Middleware\EnsureUserIsActive::class,
             \App\Http\Middleware\HandleInertiaRequests::class,
             \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
         ],
@@ -46,6 +47,7 @@ class Kernel extends HttpKernel
             \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
             \Illuminate\Routing\Middleware\ThrottleRequests::class.':api',
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
+            \App\Http\Middleware\EnsureUserIsActive::class,
         ],
     ];
 
@@ -70,5 +72,6 @@ class Kernel extends HttpKernel
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
         'role'     => \App\Http\Middleware\RoleMiddleware::class,
         'admin.2fa' => \App\Http\Middleware\EnsureAdminTwoFactorVerified::class,
+        'active' => \App\Http\Middleware\EnsureUserIsActive::class,
     ];
 }

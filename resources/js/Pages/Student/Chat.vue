@@ -402,6 +402,11 @@ onBeforeUnmount(() => {
                                     height="28"
                                 />
                                 <div class="bubble-body">
+                                    <div class="message-sender">
+                                        <span>{{ message.sender?.name || 'User' }}</span>
+                                        <span v-if="message.is_teacher" class="message-badge">Teacher</span>
+                                        <span v-if="message.type === 'announcement'" class="message-badge announcement">Announcement</span>
+                                    </div>
                                     <div class="bubble-top">
                                         <p v-if="message.body">{{ message.body }}</p>
                                         <button
@@ -727,6 +732,30 @@ h2 {
     display: flex;
     align-items: start;
     gap: 10px;
+}
+
+.message-sender {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 4px;
+    color: #6b7280;
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.message-badge {
+    border-radius: 999px;
+    background: #eef2ff;
+    color: #3730a3;
+    padding: 2px 6px;
+    font-size: 10px;
+}
+
+.message-badge.announcement {
+    background: #fff7ed;
+    color: #c2410c;
 }
 
 .message-menu-trigger {

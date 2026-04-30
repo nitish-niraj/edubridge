@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Jobs\ReleasePayment;
+use App\Jobs\SendReviewReminder;
+use App\Services\NotificationService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -48,6 +50,11 @@ class Booking extends Model
                 && $booking->payment_status === 'held'
             ) {
                 ReleasePayment::dispatch($booking->id)->delay(now()->addHours(24));
+            }
+
+            if ($booking->wasChanged('status') && $booking->status === 'completed') {
+                app(NotificationService::class)->sendSessionCompleted($booking->fresh(['student.notificationPreferences', 'teacher.notificationPreferences']));
+                SendReviewReminder::dispatch($booking->id)->delay(now()->addMinutes(10));
             }
         });
     }

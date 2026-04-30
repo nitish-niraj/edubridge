@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\ClassMember;
 use App\Models\Conversation;
+use App\Models\TeacherProfile;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -19,6 +20,10 @@ class GroupTest extends TestCase
     {
         parent::setUp();
         $this->teacher = User::factory()->create(['role' => 'teacher']);
+        TeacherProfile::factory()->create([
+            'user_id' => $this->teacher->id,
+            'is_verified' => true,
+        ]);
         $this->student = User::factory()->create(['role' => 'student']);
     }
 
@@ -107,7 +112,7 @@ class GroupTest extends TestCase
         $response->assertJsonFragment(['message' => 'This class is full.']);
     }
 
-    public function test_duplicate_join_returns_422(): void
+    public function test_duplicate_join_returns_409(): void
     {
         $conv = Conversation::create([
             'created_by'   => $this->teacher->id,
@@ -125,7 +130,7 @@ class GroupTest extends TestCase
 
         $response = $this->actingAs($this->student)->postJson('/api/groups/join/DUPECODE');
 
-        $response->assertStatus(422);
+        $response->assertStatus(409);
         $response->assertJsonFragment(['message' => 'You are already a member of this class.']);
     }
 }

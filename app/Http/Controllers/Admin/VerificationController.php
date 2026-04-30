@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Helpers\AuditLogger;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\RejectTeacherRequest;
 use App\Http\Requests\Admin\VerificationIndexRequest;
@@ -112,10 +113,9 @@ class VerificationController extends Controller
     {
         $profile = TeacherProfile::with('user')->findOrFail($id);
 
-        $hasAnyDocument = $profile->documents()->exists();
-        if (! $hasAnyDocument) {
+        if (! $profile->isFullyVerifiable()) {
             return response()->json([
-                'message' => 'No verification documents are uploaded yet for this teacher profile.',
+                'message' => 'Required verification documents are missing or rejected for this teacher profile.',
             ], 422);
         }
 
@@ -126,6 +126,10 @@ class VerificationController extends Controller
             'reviewed_by' => auth()->id(),
             'reviewed_at' => now(),
             'rejection_reason' => null,
+        ]);
+
+        AuditLogger::log('teacher_verification.approved', 'TeacherProfile', $profile->id, [
+            'teacher_user_id' => $profile->user_id,
         ]);
 
         try {
@@ -155,6 +159,11 @@ class VerificationController extends Controller
             'rejection_reason' => $request->reason,
             'reviewed_by' => auth()->id(),
             'reviewed_at' => now(),
+        ]);
+
+        AuditLogger::log('teacher_verification.rejected', 'TeacherProfile', $profile->id, [
+            'teacher_user_id' => $profile->user_id,
+            'reason' => $request->reason,
         ]);
 
         try {

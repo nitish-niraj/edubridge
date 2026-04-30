@@ -12,6 +12,7 @@ use App\Mail\UserWarningMail;
 use App\Models\Message;
 use App\Models\Report;
 use App\Models\User;
+use App\Services\ReviewRatingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Mail;
 
@@ -106,7 +107,7 @@ class AdminReportController extends Controller
         return response()->json(['message' => 'Warning sent.', 'warnings_count' => $user->warnings_count]);
     }
 
-    public function removeContent(int $id): JsonResponse
+    public function removeContent(int $id, ReviewRatingService $ratings): JsonResponse
     {
         $report = Report::with(['review'])->findOrFail($id);
 
@@ -120,6 +121,7 @@ class AdminReportController extends Controller
 
         if ($report->review) {
             $report->review->update(['is_visible' => false]);
+            $ratings->recalculateForTeacher($report->review->reviewee_id);
         }
 
         $report->update([

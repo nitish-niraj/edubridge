@@ -57,6 +57,7 @@ return [
         'auth_token'  => env('TWILIO_AUTH_TOKEN'),
         'sid'         => env('TWILIO_ACCOUNT_SID'),
         'token'       => env('TWILIO_AUTH_TOKEN'),
+        'sms_from'    => env('TWILIO_SMS_FROM'),
     ],
 
     'sentry' => [

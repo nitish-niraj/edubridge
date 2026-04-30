@@ -241,6 +241,12 @@ onBeforeUnmount(() => {
                         </div>
 
                         <article class="chat-bubble" :class="isOwnMessage(message) ? 'mine' : 'theirs'">
+                            <div class="message-sender">
+                                <span>{{ message.sender?.name || 'User' }}</span>
+                                <span v-if="message.is_teacher" class="message-badge">Teacher</span>
+                                <span v-if="message.type === 'announcement'" class="message-badge announcement">Announcement</span>
+                                <span v-if="message.muted_label" class="message-badge muted">{{ message.muted_label }}</span>
+                            </div>
                             <p class="bubble-body">{{ message.body || 'Unsupported message type.' }}</p>
                             <p class="bubble-time">{{ formatTime(message.created_at) }}</p>
                         </article>
@@ -439,6 +445,35 @@ onBeforeUnmount(() => {
 .chat-bubble.theirs {
     margin-right: auto;
     background: #fff;
+}
+
+.message-sender {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 4px;
+    color: #64748b;
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.message-badge {
+    border-radius: 999px;
+    background: #eef2ff;
+    color: #3730a3;
+    padding: 2px 6px;
+    font-size: 10px;
+}
+
+.message-badge.announcement {
+    background: #fff7ed;
+    color: #c2410c;
+}
+
+.message-badge.muted {
+    background: #fee2e2;
+    color: #991b1b;
 }
 
 .bubble-body {

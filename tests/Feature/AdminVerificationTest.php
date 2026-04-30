@@ -195,7 +195,7 @@ class AdminVerificationTest extends TestCase
         });
     }
 
-    public function test_approving_single_pending_document_teacher_profile_is_allowed(): void
+    public function test_approving_single_pending_document_teacher_profile_is_rejected(): void
     {
         Mail::fake();
 
@@ -204,16 +204,27 @@ class AdminVerificationTest extends TestCase
 
         $response = $this->actingAs($admin)->postJson(route('admin.verifications.approve', $profile->id));
 
-        $response->assertOk();
-        $this->assertStringContainsString('Teacher approved successfully', (string) $response->json('message'));
+        $response->assertStatus(422);
+        $this->assertStringContainsString('Required verification documents', (string) $response->json('message'));
 
         $profile->refresh();
-        $this->assertTrue($profile->is_verified);
+        $this->assertFalse($profile->is_verified);
+    }
 
-        $this->assertDatabaseHas('teacher_documents', [
-            'teacher_id' => $profile->id,
-            'type' => 'degree',
-            'status' => 'approved',
+    public function test_verification_actions_create_audit_logs(): void
+    {
+        Mail::fake();
+
+        $admin = $this->makeAdmin();
+        $profile = $this->makePendingRequiredDocumentsTeacherProfile();
+
+        $this->actingAs($admin)->postJson(route('admin.verifications.approve', $profile->id))->assertOk();
+
+        $this->assertDatabaseHas('audit_logs', [
+            'admin_id' => $admin->id,
+            'action' => 'teacher_verification.approved',
+            'entity_type' => 'TeacherProfile',
+            'entity_id' => $profile->id,
         ]);
     }
 

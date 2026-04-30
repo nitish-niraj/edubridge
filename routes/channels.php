@@ -18,10 +18,23 @@ Broadcast::channel('App.Models.User.{id}', function ($user, $id) {
 });
 
 Broadcast::channel('conversation.{conversationId}', function ($user, int $conversationId) {
-    $isParticipant = \App\Models\ConversationParticipant::query()
-        ->where('conversation_id', $conversationId)
-        ->where('user_id', $user->id)
-        ->exists();
+    $conversation = \App\Models\Conversation::query()->find($conversationId);
+
+    if (! $conversation) {
+        return false;
+    }
+
+    $isParticipant = $conversation->is_group
+        ? \App\Models\ClassMember::query()
+            ->where('conversation_id', $conversationId)
+            ->where('user_id', $user->id)
+            ->whereNull('left_at')
+            ->exists()
+        : \App\Models\ConversationParticipant::query()
+            ->where('conversation_id', $conversationId)
+            ->where('user_id', $user->id)
+            ->whereNull('left_at')
+            ->exists();
 
     if (! $isParticipant) return false;
 

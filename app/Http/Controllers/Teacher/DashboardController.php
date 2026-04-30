@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Teacher;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\Message;
+use App\Models\TeacherEarning;
 use Carbon\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -47,11 +48,11 @@ class DashboardController extends Controller
             ->distinct('student_id')
             ->count('student_id');
 
-        $earningsThisMonth = (float) Booking::query()
+        $earningsThisMonth = (float) TeacherEarning::query()
             ->where('teacher_id', $teacherId)
-            ->where('status', 'completed')
-            ->whereBetween('start_at', [Carbon::now('UTC')->startOfMonth(), Carbon::now('UTC')->endOfMonth()])
-            ->sum('teacher_payout');
+            ->where('status', 'released')
+            ->whereBetween('payout_date', [Carbon::now('UTC')->startOfMonth(), Carbon::now('UTC')->endOfMonth()])
+            ->sum('net_amount');
 
         $unreadMessages = Message::query()
             ->whereNull('read_at')

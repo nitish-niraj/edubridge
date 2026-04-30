@@ -8,6 +8,7 @@ use App\Events\MessageSent;
 use App\Events\UserTyping;
 use App\Http\Requests\Api\ConversationIndexRequest;
 use App\Http\Requests\Api\ConversationMessagesRequest;
+use App\Http\Requests\Api\AnnouncementStoreRequest;
 use App\Http\Requests\Api\MarkConversationReadRequest;
 use App\Http\Requests\Api\SendMessageRequest;
 use App\Http\Requests\Api\StartConversationRequest;
@@ -33,8 +34,19 @@ class ChatController extends Controller
         $userId = $request->user()->id;
 
         $conversations = Conversation::query()
-            ->whereHas('participants', function ($query) use ($userId): void {
-                $query->where('users.id', $userId);
+            ->where(function ($query) use ($userId): void {
+                $query->where(function ($directQuery) use ($userId): void {
+                    $directQuery->where('is_group', false)
+                        ->whereHas('participants', function ($participantQuery) use ($userId): void {
+                            $participantQuery->where('users.id', $userId)
+                                ->wherePivotNull('left_at');
+                        });
+                })->orWhere(function ($groupQuery) use ($userId): void {
+                    $groupQuery->where('is_group', true)
+                        ->whereHas('activeClassMembers', function ($memberQuery) use ($userId): void {
+                            $memberQuery->where('user_id', $userId);
+                        });
+                });
             })
             ->with([
                 'participants:id,name,avatar,role',
@@ -198,8 +210,11 @@ class ChatController extends Controller
         ]);
 
         $message->load('sender:id,name,avatar');
-        broadcast(new MessageSent($message))->toOthers();
-        SendChatNotification::dispatch($message->id);
+
+        if (! $this->isMutedGroupStudentMessage($conversation, $request->user()->id)) {
+            broadcast(new MessageSent($message))->toOthers();
+            SendChatNotification::dispatch($message->id);
+        }
 
         return new MessageResource($message);
     }
@@ -244,9 +259,9 @@ class ChatController extends Controller
     /**
      * Post an announcement (teacher only, group only).
      */
-    public function announcement(Request $request, Conversation $conversation): MessageResource
+    public function announcement(AnnouncementStoreRequest $request, Conversation $conversation): MessageResource
     {
-        $request->validate(['body' => 'required|string|max:2000']);
+        $validated = $request->validated();
         $userId = $request->user()->id;
         $this->assertParticipant($conversation, $userId);
 
@@ -256,7 +271,7 @@ class ChatController extends Controller
 
         $message = $conversation->messages()->create([
             'sender_id' => $userId,
-            'body'      => $request->input('body'),
+            'body'      => $validated['body'],
             'type'      => 'announcement',
         ]);
 
@@ -293,12 +308,16 @@ class ChatController extends Controller
 
         $message = Message::where('conversation_id', $conversation->id)->findOrFail($messageId);
 
-        // Only teacher of a group or the message sender can delete
+        // Only teacher of a group or the message sender can delete.
         $isTeacher = $conversation->is_group && $conversation->teacher_id === $userId;
         $isSender = $message->sender_id === $userId;
 
         if (! $isTeacher && ! $isSender) {
             throw new HttpException(403, 'You cannot delete this message.');
+        }
+
+        if (! $isTeacher && $conversation->is_group && $message->created_at->lt(now()->subMinutes(10))) {
+            throw new HttpException(403, 'Students can delete group messages only within 10 minutes.');
         }
 
         $message->delete(); // soft delete
@@ -308,12 +327,42 @@ class ChatController extends Controller
 
     private function assertParticipant(Conversation $conversation, int $userId): void
     {
+        if ($conversation->is_group) {
+            $isMember = ClassMember::query()
+                ->where('conversation_id', $conversation->id)
+                ->where('user_id', $userId)
+                ->whereNull('left_at')
+                ->exists();
+
+            if (! $isMember) {
+                throw new HttpException(403, 'You are not a participant in this conversation.');
+            }
+
+            return;
+        }
+
         $isParticipant = $conversation->participants()
             ->where('users.id', $userId)
+            ->wherePivotNull('left_at')
             ->exists();
 
         if (! $isParticipant) {
             throw new HttpException(403, 'You are not a participant in this conversation.');
         }
+    }
+
+    private function isMutedGroupStudentMessage(Conversation $conversation, int $userId): bool
+    {
+        if (! $conversation->is_group || $conversation->teacher_id === $userId) {
+            return false;
+        }
+
+        return ClassMember::query()
+            ->where('conversation_id', $conversation->id)
+            ->where('user_id', $userId)
+            ->where('role', 'student')
+            ->where('is_muted', true)
+            ->whereNull('left_at')
+            ->exists();
     }
 }

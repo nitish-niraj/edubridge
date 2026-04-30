@@ -62,12 +62,16 @@ Route::middleware('auth:sanctum')->group(function (): void {
     // ─── Class Groups ─────────────────────────────────────────────────
     Route::get('/groups', [GroupController::class, 'index']);
     Route::post('/groups', [GroupController::class, 'store']);
-    Route::get('/groups/{id}', [GroupController::class, 'show']);
     Route::post('/groups/join/{inviteCode}', [GroupController::class, 'join']);
+    Route::post('/groups/{id}/join', [GroupController::class, 'joinById']);
+    Route::post('/groups/{groupId}/add-member', [GroupController::class, 'addMember']);
+    Route::post('/groups/{groupId}/start-session', [VideoSessionController::class, 'startGroupSessionFromGroup']);
+    Route::get('/groups/{id}', [GroupController::class, 'show']);
     Route::post('/groups/{groupId}/members', [GroupController::class, 'addMember']);
     Route::delete('/groups/{groupId}/members/{userId}', [GroupController::class, 'removeMember']);
     Route::patch('/groups/{groupId}/members/{userId}/mute', [GroupController::class, 'toggleMute']);
     Route::patch('/groups/{groupId}/members/{userId}/draw', [GroupController::class, 'toggleDraw']);
+    Route::patch('/groups/{groupId}/members/{userId}/draw-permission', [GroupController::class, 'toggleDraw']);
 
     // ─── Teacher Availability (API) ──────────────────────────────────────
     Route::get('/teacher/availability', [TeacherAvailabilityController::class, 'index']);
@@ -94,6 +98,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     // ─── Group Video Sessions ──────────────────────────────────────────
     Route::post('/video-sessions/group/{conversationId}/start', [VideoSessionController::class, 'startGroupSession']);
     Route::post('/video-sessions/group/{conversationId}/join', [VideoSessionController::class, 'joinGroupSession']);
+    Route::post('/video-sessions/group/{groupId}/token', [VideoSessionController::class, 'groupToken']);
     Route::patch('/video-sessions/group/{sessionId}/end', [VideoSessionController::class, 'endGroupSession']);
 
     // ─── Whiteboard & Recording ──────────────────────────────────────────

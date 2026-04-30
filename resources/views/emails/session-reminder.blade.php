@@ -5,9 +5,9 @@
 
 	<p style="margin:0 0 8px;">
 		@if($recipientType === 'student')
-			Your session with <strong>{{ $booking->teacher->name }}</strong> is tomorrow.
+			Your session with <strong>{{ $booking->teacher->name }}</strong> starts {{ $minutesBefore >= 1440 ? 'tomorrow' : 'in ' . $minutesBefore . ' minutes' }}.
 		@else
-			Your session with <strong>{{ $booking->student->name }}</strong> is tomorrow.
+			Your session with <strong>{{ $booking->student->name }}</strong> starts {{ $minutesBefore >= 1440 ? 'tomorrow' : 'in ' . $minutesBefore . ' minutes' }}.
 		@endif
 	</p>
 

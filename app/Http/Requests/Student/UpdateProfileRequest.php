@@ -66,7 +66,7 @@ class UpdateProfileRequest extends FormRequest
             'subjects_needed'    => ['nullable', 'array'],
             'subjects_needed.*'  => ['string', Rule::in($subjectOptions)],
             'preferred_language' => ['nullable', 'string', Rule::in($languageOptions)],
-            'avatar'             => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'avatar'             => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ];
     }
 }

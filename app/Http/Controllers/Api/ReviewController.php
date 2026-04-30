@@ -3,11 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\ReviewStoreRequest;
 use App\Models\Booking;
 use App\Models\Review;
-use App\Models\TeacherProfile;
+use App\Services\ReviewRatingService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class ReviewController extends Controller
@@ -15,15 +15,11 @@ class ReviewController extends Controller
     /**
      * POST /api/reviews
      */
-    public function store(Request $request): JsonResponse
+    public function store(ReviewStoreRequest $request): JsonResponse
     {
-        $request->validate([
-            'booking_id' => 'required|exists:bookings,id',
-            'rating'     => 'required|integer|min:1|max:5',
-            'comment'    => 'nullable|string|max:2000',
-        ]);
+        $validated = $request->validated();
 
-        $booking = Booking::findOrFail($request->booking_id);
+        $booking = Booking::findOrFail($validated['booking_id']);
         $user    = auth()->user();
 
         if ($user->id !== $booking->student_id) {
@@ -44,22 +40,11 @@ class ReviewController extends Controller
                 'booking_id'  => $booking->id,
                 'reviewer_id' => $user->id,
                 'reviewee_id' => $booking->teacher_id,
-                'rating'      => $request->rating,
-                'comment'     => $request->comment,
+                'rating'      => $request->validated('rating'),
+                'comment'     => $request->validated('comment'),
             ]);
 
-            // Update teacher profile aggregates
-            $avgRating    = Review::where('reviewee_id', $booking->teacher_id)
-                ->where('is_visible', true)
-                ->avg('rating');
-            $totalReviews = Review::where('reviewee_id', $booking->teacher_id)
-                ->where('is_visible', true)
-                ->count();
-
-            TeacherProfile::where('user_id', $booking->teacher_id)->update([
-                'rating_avg'    => round($avgRating, 2),
-                'total_reviews' => $totalReviews,
-            ]);
+            app(ReviewRatingService::class)->recalculateForTeacher($booking->teacher_id);
 
             return $review;
         });

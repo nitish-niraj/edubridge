@@ -9,33 +9,26 @@ use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-class SessionReminderMail extends Mailable
+class SessionCompletedMail extends Mailable
 {
     use Queueable, SerializesModels;
 
     public function __construct(
         public Booking $booking,
-        public string  $recipientType = 'student',
-        public int $minutesBefore = 1440
+        public string $recipientType = 'student'
     ) {}
 
     public function envelope(): Envelope
     {
-        $subject = match ($this->minutesBefore) {
-            15 => 'Your session starts in 15 minutes — EduBridge',
-            60 => 'Your session starts in 1 hour — EduBridge',
-            default => 'Reminder: Your session is tomorrow — EduBridge',
-        };
-
         return new Envelope(
-            subject: $subject,
+            subject: 'Session completed — EduBridge',
         );
     }
 
     public function content(): Content
     {
         return new Content(
-            view: 'emails.session-reminder',
+            view: 'emails.session-completed',
         );
     }
 }

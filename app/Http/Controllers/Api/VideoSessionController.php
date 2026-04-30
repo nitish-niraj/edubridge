@@ -6,7 +6,8 @@ use App\Events\GroupSessionStarted;
 use App\Events\RecordingConsentRequest;
 use App\Events\WhiteboardUpdate;
 use App\Http\Controllers\Controller;
-use App\Jobs\ReleasePayment;
+use App\Http\Requests\Api\RecordingConsentRequest as RecordingConsentFormRequest;
+use App\Http\Requests\Api\WhiteboardSyncRequest;
 use App\Models\Booking;
 use App\Models\ClassMember;
 use App\Models\Conversation;
@@ -34,27 +35,19 @@ class VideoSessionController extends Controller
         $user    = auth()->user();
 
         if ($user->id !== $booking->student_id && $user->id !== $booking->teacher_id) {
-            return response()->json(['message' => 'Unauthorized.'], 403);
+            return $this->unauthorizedResponse();
         }
 
         if ($booking->status !== 'confirmed') {
-            return response()->json(['message' => 'Booking is not confirmed.'], 422);
+            return $this->unconfirmedResponse($booking);
         }
 
-        $minutesUntil = now()->diffInMinutes($booking->start_at, false);
-        if ($minutesUntil > 30) {
-            return response()->json([
-                'too_early'         => true,
-                'starts_in_minutes' => (int) $minutesUntil,
-            ]);
+        if ($windowResponse = $this->joinWindowErrorResponse($booking)) {
+            return $windowResponse;
         }
 
-        $roomName = 'edubridge-' . $bookingId;
-
-        $videoSession = VideoSession::firstOrCreate(
-            ['booking_id' => $bookingId],
-            ['room_name' => $roomName, 'room_type' => 'peer-to-peer']
-        );
+        $roomName = $this->roomName($bookingId);
+        $this->ensureVideoSession($booking, $roomName);
 
         $identity = ($user->id === $booking->student_id ? 'student-' : 'teacher-') . $user->id;
 
@@ -67,9 +60,11 @@ class VideoSessionController extends Controller
         $token = $this->twilioService->generateVideoToken($roomName, $identity);
 
         return response()->json([
-            'token'     => $token,
-            'room_name' => $roomName,
-            'identity'  => $identity,
+            'token'           => $token,
+            'room_name'       => $roomName,
+            'identity'        => $identity,
+            'too_early'       => false,
+            'session_expired' => false,
         ]);
     }
 
@@ -86,36 +81,53 @@ class VideoSessionController extends Controller
             return response()->json(['message' => 'Only the class teacher can start a group session.'], 403);
         }
 
-        $roomName = 'edubridge-group-' . $conversationId . '-' . time();
+        if ($conversation->activeClassMembers()->count() > 50) {
+            return response()->json(['message' => 'Group sessions support a maximum of 50 participants.'], 422);
+        }
 
-        // Create a video session record linked to the conversation
-        $videoSession = VideoSession::create([
-            'booking_id'      => 0, // no booking for group sessions
-            'room_name'       => $roomName,
-            'room_type'       => 'group',
-            'started_at'      => now(),
-        ]);
+        $roomName = 'edubridge-group-' . $conversationId . '-' . now()->format('Ymd');
 
-        // Store the session ID on the conversation for reference
-        $conversation->update(['description' => $conversation->description]); // touch updated_at
+        $videoSession = VideoSession::query()
+            ->where('conversation_id', $conversation->id)
+            ->where('is_group', true)
+            ->whereNull('ended_at')
+            ->latest()
+            ->first();
+
+        if (! $videoSession) {
+            $videoSession = VideoSession::create([
+                'booking_id'      => null,
+                'conversation_id' => $conversation->id,
+                'is_group'       => true,
+                'host_id'        => $user->id,
+                'room_name'      => $roomName,
+                'room_type'      => 'group',
+                'started_at'     => now(),
+            ]);
+        }
 
         $identity = 'teacher-' . $user->id;
-        $token = $this->twilioService->generateVideoToken($roomName, $identity);
+        $token = $this->twilioService->generateVideoToken($videoSession->room_name, $identity);
 
         // Broadcast to all group members
         broadcast(new GroupSessionStarted(
             $conversationId,
             $user->name,
             $videoSession->id,
-            $roomName
+            $videoSession->room_name
         ));
 
         return response()->json([
             'token'            => $token,
-            'room_name'        => $roomName,
+            'room_name'        => $videoSession->room_name,
             'identity'         => $identity,
             'video_session_id' => $videoSession->id,
         ]);
+    }
+
+    public function startGroupSessionFromGroup(int $groupId, Request $request): JsonResponse
+    {
+        return $this->startGroupSession($groupId, $request);
     }
 
     /**
@@ -137,7 +149,8 @@ class VideoSessionController extends Controller
         }
 
         // Find the active group session
-        $videoSession = VideoSession::where('room_name', 'like', "edubridge-group-{$conversationId}-%")
+        $videoSession = VideoSession::where('conversation_id', $conversationId)
+            ->where('is_group', true)
             ->whereNotNull('started_at')
             ->whereNull('ended_at')
             ->latest()
@@ -158,6 +171,11 @@ class VideoSessionController extends Controller
         ]);
     }
 
+    public function groupToken(int $groupId, Request $request): JsonResponse
+    {
+        return $this->joinGroupSession($groupId, $request);
+    }
+
     /**
      * PATCH /api/video-sessions/{bookingId}/start
      */
@@ -167,13 +185,22 @@ class VideoSessionController extends Controller
         $user    = auth()->user();
 
         if ($user->id !== $booking->student_id && $user->id !== $booking->teacher_id) {
-            return response()->json(['message' => 'Unauthorized.'], 403);
+            return $this->unauthorizedResponse();
         }
 
-        $videoSession = VideoSession::where('booking_id', $bookingId)->firstOrFail();
+        if ($booking->status !== 'confirmed') {
+            return $this->unconfirmedResponse($booking);
+        }
+
+        if ($windowResponse = $this->joinWindowErrorResponse($booking)) {
+            return $windowResponse;
+        }
+
+        $videoSession = $this->ensureVideoSession($booking, $this->roomName($bookingId));
 
         if (! $videoSession->started_at) {
             $videoSession->update(['started_at' => now()]);
+            $videoSession->refresh();
         }
 
         $this->addSentryBreadcrumb('video.session.started', [
@@ -194,33 +221,49 @@ class VideoSessionController extends Controller
         $user    = auth()->user();
 
         if ($user->id !== $booking->teacher_id) {
-            return response()->json(['message' => 'Only the teacher can end the session.'], 403);
+            return $this->unauthorizedResponse('Only the teacher can end the session.');
         }
 
-        $videoSession = VideoSession::where('booking_id', $bookingId)->firstOrFail();
+        $videoSession = VideoSession::where('booking_id', $bookingId)->first();
+
+        if ($videoSession?->ended_at) {
+            $videoSession = $this->normalizeVideoSession($videoSession, $booking, $this->roomName($bookingId));
+
+            return response()->json([
+                'message'          => 'Session ended.',
+                'duration_minutes' => $videoSession->duration_minutes,
+                'booking_status'   => $booking->status,
+            ]);
+        }
+
+        if ($booking->status !== 'confirmed') {
+            return $this->unconfirmedResponse($booking);
+        }
+
+        $videoSession = $videoSession
+            ? $this->normalizeVideoSession($videoSession, $booking, $this->roomName($bookingId))
+            : $this->ensureVideoSession($booking, $this->roomName($bookingId));
+
+        $endedAt = now();
+        $duration = $videoSession->started_at
+            ? (int) $videoSession->started_at->diffInMinutes($endedAt)
+            : 0;
 
         $videoSession->update([
-            'ended_at'         => now(),
-            'duration_minutes' => $videoSession->started_at
-                ? (int) $videoSession->started_at->diffInMinutes(now())
-                : 0,
+            'ended_at'         => $endedAt,
+            'duration_minutes' => $duration,
         ]);
 
-        $duration = $videoSession->duration_minutes;
+        $booking->update([
+            'status' => $duration >= 5 ? 'completed' : 'no_show',
+        ]);
 
-        if ($duration >= 5) {
-            $booking->update(['status' => 'completed']);
-
-            if ($booking->payment_status === 'held') {
-                ReleasePayment::dispatch($booking->id)->delay(now()->addHours(24));
-            }
-        } else {
-            $booking->update(['status' => 'no_show']);
-        }
+        $videoSession->refresh();
+        $booking->refresh();
 
         return response()->json([
             'message'          => 'Session ended.',
-            'duration_minutes' => $duration,
+            'duration_minutes' => $videoSession->duration_minutes,
             'booking_status'   => $booking->status,
         ]);
     }
@@ -234,9 +277,11 @@ class VideoSessionController extends Controller
         $user = $request->user();
         $videoSession = VideoSession::findOrFail($sessionId);
 
-        // Extract conversation ID from room_name: edubridge-group-{convId}-{timestamp}
-        preg_match('/edubridge-group-(\d+)-/', $videoSession->room_name, $matches);
-        $conversationId = (int) ($matches[1] ?? 0);
+        $conversationId = (int) $videoSession->conversation_id;
+        if (! $conversationId) {
+            preg_match('/edubridge-group-(\d+)-/', $videoSession->room_name, $matches);
+            $conversationId = (int) ($matches[1] ?? 0);
+        }
 
         $conversation = Conversation::find($conversationId);
         if (! $conversation || $conversation->teacher_id !== $user->id) {
@@ -260,13 +305,36 @@ class VideoSessionController extends Controller
      * POST /api/video-sessions/{sessionId}/whiteboard
      * Broadcast whiteboard elements to all participants.
      */
-    public function whiteboardSync(int $sessionId, Request $request): JsonResponse
+    public function whiteboardSync(int $sessionId, WhiteboardSyncRequest $request): JsonResponse
     {
-        $request->validate(['elements' => 'required|array', 'conversation_id' => 'required|integer']);
+        $validated = $request->validated();
+
+        $videoSession = VideoSession::query()
+            ->where('id', $sessionId)
+            ->where('conversation_id', $validated['conversation_id'])
+            ->where('is_group', true)
+            ->whereNotNull('started_at')
+            ->whereNull('ended_at')
+            ->firstOrFail();
+
+        $conversation = Conversation::findOrFail($videoSession->conversation_id);
+        $member = ClassMember::query()
+            ->where('conversation_id', $conversation->id)
+            ->where('user_id', $request->user()->id)
+            ->whereNull('left_at')
+            ->first();
+
+        if (! $member) {
+            return response()->json(['message' => 'You are not a member of this class.'], 403);
+        }
+
+        if ($conversation->teacher_id !== $request->user()->id && ! $member->can_draw) {
+            return response()->json(['message' => 'You do not have draw permission.'], 403);
+        }
 
         broadcast(new WhiteboardUpdate(
-            $request->input('conversation_id'),
-            $request->input('elements'),
+            $validated['conversation_id'],
+            $validated['elements'],
             $request->user()->id
         ))->toOthers();
 
@@ -277,12 +345,12 @@ class VideoSessionController extends Controller
      * POST /api/video-sessions/{sessionId}/recording/consent
      * Teacher requests recording consent from all participants.
      */
-    public function requestRecordingConsent(int $sessionId, Request $request): JsonResponse
+    public function requestRecordingConsent(int $sessionId, RecordingConsentFormRequest $request): JsonResponse
     {
-        $request->validate(['conversation_id' => 'required|integer']);
+        $validated = $request->validated();
 
         $user = $request->user();
-        $conversationId = $request->input('conversation_id');
+        $conversationId = $validated['conversation_id'];
 
         $conversation = Conversation::find($conversationId);
         if (! $conversation || $conversation->teacher_id !== $user->id) {
@@ -384,11 +452,13 @@ class VideoSessionController extends Controller
                 return response()->json(['message' => 'Unauthorized.'], 403);
             }
         } else {
-            // Group session — check class membership via room name
-            preg_match('/edubridge-group-(\d+)-/', $videoSession->room_name, $matches);
-            $conversationId = (int) ($matches[1] ?? 0);
+            $conversationId = (int) $videoSession->conversation_id;
+            if (! $conversationId) {
+                preg_match('/edubridge-group-(\d+)-/', $videoSession->room_name, $matches);
+                $conversationId = (int) ($matches[1] ?? 0);
+            }
 
-            if (! ClassMember::where('conversation_id', $conversationId)->where('user_id', $user->id)->exists()) {
+            if (! ClassMember::where('conversation_id', $conversationId)->where('user_id', $user->id)->whereNull('left_at')->exists()) {
                 return response()->json(['message' => 'Unauthorized.'], 403);
             }
         }
@@ -416,5 +486,103 @@ class VideoSessionController extends Controller
             $data,
         ));
     }
-}
 
+    private function ensureVideoSession(Booking $booking, string $roomName): VideoSession
+    {
+        $videoSession = VideoSession::firstOrCreate(
+            ['booking_id' => $booking->id],
+            [
+                'room_name' => $roomName,
+                'room_type' => 'group',
+                'is_group' => false,
+                'host_id' => $booking->teacher_id,
+            ]
+        );
+
+        return $this->normalizeVideoSession($videoSession, $booking, $roomName);
+    }
+
+    private function normalizeVideoSession(VideoSession $videoSession, Booking $booking, string $roomName): VideoSession
+    {
+        $updates = [];
+
+        if ($videoSession->room_name !== $roomName) {
+            $updates['room_name'] = $roomName;
+        }
+
+        if ($videoSession->room_type !== 'group') {
+            $updates['room_type'] = 'group';
+        }
+
+        if ($videoSession->host_id !== $booking->teacher_id) {
+            $updates['host_id'] = $booking->teacher_id;
+        }
+
+        if ((bool) $videoSession->is_group !== false) {
+            $updates['is_group'] = false;
+        }
+
+        if ($updates !== []) {
+            $videoSession->update($updates);
+            $videoSession->refresh();
+        }
+
+        return $videoSession;
+    }
+
+    private function roomName(int $bookingId): string
+    {
+        return 'edubridge-' . $bookingId;
+    }
+
+    private function joinWindowErrorResponse(Booking $booking): ?JsonResponse
+    {
+        $now = now();
+        $opensAt = $booking->start_at->copy()->subMinutes(15);
+        $expiresAt = $booking->start_at->copy()->addMinutes(30);
+
+        if ($now->lt($opensAt)) {
+            return response()->json([
+                'message' => 'Session is not open yet.',
+                'too_early' => true,
+                'session_expired' => false,
+                'starts_at' => $booking->start_at,
+                'available_at' => $opensAt,
+                'starts_in_minutes' => (int) $now->diffInMinutes($booking->start_at),
+            ], 422);
+        }
+
+        if ($now->gt($expiresAt)) {
+            return response()->json([
+                'message' => 'Session join window has expired.',
+                'too_early' => false,
+                'session_expired' => true,
+                'starts_at' => $booking->start_at,
+                'expired_at' => $expiresAt,
+            ], 410);
+        }
+
+        return null;
+    }
+
+    private function unauthorizedResponse(string $message = 'Unauthorized.'): JsonResponse
+    {
+        return response()->json([
+            'message' => $message,
+            'unauthorized' => true,
+            'too_early' => false,
+            'session_expired' => false,
+        ], 403);
+    }
+
+    private function unconfirmedResponse(Booking $booking): JsonResponse
+    {
+        return response()->json([
+            'message' => 'Booking is not confirmed.',
+            'unconfirmed' => true,
+            'too_early' => false,
+            'session_expired' => false,
+            'booking_status' => $booking->status,
+        ], 422);
+    }
+}

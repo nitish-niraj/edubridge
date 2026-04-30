@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\PaymentInitiateRequest;
+use App\Http\Requests\Api\PaymentVerifyRequest;
 use App\Jobs\SendBookingConfirmationNotification;
 use App\Models\Booking;
 use App\Models\BookingSlot;
@@ -22,12 +24,9 @@ class PaymentController extends Controller
         protected PhonePeService $phonePeService
     ) {}
 
-    public function initiate(Request $request): JsonResponse
+    public function initiate(PaymentInitiateRequest $request): JsonResponse
     {
-        $data = $request->validate([
-            'booking_id' => 'required|exists:bookings,id',
-            'gateway' => 'nullable|in:phonepe,razorpay',
-        ]);
+        $data = $request->validated();
 
         $booking = Booking::with('payment')->lockForUpdate()->findOrFail($data['booking_id']);
         $user = $request->user();
@@ -75,13 +74,9 @@ class PaymentController extends Controller
         ]);
     }
 
-    public function verify(Request $request): JsonResponse
+    public function verify(PaymentVerifyRequest $request): JsonResponse
     {
-        $data = $request->validate([
-            'gateway_order_id' => 'required|string',
-            'gateway_payment_id' => 'required|string',
-            'signature' => 'required|string',
-        ]);
+        $data = $request->validated();
 
         $payment = Payment::with('booking')
             ->where('gateway_order_id', $data['gateway_order_id'])
@@ -93,6 +88,10 @@ class PaymentController extends Controller
 
         if ($payment->booking->status === 'cancelled') {
             return response()->json(['message' => 'Booking was cancelled before payment completed.'], 422);
+        }
+
+        if ($payment->status !== Payment::STATUS_PENDING) {
+            return response()->json(['message' => 'Payment is already processed.'], 409);
         }
 
         $this->markPaymentHeld($payment, [

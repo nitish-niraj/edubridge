@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\GroupAddMemberRequest;
+use App\Http\Requests\Api\GroupStoreRequest;
 use App\Models\ClassMember;
 use App\Models\Conversation;
 use App\Models\User;
@@ -15,25 +17,23 @@ class GroupController extends Controller
     /**
      * Create a new class group.
      */
-    public function store(Request $request): JsonResponse
+    public function store(GroupStoreRequest $request): JsonResponse
     {
-        $request->validate([
-            'name'         => 'required|string|max:150',
-            'subject'      => 'required|string|max:100',
-            'description'  => 'nullable|string|max:2000',
-            'max_students' => 'nullable|integer|min:2|max:100',
-        ]);
-
+        $validated = $request->validated();
         $user = $request->user();
 
-        $conversation = DB::transaction(function () use ($request, $user) {
+        if (! $user->isTeacher() || ! (bool) $user->teacherProfile?->is_verified) {
+            return response()->json(['message' => 'Only verified teachers can create groups.'], 403);
+        }
+
+        $conversation = DB::transaction(function () use ($validated, $user) {
             $conversation = Conversation::create([
                 'created_by'   => $user->id,
-                'title'        => $request->input('name'),
+                'title'        => $validated['name'],
                 'is_group'     => true,
-                'subject'      => $request->input('subject'),
-                'description'  => $request->input('description'),
-                'max_students' => $request->input('max_students', 30),
+                'subject'      => $validated['subject'],
+                'description'  => $validated['description'] ?? null,
+                'max_students' => $validated['max_students'] ?? 30,
                 'teacher_id'   => $user->id,
                 'invite_code'  => Conversation::generateInviteCode(),
             ]);
@@ -85,6 +85,10 @@ class GroupController extends Controller
             'activeClassMembers.user:id,name,email,avatar',
         ])->findOrFail($id);
 
+        if (! $this->isActiveMember($conversation->id, $request->user()->id)) {
+            return response()->json(['message' => 'You are not a member of this class.'], 403);
+        }
+
         return response()->json($conversation);
     }
 
@@ -119,6 +123,10 @@ class GroupController extends Controller
     {
         $user = $request->user();
 
+        if (! $user->isStudent()) {
+            return response()->json(['message' => 'Only students can join classes.'], 403);
+        }
+
         $conversation = Conversation::where('invite_code', $inviteCode)
             ->where('is_group', true)
             ->firstOrFail();
@@ -130,7 +138,7 @@ class GroupController extends Controller
             ->first();
 
         if ($existing) {
-            return response()->json(['message' => 'You are already a member of this class.'], 422);
+            return response()->json(['message' => 'You are already a member of this class.'], 409);
         }
 
         // Enforce max limit
@@ -158,20 +166,29 @@ class GroupController extends Controller
         ]);
     }
 
+    public function joinById(Request $request, int $id): JsonResponse
+    {
+        $conversation = Conversation::where('id', $id)
+            ->where('is_group', true)
+            ->firstOrFail();
+
+        return $this->join($request, $conversation->invite_code);
+    }
+
     /**
      * Teacher adds student by email.
      */
-    public function addMember(Request $request, int $groupId): JsonResponse
+    public function addMember(GroupAddMemberRequest $request, int $groupId): JsonResponse
     {
-        $request->validate(['email' => 'required|email']);
+        $validated = $request->validated();
 
         $conversation = Conversation::findOrFail($groupId);
 
-        if ($conversation->teacher_id !== $request->user()->id) {
+        if (! $conversation->is_group || $conversation->teacher_id !== $request->user()->id) {
             return response()->json(['message' => 'Only the class teacher can add members.'], 403);
         }
 
-        $student = User::where('email', $request->input('email'))
+        $student = User::where('email', $validated['email'])
             ->where('role', 'student')
             ->first();
 
@@ -185,7 +202,7 @@ class GroupController extends Controller
             ->first();
 
         if ($existing) {
-            return response()->json(['message' => 'Student is already in this class.'], 422);
+            return response()->json(['message' => 'Student is already in this class.'], 409);
         }
 
         if ($conversation->studentCount() >= $conversation->max_students) {
@@ -218,7 +235,7 @@ class GroupController extends Controller
     {
         $conversation = Conversation::findOrFail($groupId);
 
-        if ($conversation->teacher_id !== $request->user()->id) {
+        if (! $conversation->is_group || $conversation->teacher_id !== $request->user()->id) {
             return response()->json(['message' => 'Only the class teacher can remove members.'], 403);
         }
 
@@ -246,7 +263,7 @@ class GroupController extends Controller
     {
         $conversation = Conversation::findOrFail($groupId);
 
-        if ($conversation->teacher_id !== $request->user()->id) {
+        if (! $conversation->is_group || $conversation->teacher_id !== $request->user()->id) {
             return response()->json(['message' => 'Only the teacher can mute/unmute.'], 403);
         }
 
@@ -274,7 +291,7 @@ class GroupController extends Controller
     {
         $conversation = Conversation::findOrFail($groupId);
 
-        if ($conversation->teacher_id !== $request->user()->id) {
+        if (! $conversation->is_group || $conversation->teacher_id !== $request->user()->id) {
             return response()->json(['message' => 'Only the teacher can manage draw permissions.'], 403);
         }
 
@@ -300,5 +317,13 @@ class GroupController extends Controller
             'can_draw' => $member->can_draw,
             'message'  => $member->can_draw ? 'Draw permission granted.' : 'Draw permission revoked.',
         ]);
+    }
+
+    private function isActiveMember(int $conversationId, int $userId): bool
+    {
+        return ClassMember::where('conversation_id', $conversationId)
+            ->where('user_id', $userId)
+            ->whereNull('left_at')
+            ->exists();
     }
 }
