@@ -7,73 +7,109 @@ use App\Jobs\SendBookingConfirmationNotification;
 use App\Models\Booking;
 use App\Models\BookingSlot;
 use App\Models\Payment;
+use App\Services\PaymentGatewayService;
 use App\Services\PhonePeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 class PaymentController extends Controller
 {
     public function __construct(
+        protected PaymentGatewayService $paymentGateway,
         protected PhonePeService $phonePeService
     ) {}
 
-    /**
-     * POST /api/payments/initiate
-     */
     public function initiate(Request $request): JsonResponse
     {
-        $request->validate([
+        $data = $request->validate([
             'booking_id' => 'required|exists:bookings,id',
+            'gateway' => 'nullable|in:phonepe,razorpay',
         ]);
 
-        $booking = Booking::findOrFail($request->booking_id);
-        $user = auth()->user();
+        $booking = Booking::with('payment')->lockForUpdate()->findOrFail($data['booking_id']);
+        $user = $request->user();
 
         if ($booking->student_id !== $user->id) {
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
-        if ($booking->payment_status !== 'unpaid') {
-            return response()->json(['message' => 'Payment already initiated or completed.'], 422);
+        if ($booking->status !== 'pending' || $booking->payment_status !== 'unpaid') {
+            return response()->json(['message' => 'Booking is not payable.'], 422);
         }
 
-        if ($booking->price <= 0) {
-            return response()->json(['message' => 'This is a free session.'], 422);
+        if ((float) $booking->price <= 0) {
+            return response()->json(['message' => 'This booking does not require payment.'], 422);
         }
 
-        $merchantOrderId = 'EDUB-' . $booking->id . '-' . time();
-        $amountPaise = (int) ($booking->price * 100);
-        $redirectUrl = config('app.url') . '/payment/callback?booking_id=' . $booking->id;
+        $gateway = $data['gateway'] ?? 'phonepe';
+        $order = $this->paymentGateway->createOrder($booking, $gateway);
+        $amountPaise = (int) round((float) $booking->price * 100);
 
-        $response = $this->phonePeService->initiatePayment($merchantOrderId, $amountPaise, $redirectUrl);
-
-        Payment::create([
-            'booking_id'        => $booking->id,
-            'payer_id'          => $user->id,
-            'amount'            => $booking->price,
-            'amount_paise'      => $amountPaise,
-            'platform_fee'      => $booking->platform_fee,
-            'teacher_payout'    => $booking->teacher_payout,
-            'merchant_order_id' => $merchantOrderId,
-            'phonepe_order_id'  => $response['phonepe_order_id'] ?? null,
-            'status'            => 'pending',
-        ]);
+        $payment = Payment::updateOrCreate(
+            ['booking_id' => $booking->id],
+            [
+                'payer_id' => $user->id,
+                'amount' => $booking->price,
+                'amount_paise' => $amountPaise,
+                'platform_fee' => round((float) $booking->price * 0.12, 2),
+                'teacher_payout' => round((float) $booking->price * 0.88, 2),
+                'gateway' => $order['gateway'],
+                'gateway_order_id' => $order['gateway_order_id'],
+                'gateway_payment_id' => $order['gateway_payment_id'],
+                'status' => Payment::STATUS_PENDING,
+                'raw_response' => $order['raw_response'],
+            ]
+        );
 
         return response()->json([
-            'redirect_url'      => $response['redirect_url'],
-            'merchant_order_id' => $merchantOrderId,
+            'payment_id' => $payment->id,
+            'gateway' => $payment->gateway,
+            'gateway_order_id' => $payment->gateway_order_id,
+            'gateway_payment_id' => $payment->gateway_payment_id,
+            'merchant_order_id' => $payment->gateway_order_id,
+            'redirect_url' => $order['checkout']['redirect_url'] ?? null,
+            'checkout' => $order['checkout'],
         ]);
     }
 
-    /**
-     * GET /payment/callback (web route — PhonePe redirect back)
-     */
+    public function verify(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'gateway_order_id' => 'required|string',
+            'gateway_payment_id' => 'required|string',
+            'signature' => 'required|string',
+        ]);
+
+        $payment = Payment::with('booking')
+            ->where('gateway_order_id', $data['gateway_order_id'])
+            ->firstOrFail();
+
+        if (! $this->paymentGateway->verifyPaymentSignature($payment, $data['gateway_payment_id'], $data['signature'])) {
+            return response()->json(['message' => 'Invalid payment signature.'], 422);
+        }
+
+        if ($payment->booking->status === 'cancelled') {
+            return response()->json(['message' => 'Booking was cancelled before payment completed.'], 422);
+        }
+
+        $this->markPaymentHeld($payment, [
+            'gateway_payment_id' => $data['gateway_payment_id'],
+            'verification' => 'api',
+        ]);
+
+        return response()->json([
+            'message' => 'Payment verified and held.',
+            'payment_status' => Payment::STATUS_HELD,
+            'booking_status' => 'confirmed',
+        ]);
+    }
+
     public function callback(Request $request): RedirectResponse
     {
-        $bookingId = $request->query('booking_id');
-        $booking   = Booking::with('payment')->findOrFail($bookingId);
+        $booking = Booking::with('payment')->findOrFail($request->query('booking_id'));
 
         if ($booking->student_id !== auth()->id()) {
             abort(403);
@@ -85,90 +121,158 @@ class PaymentController extends Controller
             return redirect('/student/bookings?payment=failed&booking=' . $booking->id);
         }
 
-        $status = $this->phonePeService->getOrderStatus($payment->merchant_order_id);
+        $status = $this->phonePeService->getOrderStatus($payment->gateway_order_id);
 
-        if ($status['state'] === 'COMPLETED') {
-            DB::transaction(function () use ($booking, $payment, $status) {
-                $payment->update([
-                    'status'           => 'held',
-                    'phonepe_order_id' => $status['phonepe_order_id'],
-                    'paid_at'          => now(),
-                    'raw_response'     => $status['raw'],
-                ]);
-                $booking->update([
-                    'status'         => 'confirmed',
-                    'payment_status' => 'held',
-                ]);
-                BookingSlot::where('id', $booking->slot_id)
-                    ->update(['is_booked' => true, 'booking_id' => $booking->id]);
-            });
-
-            dispatch(new SendBookingConfirmationNotification($booking));
+        if (($status['state'] ?? null) === 'COMPLETED') {
+            $this->markPaymentHeld($payment, [
+                'gateway_payment_id' => $status['phonepe_order_id'] ?? null,
+                'raw' => $status,
+                'verification' => 'phonepe_callback',
+            ]);
 
             return redirect('/student/bookings?payment=success&booking=' . $booking->id);
-
-        } elseif ($status['state'] === 'FAILED') {
-            $payment->update(['status' => 'failed', 'raw_response' => $status['raw']]);
-            return redirect('/student/bookings?payment=failed&booking=' . $booking->id);
-
-        } else {
-            // PENDING — payment still processing
-            return redirect('/student/bookings?payment=pending&booking=' . $booking->id);
         }
+
+        if (($status['state'] ?? null) === 'FAILED') {
+            $this->markPaymentFailed($payment, $status);
+
+            return redirect('/student/bookings?payment=failed&booking=' . $booking->id);
+        }
+
+        return redirect('/student/bookings?payment=pending&booking=' . $booking->id);
     }
 
-    /**
-     * POST /api/webhooks/phonepe (server-to-server callback)
-     */
     public function webhook(Request $request): JsonResponse
     {
-        // Verify X-VERIFY header
-        $payload    = $request->getContent();
-        $xVerify    = (string) $request->header('X-VERIFY', '');
-        $computed   = hash('sha256', base64_encode($payload)) . '###' . config('services.phonepe.client_secret');
+        $payload = $request->getContent();
+        $gateway = $request->query('gateway', $request->header('X-Payment-Gateway', 'phonepe'));
+        $signature = $request->header('X-Razorpay-Signature')
+            ?: $request->header('X-Webhook-Signature')
+            ?: $request->header('X-VERIFY', '');
 
-        if ($xVerify === '' || ! hash_equals($computed, $xVerify)) {
-            return response()->json(['code' => 'INVALID_SIGNATURE'], 400);
-        }
+        try {
+            if ($this->isReplay($request)) {
+                return response()->json(['code' => 'IGNORED']);
+            }
 
-        $data = json_decode($payload, true);
-        $merchantOrderId = $data['merchantOrderId'] ?? null;
+            if (! $this->paymentGateway->verifyWebhookSignature($gateway, $payload, (string) $signature)) {
+                return response()->json(['code' => 'INVALID_SIGNATURE']);
+            }
 
-        if (! $merchantOrderId) {
-            return response()->json(['code' => 'MISSING_ORDER_ID'], 400);
-        }
+            $data = json_decode($payload, true) ?: [];
+            $orderId = $this->extractOrderId($data);
 
-        $payment = Payment::where('merchant_order_id', $merchantOrderId)->first();
+            if (! $orderId) {
+                return response()->json(['code' => 'MISSING_ORDER_ID']);
+            }
 
-        if (! $payment) {
-            return response()->json(['code' => 'ORDER_NOT_FOUND'], 404);
-        }
+            $payment = Payment::with('booking')->where('gateway_order_id', $orderId)->first();
 
-        $booking = $payment->booking;
-        $state   = $data['state'] ?? '';
+            if (! $payment) {
+                return response()->json(['code' => 'ORDER_NOT_FOUND']);
+            }
 
-        if ($state === 'COMPLETED' && $payment->status === 'pending') {
-            DB::transaction(function () use ($booking, $payment, $data) {
-                $payment->update([
-                    'status'           => 'held',
-                    'phonepe_order_id' => $data['orderId'] ?? null,
-                    'paid_at'          => now(),
-                    'raw_response'     => $data,
+            $state = $this->extractState($data);
+
+            if ($state === 'completed') {
+                $this->markPaymentHeld($payment, [
+                    'gateway_payment_id' => $this->extractPaymentId($data),
+                    'raw' => $data,
+                    'verification' => 'webhook',
                 ]);
-                $booking->update([
-                    'status'         => 'confirmed',
-                    'payment_status' => 'held',
-                ]);
-                BookingSlot::where('id', $booking->slot_id)
-                    ->update(['is_booked' => true, 'booking_id' => $booking->id]);
-            });
-
-            dispatch(new SendBookingConfirmationNotification($booking));
-
-        } elseif ($state === 'FAILED' && $payment->status === 'pending') {
-            $payment->update(['status' => 'failed', 'raw_response' => $data]);
+            } elseif ($state === 'failed') {
+                $this->markPaymentFailed($payment, $data);
+            }
+        } catch (Throwable) {
+            return response()->json(['code' => 'IGNORED']);
         }
 
         return response()->json(['code' => 'SUCCESS']);
+    }
+
+    private function markPaymentHeld(Payment $payment, array $context = []): void
+    {
+        $payment->refresh();
+
+        if ($payment->status !== Payment::STATUS_PENDING) {
+            return;
+        }
+
+        $held = false;
+
+        DB::transaction(function () use ($payment, $context, &$held) {
+            $lockedPayment = Payment::whereKey($payment->id)->lockForUpdate()->firstOrFail();
+            $booking = Booking::whereKey($lockedPayment->booking_id)->lockForUpdate()->firstOrFail();
+
+            if ($lockedPayment->status !== Payment::STATUS_PENDING || $booking->status === 'cancelled') {
+                return;
+            }
+
+            $lockedPayment->transitionTo(Payment::STATUS_HELD, [
+                'gateway_payment_id' => $context['gateway_payment_id'] ?? $lockedPayment->gateway_payment_id,
+                'paid_at' => now(),
+                'raw_response' => $context['raw'] ?? array_filter($context),
+            ]);
+
+            $booking->update([
+                'status' => 'confirmed',
+                'payment_status' => 'held',
+            ]);
+
+            BookingSlot::where('id', $booking->slot_id)
+                ->update(['is_booked' => true, 'booking_id' => $booking->id]);
+
+            $held = true;
+        });
+
+        if ($held) {
+            dispatch(new SendBookingConfirmationNotification($payment->booking));
+        }
+    }
+
+    private function markPaymentFailed(Payment $payment, array $raw): void
+    {
+        $payment->refresh();
+
+        if ($payment->status !== Payment::STATUS_PENDING) {
+            return;
+        }
+
+        $payment->transitionTo(Payment::STATUS_FAILED, ['raw_response' => $raw]);
+    }
+
+    private function extractOrderId(array $data): ?string
+    {
+        return $data['gateway_order_id']
+            ?? $data['merchantOrderId']
+            ?? $data['payload']['payment']['entity']['order_id']
+            ?? $data['payload']['order']['entity']['id']
+            ?? null;
+    }
+
+    private function extractPaymentId(array $data): ?string
+    {
+        return $data['gateway_payment_id']
+            ?? $data['orderId']
+            ?? $data['payload']['payment']['entity']['id']
+            ?? null;
+    }
+
+    private function extractState(array $data): string
+    {
+        $state = strtoupper((string) ($data['state'] ?? $data['event'] ?? ''));
+
+        return match (true) {
+            in_array($state, ['COMPLETED', 'PAYMENT.CAPTURED', 'CAPTURED', 'SUCCESS'], true) => 'completed',
+            in_array($state, ['FAILED', 'PAYMENT.FAILED'], true) => 'failed',
+            default => 'pending',
+        };
+    }
+
+    private function isReplay(Request $request): bool
+    {
+        $timestamp = $request->header('X-Webhook-Timestamp');
+
+        return is_numeric($timestamp) && abs(now()->timestamp - (int) $timestamp) > 300;
     }
 }

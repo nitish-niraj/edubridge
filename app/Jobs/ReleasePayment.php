@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\Booking;
+use App\Models\Payment;
 use App\Models\TeacherEarning;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -25,28 +26,35 @@ class ReleasePayment implements ShouldQueue
     {
         $booking = Booking::with('payment', 'teacher')->find($this->bookingId);
 
-        if (! $booking || $booking->payment_status !== 'held') {
+        if (! $booking || $booking->payment_status !== 'held' || $booking->payment?->status !== Payment::STATUS_HELD) {
             return;
         }
 
         DB::transaction(function () use ($booking) {
-            $booking->payment->update([
-                'status'      => 'released',
+            $payment = $booking->payment()->lockForUpdate()->first();
+
+            if (! $payment || $payment->status !== Payment::STATUS_HELD) {
+                return;
+            }
+
+            $payment->transitionTo(Payment::STATUS_RELEASED, [
                 'released_at' => now(),
             ]);
 
             $booking->update(['payment_status' => 'released']);
 
-            TeacherEarning::create([
-                'teacher_id'   => $booking->teacher_id,
-                'payment_id'   => $booking->payment->id,
-                'booking_id'   => $booking->id,
-                'gross_amount' => $booking->price,
-                'platform_fee' => $booking->platform_fee,
-                'net_amount'   => $booking->teacher_payout,
-                'status'       => 'released',
-                'payout_date'  => now()->toDateString(),
-            ]);
+            TeacherEarning::firstOrCreate(
+                ['payment_id' => $payment->id],
+                [
+                    'teacher_id'   => $booking->teacher_id,
+                    'booking_id'   => $booking->id,
+                    'gross_amount' => $booking->price,
+                    'platform_fee' => $booking->platform_fee,
+                    'net_amount'   => $booking->teacher_payout,
+                    'status'       => 'released',
+                    'payout_date'  => now()->toDateString(),
+                ]
+            );
         });
 
         // TODO: Notify teacher about earnings credit

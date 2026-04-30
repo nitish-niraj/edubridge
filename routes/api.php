@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\TeacherController;
 use App\Http\Controllers\Api\TeacherSettingsController;
 use App\Http\Controllers\Api\VideoSessionController;
 use App\Http\Controllers\Admin\VerificationController;
+use App\Http\Controllers\Api\TeacherAvailabilityController;
 use App\Http\Controllers\Teacher\AvailabilityController;
 use App\Http\Resources\UserResource;
 use Illuminate\Http\Request;
@@ -69,7 +70,11 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::patch('/groups/{groupId}/members/{userId}/draw', [GroupController::class, 'toggleDraw']);
 
     // ─── Teacher Availability (API) ──────────────────────────────────────
-    Route::post('/teacher/availability', [AvailabilityController::class, 'store']);
+    Route::get('/teacher/availability', [TeacherAvailabilityController::class, 'index']);
+    Route::post('/teacher/availability', [TeacherAvailabilityController::class, 'store']);
+    Route::patch('/teacher/availability/{availability}', [TeacherAvailabilityController::class, 'update']);
+    Route::delete('/teacher/availability/{availability}', [TeacherAvailabilityController::class, 'destroy']);
+    Route::get('/teacher/slots', [TeacherAvailabilityController::class, 'slots']);
 
     // ─── Bookings ────────────────────────────────────────────────────────
     Route::get('/bookings', [BookingController::class, 'index']);
@@ -79,6 +84,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
     // ─── Payments ────────────────────────────────────────────────────────
     Route::post('/payments/initiate', [PaymentController::class, 'initiate']);
+    Route::post('/payments/verify', [PaymentController::class, 'verify']);
 
     // ─── Video Sessions ──────────────────────────────────────────────────
     Route::post('/video-sessions/{bookingId}/token', [VideoSessionController::class, 'token']);
@@ -112,6 +118,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
 });
 
 Route::post('/feedback', [FeedbackController::class, 'store'])->middleware('throttle:10,1');
+
+Route::post('/webhooks/payment', [PaymentController::class, 'webhook']);
 
 // ─── Admin API Routes ────────────────────────────────────────────────────────
 Route::middleware(['auth:sanctum', 'role:admin', 'admin.2fa'])->prefix('admin')->group(function () {

@@ -44,6 +44,12 @@ return [
         'env'            => env('PHONEPE_ENV', 'PRODUCTION'),
     ],
 
+    'razorpay' => [
+        'key'            => env('RAZORPAY_KEY'),
+        'secret'         => env('RAZORPAY_SECRET'),
+        'webhook_secret' => env('RAZORPAY_WEBHOOK_SECRET', env('RAZORPAY_SECRET')),
+    ],
+
     'twilio' => [
         'account_sid' => env('TWILIO_ACCOUNT_SID'),
         'api_key'     => env('TWILIO_API_KEY'),

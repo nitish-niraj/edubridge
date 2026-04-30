@@ -14,42 +14,60 @@ class GenerateBookingSlots extends Command
 
     public function handle(): int
     {
-        $availabilities = TeacherAvailability::where('is_active', true)
-            ->where('is_recurring', true)
-            ->get();
+        $availabilities = TeacherAvailability::where('is_active', true)->get();
 
         $today = Carbon::today();
         $end   = $today->copy()->addDays(28);
         $count = 0;
 
         foreach ($availabilities as $avail) {
-            $date = $today->copy();
-
-            while ($date->lte($end)) {
-                if (strtolower($date->format('l')) === $avail->day_of_week) {
-                    $exists = BookingSlot::where('teacher_id', $avail->teacher_id)
-                        ->where('slot_date', $date->toDateString())
-                        ->where('start_time', $avail->start_time)
-                        ->exists();
-
-                    if (! $exists) {
-                        BookingSlot::create([
-                            'teacher_id'      => $avail->teacher_id,
-                            'slot_date'        => $date->toDateString(),
-                            'start_time'       => $avail->start_time,
-                            'end_time'         => $avail->end_time,
-                            'duration_minutes' => Carbon::parse($avail->start_time)->diffInMinutes(Carbon::parse($avail->end_time)),
-                        ]);
+            if ($avail->is_recurring && $avail->day_of_week) {
+                $date = $today->copy();
+                while ($date->lte($end)) {
+                    if (strtolower($date->format('l')) === $avail->day_of_week) {
+                        if ($this->createSlotIfNotExists($avail->teacher_id, $date->toDateString(), $avail->start_time, $avail->end_time)) {
+                            $count++;
+                        }
+                    }
+                    $date->addDay();
+                }
+            } elseif (!$avail->is_recurring && $avail->specific_date) {
+                $date = Carbon::parse($avail->specific_date);
+                if ($date->between($today, $end)) {
+                    if ($this->createSlotIfNotExists($avail->teacher_id, $date->toDateString(), $avail->start_time, $avail->end_time)) {
                         $count++;
                     }
                 }
-
-                $date->addDay();
             }
         }
 
         $this->info("Generated {$count} new booking slots.");
 
         return Command::SUCCESS;
+    }
+
+    private function createSlotIfNotExists(int $teacherId, string $date, string $startTime, string $endTime): bool
+    {
+        // Check for booked slot overlap
+        $bookedExists = BookingSlot::where('teacher_id', $teacherId)
+            ->where('slot_date', $date)
+            ->where('start_time', '<', $endTime)
+            ->where('end_time', '>', $startTime)
+            ->where('is_booked', true)
+            ->exists();
+
+        if ($bookedExists) return false;
+
+        $slot = BookingSlot::firstOrCreate([
+            'teacher_id' => $teacherId,
+            'slot_date'  => $date,
+            'start_time' => $startTime,
+        ], [
+            'end_time'         => $endTime,
+            'duration_minutes' => Carbon::parse($startTime)->diffInMinutes(Carbon::parse($endTime)),
+            'is_booked'        => false,
+        ]);
+
+        return $slot->wasRecentlyCreated;
     }
 }

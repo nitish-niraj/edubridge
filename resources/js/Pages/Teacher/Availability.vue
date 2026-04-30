@@ -2,13 +2,24 @@
 import TeacherLayout from '@/Layouts/TeacherLayout.vue';
 import axios from 'axios';
 import { Head, Link } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 
-const props = defineProps({
-    availability: {
-        type: Object,
-        default: () => ({}),
-    },
+const availabilities = ref([]);
+const loading = ref(false);
+const saving = ref(false);
+const statusMessage = ref('');
+const statusType = ref('');
+const errors = ref({});
+
+const showForm = ref(false);
+const editingId = ref(null);
+
+const form = ref({
+    day_of_week: 'monday',
+    start_time: '09:00',
+    end_time: '17:00',
+    is_recurring: true,
+    specific_date: '',
 });
 
 const dayMeta = [
@@ -21,101 +32,105 @@ const dayMeta = [
     { key: 'sunday', label: 'Sunday' },
 ];
 
-const normalizeTime = (value) => (typeof value === 'string' ? value.slice(0, 5) : '');
-
-const days = ref(
-    dayMeta.map((day) => {
-        const existing = props.availability?.[day.key];
-
-        return {
-            day_of_week: day.key,
-            label: day.label,
-            enabled: Boolean(existing),
-            start_time: normalizeTime(existing?.start_time) || '09:00',
-            end_time: normalizeTime(existing?.end_time) || '17:00',
-        };
-    }),
-);
-
-const saving = ref(false);
-const statusMessage = ref('');
-const statusType = ref('');
-const errors = ref({});
-
 const setStatus = (type, message) => {
     statusType.value = type;
     statusMessage.value = message;
+    setTimeout(() => { statusMessage.value = ''; }, 5000);
 };
 
-const fieldError = (index, field) => errors.value?.[`days.${index}.${field}`]?.[0] || '';
-
-const validateLocally = () => {
-    const localErrors = {};
-
-    days.value.forEach((day, index) => {
-        if (!day.enabled) {
-            return;
-        }
-
-        if (!day.start_time) {
-            localErrors[`days.${index}.start_time`] = ['Start time is required.'];
-        }
-
-        if (!day.end_time) {
-            localErrors[`days.${index}.end_time`] = ['End time is required.'];
-        }
-
-        if (day.start_time && day.end_time && day.end_time <= day.start_time) {
-            localErrors[`days.${index}.end_time`] = ['End time must be after start time.'];
-        }
-    });
-
-    errors.value = localErrors;
-    return Object.keys(localErrors).length === 0;
-};
-
-const toggleDay = (day) => {
-    day.enabled = !day.enabled;
-    if (day.enabled) {
-        day.start_time = day.start_time || '09:00';
-        day.end_time = day.end_time || '17:00';
-    }
-};
-
-const save = async () => {
-    setStatus('', '');
-
-    if (!validateLocally()) {
-        setStatus('error', 'Please fix the highlighted time fields before saving.');
-        return;
-    }
-
-    saving.value = true;
-
+const fetchAvailability = async () => {
+    loading.value = true;
     try {
-        const payload = {
-            days: days.value.map((day) => ({
-                day_of_week: day.day_of_week,
-                enabled: day.enabled,
-                start_time: day.enabled ? day.start_time : null,
-                end_time: day.enabled ? day.end_time : null,
-            })),
-        };
+        const response = await axios.get('/api/teacher/availability');
+        availabilities.value = response.data.data || [];
+    } catch (e) {
+        setStatus('error', 'Failed to load availability.');
+    } finally {
+        loading.value = false;
+    }
+};
 
-        const response = await axios.post(route('teacher.availability.store'), payload);
-        errors.value = {};
-        setStatus('success', response?.data?.message || 'Availability saved successfully.');
+const openAddForm = () => {
+    editingId.value = null;
+    form.value = {
+        day_of_week: 'monday',
+        start_time: '09:00',
+        end_time: '17:00',
+        is_recurring: true,
+        specific_date: '',
+    };
+    errors.value = {};
+    showForm.value = true;
+};
+
+const openEditForm = (avail) => {
+    editingId.value = avail.id;
+    form.value = {
+        day_of_week: avail.day_of_week || 'monday',
+        start_time: avail.start_time.slice(0, 5),
+        end_time: avail.end_time.slice(0, 5),
+        is_recurring: avail.is_recurring,
+        specific_date: avail.specific_date ? avail.specific_date.slice(0, 10) : '',
+    };
+    errors.value = {};
+    showForm.value = true;
+};
+
+const saveSlot = async () => {
+    saving.value = true;
+    errors.value = {};
+    
+    try {
+        const payload = { ...form.value };
+        if (payload.is_recurring) {
+            payload.specific_date = null;
+        } else {
+            payload.day_of_week = null;
+        }
+
+        if (editingId.value) {
+            await axios.patch(`/api/teacher/availability/${editingId.value}`, payload);
+            setStatus('success', 'Time slot updated successfully.');
+        } else {
+            await axios.post('/api/teacher/availability', payload);
+            setStatus('success', 'Time slot added successfully.');
+        }
+        
+        showForm.value = false;
+        fetchAvailability();
     } catch (error) {
         if (error?.response?.status === 422) {
-            errors.value = error.response.data?.errors || {};
-            setStatus('error', 'Please fix the highlighted fields and try again.');
+            if (error.response.data.errors) {
+                errors.value = error.response.data.errors;
+            } else if (error.response.data.message) {
+                setStatus('error', error.response.data.message);
+            }
         } else {
-            setStatus('error', error?.response?.data?.message || 'Unable to save availability right now.');
+            setStatus('error', 'An error occurred while saving.');
         }
     } finally {
         saving.value = false;
     }
 };
+
+const deleteSlot = async (id) => {
+    if (!confirm('Are you sure you want to delete this time slot? Future unbooked slots will be removed.')) return;
+    
+    try {
+        await axios.delete(`/api/teacher/availability/${id}`);
+        setStatus('success', 'Time slot deleted.');
+        fetchAvailability();
+    } catch (error) {
+        setStatus('error', 'Failed to delete time slot.');
+    }
+};
+
+const recurringSlots = computed(() => availabilities.value.filter(a => a.is_recurring));
+const specificSlots = computed(() => availabilities.value.filter(a => !a.is_recurring));
+
+onMounted(() => {
+    fetchAvailability();
+});
 </script>
 
 <template>
@@ -127,52 +142,105 @@ const save = async () => {
                 <p class="eyebrow">Weekly Schedule</p>
                 <h1>Set your teaching hours</h1>
                 <p>
-                    Students can only book inside your enabled slots. Keep this schedule realistic so your bookings and attendance stay consistent.
+                    Students can only book inside your enabled slots. Set your recurring weekly schedule or add one-time exceptions for specific dates.
                 </p>
             </section>
 
             <section class="panel">
                 <header class="panel-header">
-                    <h2>Weekly availability</h2>
-                    <Link :href="route('teacher.dashboard')">Back to dashboard</Link>
+                    <h2>Your Availability Slots</h2>
+                    <button class="add-btn" @click="openAddForm">+ Add Slot</button>
                 </header>
-
-                <div class="days-grid">
-                    <article v-for="(day, index) in days" :key="day.day_of_week" class="day-card" :class="day.enabled ? 'active' : 'inactive'">
-                        <div class="day-top-row">
-                            <div>
-                                <h3>{{ day.label }}</h3>
-                                <p>{{ day.enabled ? 'Available for booking' : 'Unavailable' }}</p>
-                            </div>
-                            <button class="toggle-btn" type="button" @click="toggleDay(day)">
-                                {{ day.enabled ? 'Disable' : 'Enable' }}
-                            </button>
-                        </div>
-
-                        <div v-if="day.enabled" class="time-row">
-                            <label>
-                                <span>Start time</span>
-                                <input v-model="day.start_time" type="time" />
-                                <small v-if="fieldError(index, 'start_time')" class="error-copy">{{ fieldError(index, 'start_time') }}</small>
-                            </label>
-
-                            <label>
-                                <span>End time</span>
-                                <input v-model="day.end_time" type="time" />
-                                <small v-if="fieldError(index, 'end_time')" class="error-copy">{{ fieldError(index, 'end_time') }}</small>
-                            </label>
-                        </div>
-                    </article>
-                </div>
 
                 <p v-if="statusMessage" class="status-banner" :class="statusType === 'success' ? 'ok' : 'error'">
                     {{ statusMessage }}
                 </p>
 
-                <div class="actions">
-                    <button type="button" class="save-btn" :disabled="saving" @click="save">
-                        {{ saving ? 'Saving...' : 'Save Availability' }}
-                    </button>
+                <div v-if="showForm" class="form-card">
+                    <h3>{{ editingId ? 'Edit Time Slot' : 'Add Time Slot' }}</h3>
+                    
+                    <div class="form-row">
+                        <label>
+                            <span>Type</span>
+                            <select v-model="form.is_recurring">
+                                <option :value="true">Recurring Weekly</option>
+                                <option :value="false">Specific Date</option>
+                            </select>
+                        </label>
+                        
+                        <label v-if="form.is_recurring">
+                            <span>Day of Week</span>
+                            <select v-model="form.day_of_week">
+                                <option v-for="day in dayMeta" :key="day.key" :value="day.key">{{ day.label }}</option>
+                            </select>
+                            <small class="error-copy" v-if="errors.day_of_week">{{ errors.day_of_week[0] }}</small>
+                        </label>
+
+                        <label v-else>
+                            <span>Date</span>
+                            <input type="date" v-model="form.specific_date" />
+                            <small class="error-copy" v-if="errors.specific_date">{{ errors.specific_date[0] }}</small>
+                        </label>
+                    </div>
+
+                    <div class="form-row">
+                        <label>
+                            <span>Start Time</span>
+                            <input type="time" v-model="form.start_time" />
+                            <small class="error-copy" v-if="errors.start_time">{{ errors.start_time[0] }}</small>
+                        </label>
+
+                        <label>
+                            <span>End Time</span>
+                            <input type="time" v-model="form.end_time" />
+                            <small class="error-copy" v-if="errors.end_time">{{ errors.end_time[0] }}</small>
+                        </label>
+                    </div>
+
+                    <div class="form-actions">
+                        <button class="cancel-btn" @click="showForm = false">Cancel</button>
+                        <button class="save-btn" :disabled="saving" @click="saveSlot">{{ saving ? 'Saving...' : 'Save Slot' }}</button>
+                    </div>
+                </div>
+
+                <div v-if="loading" class="loading">Loading...</div>
+                
+                <div v-else-if="!availabilities.length && !showForm" class="empty">
+                    No availability slots configured yet. Click "+ Add Slot" to get started.
+                </div>
+
+                <div v-else class="slots-container">
+                    <div v-if="recurringSlots.length > 0">
+                        <h3 class="section-title">Recurring Weekly</h3>
+                        <div class="slots-grid">
+                            <article v-for="slot in recurringSlots" :key="slot.id" class="slot-card">
+                                <div class="slot-info">
+                                    <h4>{{ slot.day_of_week.charAt(0).toUpperCase() + slot.day_of_week.slice(1) }}</h4>
+                                    <p>{{ slot.start_time.slice(0, 5) }} - {{ slot.end_time.slice(0, 5) }}</p>
+                                </div>
+                                <div class="slot-actions">
+                                    <button class="edit-btn" @click="openEditForm(slot)">Edit</button>
+                                    <button class="delete-btn" @click="deleteSlot(slot.id)">Delete</button>
+                                </div>
+                            </article>
+                        </div>
+                    </div>
+
+                    <div v-if="specificSlots.length > 0">
+                        <h3 class="section-title">Specific Dates</h3>
+                        <div class="slots-grid">
+                            <article v-for="slot in specificSlots" :key="slot.id" class="slot-card">
+                                <div class="slot-info">
+                                    <h4>{{ slot.specific_date }}</h4>
+                                    <p>{{ slot.start_time.slice(0, 5) }} - {{ slot.end_time.slice(0, 5) }}</p>
+                                </div>
+                                <div class="slot-actions">
+                                    <button class="edit-btn" @click="openEditForm(slot)">Edit</button>
+                                    <button class="delete-btn" @click="deleteSlot(slot.id)">Delete</button>
+                                </div>
+                            </article>
+                        </div>
+                    </div>
                 </div>
             </section>
         </div>
@@ -219,14 +287,14 @@ h1 {
     border-radius: 14px;
     border: 1px solid #f0e8e0;
     background: #fff;
-    padding: 14px;
+    padding: 18px;
 }
 
 .panel-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 10px;
+    margin-bottom: 20px;
 }
 
 .panel-header h2 {
@@ -235,124 +303,10 @@ h1 {
     font-size: 20px;
 }
 
-.panel-header a {
-    color: #E8553E;
-    text-decoration: none;
-    font-weight: 700;
-    font-size: 14px;
-}
-
-.days-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
-}
-
-.day-card {
-    border-radius: 10px;
-    border: 1px solid #f0e8e0;
-    padding: 12px;
-    background: #fff;
-}
-
-.day-card.active {
-    background: #fff8f0;
-    border-color: #f8d5c8;
-}
-
-.day-top-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 12px;
-}
-
-.day-top-row h3 {
-    margin: 0;
-    color: #2D2D2D;
-    font-size: 17px;
-}
-
-.day-top-row p {
-    margin: 3px 0 0;
-    font-size: 13px;
-    color: #64748B;
-}
-
-.toggle-btn {
-    border: 1px solid #f2b7a8;
-    background: #fff;
-    color: #E8553E;
-    border-radius: 999px;
-    padding: 5px 10px;
-    font-weight: 700;
-    font-size: 12px;
-    cursor: pointer;
-}
-
-.time-row {
-    margin-top: 10px;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
-}
-
-label {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-}
-
-label span {
-    font-size: 12px;
-    color: #64748B;
-    font-weight: 700;
-}
-
-input[type='time'] {
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    padding: 7px 8px;
-    font-size: 14px;
-    color: #1f2937;
-    background: #fff;
-}
-
-.error-copy {
-    font-size: 12px;
-    color: #dc2626;
-}
-
-.status-banner {
-    margin-top: 12px;
-    border-radius: 8px;
-    border: 1px solid transparent;
-    padding: 9px 10px;
-    font-size: 14px;
-}
-
-.status-banner.ok {
-    background: #ecfdf3;
-    border-color: #86efac;
-    color: #166534;
-}
-
-.status-banner.error {
-    background: #fef2f2;
-    border-color: #fecaca;
-    color: #991b1b;
-}
-
-.actions {
-    margin-top: 12px;
-    display: flex;
-    justify-content: flex-end;
-}
-
-.save-btn {
+.add-btn {
     border: none;
     border-radius: 999px;
-    padding: 10px 16px;
+    padding: 8px 16px;
     background: #E8553E;
     color: #fff;
     font-size: 14px;
@@ -360,18 +314,165 @@ input[type='time'] {
     cursor: pointer;
 }
 
-.save-btn:disabled {
-    opacity: 0.7;
-    cursor: not-allowed;
+.form-card {
+    background: #fff8f0;
+    border: 1px solid #f8d5c8;
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 20px;
 }
 
-@media (max-width: 980px) {
-    .days-grid {
-        grid-template-columns: 1fr;
-    }
+.form-card h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #2D2D2D;
+    font-size: 18px;
+}
 
-    .time-row {
-        grid-template-columns: 1fr;
-    }
+.form-row {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+label {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    flex: 1;
+}
+
+label span {
+    font-size: 13px;
+    color: #64748B;
+    font-weight: 700;
+}
+
+input, select {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 9px;
+    font-size: 14px;
+    background: #fff;
+    color: #1f2937;
+}
+
+.error-copy {
+    font-size: 12px;
+    color: #dc2626;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.cancel-btn {
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    color: #4b5563;
+    padding: 8px 16px;
+    border-radius: 999px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.save-btn {
+    border: none;
+    background: #E8553E;
+    color: #fff;
+    padding: 8px 16px;
+    border-radius: 999px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.section-title {
+    margin-top: 20px;
+    margin-bottom: 10px;
+    color: #4b5563;
+    font-size: 16px;
+    border-bottom: 1px solid #f0e8e0;
+    padding-bottom: 5px;
+}
+
+.slots-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 15px;
+}
+
+.slot-card {
+    border: 1px solid #f0e8e0;
+    border-radius: 10px;
+    padding: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #fff;
+}
+
+.slot-info h4 {
+    margin: 0 0 5px 0;
+    color: #1f2937;
+    font-size: 16px;
+}
+
+.slot-info p {
+    margin: 0;
+    color: #6b7280;
+    font-size: 14px;
+}
+
+.slot-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.edit-btn, .delete-btn {
+    border: none;
+    background: transparent;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 5px;
+}
+
+.edit-btn {
+    color: #3b82f6;
+}
+
+.delete-btn {
+    color: #ef4444;
+}
+
+.status-banner {
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 15px;
+    font-size: 14px;
+}
+
+.status-banner.ok {
+    background: #ecfdf3;
+    color: #166534;
+    border: 1px solid #86efac;
+}
+
+.status-banner.error {
+    background: #fef2f2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+}
+
+.empty {
+    padding: 30px;
+    text-align: center;
+    color: #6b7280;
+    background: #f9fafb;
+    border-radius: 10px;
+    border: 1px dashed #e5e7eb;
 }
 </style>

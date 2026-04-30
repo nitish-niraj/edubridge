@@ -5,13 +5,14 @@ namespace App\Services;
 use App\Jobs\SendCancellationNotification;
 use App\Models\Booking;
 use App\Models\BookingSlot;
+use App\Models\Payment;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
 class BookingService
 {
     public function __construct(
-        protected PhonePeService $phonePeService
+        protected PaymentGatewayService $paymentGateway
     ) {}
 
     /**
@@ -31,25 +32,30 @@ class BookingService
 
         if ($isTeacher) {
             $refundAmount = $booking->price; // Teacher always full refund
-        } elseif ($isStudent && $hoursUntilSession > 2) {
-            $refundAmount = $booking->price; // Student early cancel — full refund
+        } elseif ($isStudent) {
+            $refundAmount = $hoursUntilSession > 2 ? $booking->price : 0;
         }
-        // Student late cancel → no refund
 
         DB::transaction(function () use ($booking, $refundAmount) {
-            $booking->update(['status' => 'cancelled']);
+            $booking->loadMissing('payment');
+
+            $booking->update([
+                'status' => 'cancelled',
+                'payment_status' => $refundAmount > 0 && $booking->payment?->status === Payment::STATUS_HELD
+                    ? 'refunded'
+                    : $booking->payment_status,
+            ]);
+
             BookingSlot::where('id', $booking->slot_id)
                 ->update(['is_booked' => false, 'booking_id' => null]);
 
-            if ($refundAmount > 0 && $booking->payment && $booking->payment->status === 'held') {
-                $refundOrderId = 'REFUND-' . $booking->id . '-' . time();
-                $this->phonePeService->initiateRefund(
-                    $refundOrderId,
-                    $booking->payment->merchant_order_id,
-                    (int) ($refundAmount * 100)
-                );
-                $booking->payment->update(['status' => 'refunded']);
-                $booking->update(['payment_status' => 'refunded']);
+            if ($refundAmount > 0 && $booking->payment && $booking->payment->status === Payment::STATUS_HELD) {
+                $refundResponse = $this->paymentGateway->refund($booking->payment);
+                $booking->payment->transitionTo(Payment::STATUS_REFUNDED, [
+                    'raw_response' => array_merge($booking->payment->raw_response ?? [], [
+                        'refund' => $refundResponse,
+                    ]),
+                ]);
             }
         });
 

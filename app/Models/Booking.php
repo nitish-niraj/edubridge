@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Jobs\ReleasePayment;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -37,6 +38,19 @@ class Booking extends Model
         'platform_fee'   => 'decimal:2',
         'teacher_payout' => 'decimal:2',
     ];
+
+    protected static function booted(): void
+    {
+        static::updated(function (Booking $booking): void {
+            if (
+                $booking->wasChanged('status')
+                && $booking->status === 'completed'
+                && $booking->payment_status === 'held'
+            ) {
+                ReleasePayment::dispatch($booking->id)->delay(now()->addHours(24));
+            }
+        });
+    }
 
     // ── Relationships ───────────────────────────────────────────────────────
 

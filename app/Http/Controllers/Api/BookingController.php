@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Models\BookingSlot;
 use App\Models\TeacherProfile;
+use App\Models\User;
 use App\Services\BookingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -59,54 +60,87 @@ class BookingController extends Controller
             'session_type' => 'nullable|in:solo,group',
         ]);
 
-        $slot = BookingSlot::findOrFail($request->slot_id);
         $student = auth()->user();
 
-        if ($slot->is_booked) {
-            return response()->json(['message' => 'This slot is already booked.'], 422);
+        if ($student->status !== 'active') {
+            return response()->json(['message' => 'Your account is not active.'], 403);
         }
 
-        if ($student->id === $slot->teacher_id) {
-            return response()->json(['message' => 'You cannot book your own slot.'], 422);
+        try {
+            $bookingData = DB::transaction(function () use ($request, $student) {
+                // 1. Lock the slot for update
+                $slot = BookingSlot::where('id', $request->slot_id)->lockForUpdate()->firstOrFail();
+
+                // 2. Check if already booked
+                if ($slot->is_booked) {
+                    abort(422, 'This slot is already booked.');
+                }
+
+                if ($student->id === $slot->teacher_id) {
+                    abort(422, 'You cannot book your own slot.');
+                }
+
+                // Teacher Validations
+                $teacher = User::findOrFail($slot->teacher_id);
+                if ($teacher->status !== 'active') {
+                    abort(422, 'The selected teacher is not currently active.');
+                }
+
+                $teacherProfile = TeacherProfile::where('user_id', $slot->teacher_id)->firstOrFail();
+                if (!$teacherProfile->is_verified) {
+                    abort(422, 'The selected teacher is not verified.');
+                }
+
+                // Check for duplicate booking at the same time
+                $duplicateExists = Booking::where('student_id', $student->id)
+                    ->where('start_at', '<', $slot->slot_date->format('Y-m-d') . ' ' . $slot->end_time)
+                    ->where('end_at', '>', $slot->slot_date->format('Y-m-d') . ' ' . $slot->start_time)
+                    ->whereNotIn('status', ['cancelled', 'no_show'])
+                    ->exists();
+
+                if ($duplicateExists) {
+                    abort(422, 'You already have a booking overlapping with this time.');
+                }
+
+                $isFree = $teacherProfile->is_free;
+                $price  = $isFree ? 0 : (float) $teacherProfile->hourly_rate;
+                $platformFee   = round($price * 0.12, 2);
+                $teacherPayout = round($price * 0.88, 2);
+
+                $booking = Booking::create([
+                    'student_id'     => $student->id,
+                    'teacher_id'     => $slot->teacher_id,
+                    'slot_id'        => $slot->id,
+                    'start_at'       => $slot->slot_date->format('Y-m-d') . ' ' . $slot->start_time,
+                    'end_at'         => $slot->slot_date->format('Y-m-d') . ' ' . $slot->end_time,
+                    'status'         => $isFree ? 'confirmed' : 'pending',
+                    'session_type'   => $request->input('session_type', 'solo'),
+                    'subject'        => $request->subject,
+                    'notes'          => $request->notes,
+                    'price'          => $price,
+                    'platform_fee'   => $platformFee,
+                    'teacher_payout' => $teacherPayout,
+                    'payment_status' => 'unpaid',
+                ]);
+
+                if ($isFree) {
+                    $slot->update(['is_booked' => true, 'booking_id' => $booking->id]);
+                }
+
+                return [
+                    'booking'          => $booking,
+                    'requires_payment' => ! $isFree,
+                    'amount'           => $isFree ? 0 : $price,
+                ];
+            });
+
+            $bookingData['booking']->load('student', 'teacher', 'slot');
+
+            return response()->json($bookingData, 201);
+        } catch (\Exception $e) {
+            $status = $e instanceof \Symfony\Component\HttpKernel\Exception\HttpException ? $e->getStatusCode() : 500;
+            return response()->json(['message' => $e->getMessage()], $status);
         }
-
-        $teacherProfile = TeacherProfile::where('user_id', $slot->teacher_id)->firstOrFail();
-        $isFree = $teacherProfile->is_free;
-        $price  = $isFree ? 0 : (float) $teacherProfile->hourly_rate;
-        $platformFee   = round($price * 0.12, 2);
-        $teacherPayout = round($price * 0.88, 2);
-
-        $booking = DB::transaction(function () use ($request, $slot, $student, $price, $platformFee, $teacherPayout, $isFree) {
-            $booking = Booking::create([
-                'student_id'     => $student->id,
-                'teacher_id'     => $slot->teacher_id,
-                'slot_id'        => $slot->id,
-                'start_at'       => $slot->slot_date->format('Y-m-d') . ' ' . $slot->start_time,
-                'end_at'         => $slot->slot_date->format('Y-m-d') . ' ' . $slot->end_time,
-                'status'         => $isFree ? 'confirmed' : 'pending',
-                'session_type'   => $request->input('session_type', 'solo'),
-                'subject'        => $request->subject,
-                'notes'          => $request->notes,
-                'price'          => $price,
-                'platform_fee'   => $platformFee,
-                'teacher_payout' => $teacherPayout,
-                'payment_status' => 'unpaid',
-            ]);
-
-            if ($isFree) {
-                $slot->update(['is_booked' => true, 'booking_id' => $booking->id]);
-            }
-
-            return $booking;
-        });
-
-        $booking->load('student', 'teacher', 'slot');
-
-        return response()->json([
-            'booking'          => $booking,
-            'requires_payment' => ! $isFree,
-            'amount'           => $isFree ? 0 : $price,
-        ], 201);
     }
 
     /**
@@ -146,8 +180,8 @@ class BookingController extends Controller
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
-        if (in_array($booking->status, ['cancelled', 'completed'])) {
-            return response()->json(['message' => 'Booking cannot be cancelled.'], 422);
+        if (in_array($booking->status, ['cancelled', 'completed', 'no_show'])) {
+            return response()->json(['message' => 'Booking cannot be cancelled from its current state.'], 422);
         }
 
         $result = $this->bookingService->cancelBooking($booking, $user);
@@ -172,6 +206,22 @@ class BookingController extends Controller
             return response()->json(['message' => 'Unauthorized.'], 403);
         }
 
-        return response()->json($booking);
+        $now = now();
+        $tooEarly = true;
+        $sessionExpired = true;
+
+        if ($booking->start_at) {
+            $joinStart = $booking->start_at->copy()->subMinutes(15);
+            $joinEnd = $booking->start_at->copy()->addMinutes(30);
+
+            $tooEarly = $now->isBefore($joinStart);
+            $sessionExpired = $now->isAfter($joinEnd);
+        }
+
+        $response = $booking->toArray();
+        $response['too_early'] = $tooEarly;
+        $response['session_expired'] = $sessionExpired;
+
+        return response()->json($response);
     }
 }

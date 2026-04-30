@@ -17,9 +17,9 @@ return new class extends Migration
             $table->decimal('platform_fee', 8, 2);
             $table->decimal('teacher_payout', 8, 2);
             $table->string('gateway', 20)->default('phonepe');
-            $table->string('merchant_order_id', 100)->unique();
-            $table->string('phonepe_order_id', 100)->nullable();
-            $table->enum('status', ['pending', 'captured', 'held', 'released', 'refunded', 'failed'])
+            $table->string('gateway_order_id', 100)->unique();
+            $table->string('gateway_payment_id', 100)->nullable()->index();
+            $table->enum('status', ['pending', 'held', 'released', 'refunded', 'failed'])
                   ->default('pending');
             $table->dateTime('paid_at')->nullable();
             $table->dateTime('released_at')->nullable();
