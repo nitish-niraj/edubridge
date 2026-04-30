@@ -237,7 +237,28 @@ class PaymentController extends Controller
             return;
         }
 
-        $payment->transitionTo(Payment::STATUS_FAILED, ['raw_response' => $raw]);
+        DB::transaction(function () use ($payment, $raw): void {
+            $lockedPayment = Payment::whereKey($payment->id)->lockForUpdate()->firstOrFail();
+
+            if ($lockedPayment->status !== Payment::STATUS_PENDING) {
+                return;
+            }
+
+            $booking = Booking::whereKey($lockedPayment->booking_id)->lockForUpdate()->first();
+            $lockedPayment->transitionTo(Payment::STATUS_FAILED, ['raw_response' => $raw]);
+
+            if (! $booking) {
+                return;
+            }
+
+            // If the booking was never confirmed/paid, cancel and release the slot reservation.
+            if ($booking->status === 'pending' && $booking->payment_status === 'unpaid') {
+                $booking->update(['status' => 'cancelled']);
+
+                BookingSlot::where('id', $booking->slot_id)
+                    ->update(['is_booked' => false, 'booking_id' => null]);
+            }
+        });
     }
 
     private function extractOrderId(array $data): ?string

@@ -87,8 +87,12 @@ Route::post('/register/teacher', [TeacherAuthController::class, 'register'])->na
 
 // ─── OTP Verification ────────────────────────────────────────────────────────
 Route::get('/verify-otp',    [VerifyOtpController::class, 'showForm'])->name('verify.otp.form');
-Route::post('/verify-otp',   [VerifyOtpController::class, 'verify'])->name('verify.otp.submit');
-Route::post('/resend-otp',   [VerifyOtpController::class, 'resend'])->name('verify.otp.resend');
+Route::post('/verify-otp',   [VerifyOtpController::class, 'verify'])
+    ->middleware('throttle:otp-verify')
+    ->name('verify.otp.submit');
+Route::post('/resend-otp',   [VerifyOtpController::class, 'resend'])
+    ->middleware('throttle:otp-resend')
+    ->name('verify.otp.resend');
 
 if (app()->environment('testing')) {
     Route::get('/test-verify-otp', function () {

@@ -3,17 +3,18 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\TeacherOnlyRequest;
+use App\Http\Requests\Api\TeacherAvailabilityStoreRequest;
+use App\Http\Requests\Api\TeacherAvailabilityUpdateRequest;
 use App\Models\BookingSlot;
 use App\Models\TeacherAvailability;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Validation\Rule;
 
 class TeacherAvailabilityController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    public function index(TeacherOnlyRequest $request): JsonResponse
     {
         $availabilities = $request->user()->teacherAvailability()
             ->where('is_active', true)
@@ -24,9 +25,9 @@ class TeacherAvailabilityController extends Controller
         return response()->json(['data' => $availabilities]);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(TeacherAvailabilityStoreRequest $request): JsonResponse
     {
-        $validated = $this->validateAvailability($request);
+        $validated = $request->validated();
         $this->ensureNoOverlap($request->user(), $validated);
 
         $availability = $request->user()->teacherAvailability()->create($validated);
@@ -36,13 +37,13 @@ class TeacherAvailabilityController extends Controller
         return response()->json(['data' => $availability, 'message' => 'Availability created successfully.'], 201);
     }
 
-    public function update(Request $request, TeacherAvailability $availability): JsonResponse
+    public function update(TeacherAvailabilityUpdateRequest $request, TeacherAvailability $availability): JsonResponse
     {
         if ($availability->teacher_id !== $request->user()->id) {
             abort(403);
         }
 
-        $validated = $this->validateAvailability($request);
+        $validated = $request->validated();
         $this->ensureNoOverlap($request->user(), $validated, $availability->id);
 
         $availability->update($validated);
@@ -52,7 +53,7 @@ class TeacherAvailabilityController extends Controller
         return response()->json(['data' => $availability, 'message' => 'Availability updated successfully.']);
     }
 
-    public function destroy(Request $request, TeacherAvailability $availability): JsonResponse
+    public function destroy(TeacherOnlyRequest $request, TeacherAvailability $availability): JsonResponse
     {
         if ($availability->teacher_id !== $request->user()->id) {
             abort(403);
@@ -66,7 +67,7 @@ class TeacherAvailabilityController extends Controller
         return response()->json(['message' => 'Availability removed.']);
     }
 
-    public function slots(Request $request): JsonResponse
+    public function slots(TeacherOnlyRequest $request): JsonResponse
     {
         $slots = BookingSlot::where('teacher_id', $request->user()->id)
             ->whereDate('slot_date', '>=', Carbon::today())
@@ -75,17 +76,6 @@ class TeacherAvailabilityController extends Controller
             ->get();
 
         return response()->json(['data' => $slots]);
-    }
-
-    private function validateAvailability(Request $request): array
-    {
-        return $request->validate([
-            'day_of_week'   => ['nullable', Rule::in(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'])],
-            'start_time'    => ['required', 'date_format:H:i'],
-            'end_time'      => ['required', 'date_format:H:i', 'after:start_time'],
-            'is_recurring'  => ['required', 'boolean'],
-            'specific_date' => ['nullable', 'date', 'after_or_equal:today'],
-        ]);
     }
 
     private function ensureNoOverlap(User $teacher, array $data, ?int $ignoreId = null): void

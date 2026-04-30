@@ -14,6 +14,8 @@ class SendMessageRequest extends FormRequest
 
     public function rules(): array
     {
+        $type = (string) $this->input('type');
+
         return [
             'type' => ['required', Rule::in(['text', 'image', 'file'])],
             'body' => [
@@ -25,8 +27,12 @@ class SendMessageRequest extends FormRequest
             'attachment' => [
                 'nullable',
                 'file',
-                'mimes:jpg,jpeg,png,webp',
-                'max:5120',
+                // Images: 5MB; Docs: 10MB
+                Rule::when(
+                    $type === 'file',
+                    ['mimes:jpg,jpeg,png,webp,pdf,txt,doc,docx', 'max:10240'],
+                    ['mimes:jpg,jpeg,png,webp', 'max:5120']
+                ),
                 Rule::requiredIf(fn (): bool => in_array($this->input('type'), ['image', 'file'], true)),
             ],
         ];

@@ -74,11 +74,13 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::patch('/groups/{groupId}/members/{userId}/draw-permission', [GroupController::class, 'toggleDraw']);
 
     // ─── Teacher Availability (API) ──────────────────────────────────────
-    Route::get('/teacher/availability', [TeacherAvailabilityController::class, 'index']);
-    Route::post('/teacher/availability', [TeacherAvailabilityController::class, 'store']);
-    Route::patch('/teacher/availability/{availability}', [TeacherAvailabilityController::class, 'update']);
-    Route::delete('/teacher/availability/{availability}', [TeacherAvailabilityController::class, 'destroy']);
-    Route::get('/teacher/slots', [TeacherAvailabilityController::class, 'slots']);
+    Route::middleware('role:teacher')->group(function (): void {
+        Route::get('/teacher/availability', [TeacherAvailabilityController::class, 'index']);
+        Route::post('/teacher/availability', [TeacherAvailabilityController::class, 'store']);
+        Route::patch('/teacher/availability/{availability}', [TeacherAvailabilityController::class, 'update']);
+        Route::delete('/teacher/availability/{availability}', [TeacherAvailabilityController::class, 'destroy']);
+        Route::get('/teacher/slots', [TeacherAvailabilityController::class, 'slots']);
+    });
 
     // ─── Bookings ────────────────────────────────────────────────────────
     Route::get('/bookings', [BookingController::class, 'index']);

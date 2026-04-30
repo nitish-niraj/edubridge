@@ -68,7 +68,7 @@ class BookingController extends Controller
         }
 
         try {
-            $bookingData = DB::transaction(function () use ($request, $student) {
+            $bookingData = DB::transaction(function () use ($validated, $student) {
                 // 1. Lock the slot for update
                 $slot = BookingSlot::where('id', $validated['slot_id'])->lockForUpdate()->firstOrFail();
 
@@ -124,9 +124,9 @@ class BookingController extends Controller
                     'payment_status' => 'unpaid',
                 ]);
 
-                if ($isFree) {
-                    $slot->update(['is_booked' => true, 'booking_id' => $booking->id]);
-                }
+                // Reserve the slot immediately to prevent double-booking,
+                // and release it again if payment fails/cancelled.
+                $slot->update(['is_booked' => true, 'booking_id' => $booking->id]);
 
                 return [
                     'booking'          => $booking,
