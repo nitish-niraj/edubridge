@@ -2,53 +2,21 @@
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     <meta charset="utf-8">
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id={{ config('services.ga.measurement_id') ?: config('services.google_analytics.measurement_id') }}"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', '{{ config('services.ga.measurement_id') ?: config('services.google_analytics.measurement_id') }}');
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#0d3b66">
     @if(!empty($seoTags))
         {!! $seoTags !!}
     @endif
     @stack('seo')
-
-    @if(app()->environment('production') && (config('services.ga.measurement_id') ?: config('services.google_analytics.measurement_id')))
-        <link rel="preconnect" href="https://www.googletagmanager.com">
-        <link rel="preconnect" href="https://www.google-analytics.com">
-        <script async src="https://www.googletagmanager.com/gtag/js?id={{ config('services.ga.measurement_id') ?: config('services.google_analytics.measurement_id') }}"></script>
-        <script>
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            window.gtag = window.gtag || gtag;
-
-            const consentKey = 'edubridge_cookie_consent';
-            let consentValue = null;
-
-            try {
-                consentValue = window.localStorage ? localStorage.getItem(consentKey) : null;
-            } catch (error) {
-                consentValue = null;
-            }
-
-            gtag('js', new Date());
-            gtag('consent', 'default', {
-                analytics_storage: 'denied',
-                ad_storage: 'denied',
-                ad_user_data: 'denied',
-                ad_personalization: 'denied',
-            });
-
-            if (consentValue === 'accepted') {
-                gtag('consent', 'update', {
-                    analytics_storage: 'granted',
-                    ad_storage: 'denied',
-                    ad_user_data: 'denied',
-                    ad_personalization: 'denied',
-                });
-            }
-
-            gtag('config', '{{ config('services.ga.measurement_id') ?: config('services.google_analytics.measurement_id') }}', {
-                anonymize_ip: true,
-            });
-        </script>
-    @endif
 
     <link rel="icon" href="{{ asset('favicon.ico') }}" type="image/x-icon">
     <link rel="preconnect" href="https://fonts.googleapis.com">

@@ -12,17 +12,17 @@ use App\Models\Booking;
 use App\Models\ClassMember;
 use App\Models\Conversation;
 use App\Models\VideoSession;
-use App\Services\TwilioService;
+use App\Services\DailyService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Sentry\Breadcrumb;
-use Twilio\Security\RequestValidator;
 
 class VideoSessionController extends Controller
 {
     public function __construct(
-        protected TwilioService $twilioService
+        protected DailyService $dailyService
     ) {}
 
     /**
@@ -47,9 +47,17 @@ class VideoSessionController extends Controller
         }
 
         $roomName = $this->roomName($bookingId);
+
+        try {
+            $roomUrl = $this->dailyService->ensureRoom($roomName);
+        } catch (\Throwable $exception) {
+            return $this->videoProviderUnavailableResponse($exception);
+        }
+
         $this->ensureVideoSession($booking, $roomName);
 
         $identity = ($user->id === $booking->student_id ? 'student-' : 'teacher-') . $user->id;
+        $isOwner  = $user->id === $booking->teacher_id;
 
         $this->addSentryBreadcrumb('video.token.generated', [
             'booking_id' => $bookingId,
@@ -57,10 +65,15 @@ class VideoSessionController extends Controller
             'identity' => $identity,
         ]);
 
-        $token = $this->twilioService->generateVideoToken($roomName, $identity);
+        try {
+            $token = $this->dailyService->generateMeetingToken($roomName, $identity, $isOwner);
+        } catch (\Throwable $exception) {
+            return $this->videoProviderUnavailableResponse($exception);
+        }
 
         return response()->json([
             'token'           => $token,
+            'room_url'        => $roomUrl,
             'room_name'       => $roomName,
             'identity'        => $identity,
             'too_early'       => false,
@@ -87,6 +100,12 @@ class VideoSessionController extends Controller
 
         $roomName = 'edubridge-group-' . $conversationId . '-' . now()->format('Ymd');
 
+        try {
+            $roomUrl = $this->dailyService->ensureRoom($roomName);
+        } catch (\Throwable $exception) {
+            return $this->videoProviderUnavailableResponse($exception);
+        }
+
         $videoSession = VideoSession::query()
             ->where('conversation_id', $conversation->id)
             ->where('is_group', true)
@@ -107,7 +126,11 @@ class VideoSessionController extends Controller
         }
 
         $identity = 'teacher-' . $user->id;
-        $token = $this->twilioService->generateVideoToken($videoSession->room_name, $identity);
+        try {
+            $token = $this->dailyService->generateMeetingToken($videoSession->room_name, $identity, true);
+        } catch (\Throwable $exception) {
+            return $this->videoProviderUnavailableResponse($exception);
+        }
 
         // Broadcast to all group members
         broadcast(new GroupSessionStarted(
@@ -119,6 +142,7 @@ class VideoSessionController extends Controller
 
         return response()->json([
             'token'            => $token,
+            'room_url'         => $roomUrl,
             'room_name'        => $videoSession->room_name,
             'identity'         => $identity,
             'video_session_id' => $videoSession->id,
@@ -160,11 +184,23 @@ class VideoSessionController extends Controller
             return response()->json(['message' => 'No active session right now.'], 404);
         }
 
+        try {
+            $roomUrl = $this->dailyService->ensureRoom($videoSession->room_name);
+        } catch (\Throwable $exception) {
+            return $this->videoProviderUnavailableResponse($exception);
+        }
+
         $identity = 'student-' . $user->id;
-        $token = $this->twilioService->generateVideoToken($videoSession->room_name, $identity);
+
+        try {
+            $token = $this->dailyService->generateMeetingToken($videoSession->room_name, $identity, false);
+        } catch (\Throwable $exception) {
+            return $this->videoProviderUnavailableResponse($exception);
+        }
 
         return response()->json([
             'token'            => $token,
+            'room_url'         => $roomUrl,
             'room_name'        => $videoSession->room_name,
             'identity'         => $identity,
             'video_session_id' => $videoSession->id,
@@ -367,65 +403,52 @@ class VideoSessionController extends Controller
     }
 
     /**
-     * POST /api/webhooks/twilio/recording-complete
-     * Twilio webhook for recording completion.
+     * POST /api/webhooks/daily/recording-ready
+     * Daily.co webhook for recording completion.
      */
     public function recordingWebhook(Request $request): JsonResponse
     {
-        $twilioSignature = (string) $request->header('X-Twilio-Signature', '');
-        $twilioAuthToken = (string) config('services.twilio.auth_token');
+        $event = $request->input('event');
+        $payload = $request->input('payload');
 
-        if ($twilioSignature === '' || $twilioAuthToken === '') {
-            return response()->json(['message' => 'Invalid signature.'], 400);
-        }
-
-        $validator = new RequestValidator($twilioAuthToken);
-        $isValidSignature = $validator->validate($twilioSignature, $request->fullUrl(), $request->post());
-
-        if (! $isValidSignature) {
-            return response()->json(['message' => 'Invalid signature.'], 400);
-        }
-
-        $roomSid       = $request->input('RoomSid');
-        $compositionSid = $request->input('CompositionSid');
-        $statusCallbackEvent = $request->input('StatusCallbackEvent');
-
-        if ($statusCallbackEvent !== 'composition-available') {
+        if ($event !== 'recording.ready') {
             return response()->json(['message' => 'Ignored.']);
         }
 
-        // Find video session by room SID or name
-        $videoSession = VideoSession::where('room_name', 'like', '%' . $roomSid . '%')
-            ->orWhere('composition_sid', $compositionSid)
+        $roomName = $payload['room_name'] ?? null;
+        $downloadUrl = $payload['download_url'] ?? null;
+        $recordingId = $payload['recording_id'] ?? null;
+
+        if (! $roomName || ! $downloadUrl) {
+            return response()->json(['message' => 'Invalid payload.'], 400);
+        }
+
+        // Find video session by room name
+        $videoSession = VideoSession::where('room_name', $roomName)
+            ->whereNull('ended_at')
+            ->latest()
             ->first();
+
+        if (! $videoSession) {
+            // Fallback: search by room name only
+            $videoSession = VideoSession::where('room_name', $roomName)->latest()->first();
+        }
 
         if (! $videoSession) {
             return response()->json(['message' => 'Session not found.'], 404);
         }
 
-        // Download from Twilio and store to S3
-        $downloadUrl = "https://video.twilio.com/v1/Compositions/{$compositionSid}/Media";
+        // Download from Daily and store to S3
         $s3Path = "recordings/{$videoSession->id}/session.mp4";
 
         try {
-            $twilioSid   = config('services.twilio.account_sid');
-            $twilioToken = config('services.twilio.auth_token');
-            $mediaUrl    = $downloadUrl . '?Ttl=3600';
+            $response = Http::get($downloadUrl);
 
-            // Get redirect URL with auth
-            $ch = curl_init();
-            curl_setopt($ch, CURLOPT_URL, $mediaUrl);
-            curl_setopt($ch, CURLOPT_USERPWD, "{$twilioSid}:{$twilioToken}");
-            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            $content = curl_exec($ch);
-            curl_close($ch);
-
-            if ($content) {
-                Storage::disk('s3')->put($s3Path, $content, 'private');
+            if ($response->successful()) {
+                Storage::disk('s3')->put($s3Path, $response->body(), 'private');
                 $videoSession->update([
                     'recording_url'   => $s3Path,
-                    'composition_sid' => $compositionSid,
+                    'composition_sid' => $recordingId, // Repurposing field for recording ID
                 ]);
             }
         } catch (\Throwable $e) {
@@ -493,7 +516,7 @@ class VideoSessionController extends Controller
             ['booking_id' => $booking->id],
             [
                 'room_name' => $roomName,
-                'room_type' => 'group',
+                'room_type' => 'peer-to-peer',
                 'is_group' => false,
                 'host_id' => $booking->teacher_id,
             ]
@@ -510,8 +533,8 @@ class VideoSessionController extends Controller
             $updates['room_name'] = $roomName;
         }
 
-        if ($videoSession->room_type !== 'group') {
-            $updates['room_type'] = 'group';
+        if ($videoSession->room_type !== 'peer-to-peer') {
+            $updates['room_type'] = 'peer-to-peer';
         }
 
         if ($videoSession->host_id !== $booking->teacher_id) {
@@ -533,6 +556,18 @@ class VideoSessionController extends Controller
     private function roomName(int $bookingId): string
     {
         return 'edubridge-' . $bookingId;
+    }
+
+    private function videoProviderUnavailableResponse(\Throwable $exception): JsonResponse
+    {
+        report($exception);
+
+        return response()->json([
+            'message' => app()->environment('local')
+                ? $exception->getMessage()
+                : 'Video service is temporarily unavailable. Please try again shortly.',
+            'video_unavailable' => true,
+        ], 503);
     }
 
     private function joinWindowErrorResponse(Booking $booking): ?JsonResponse

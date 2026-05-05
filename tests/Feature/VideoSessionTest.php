@@ -7,7 +7,7 @@ use App\Models\BookingSlot;
 use App\Models\TeacherProfile;
 use App\Models\User;
 use App\Models\VideoSession;
-use App\Services\TwilioService;
+use App\Services\DailyService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Mockery;
@@ -47,7 +47,7 @@ class VideoSessionTest extends TestCase
     public function test_token_endpoint_returns_token_for_valid_participant(): void
     {
         $booking = $this->createBooking(startAt: now()->addMinutes(15));
-        $this->mockTwilioToken(
+        $this->mockDailyToken(
             roomName: "edubridge-{$booking->id}",
             identity: "student-{$this->student->id}",
             token: 'jwt-token-here',
@@ -97,16 +97,24 @@ class VideoSessionTest extends TestCase
             endAt: now()->addMinutes(29),
         );
 
-        $mock = Mockery::mock(TwilioService::class);
-        $mock->shouldReceive('generateVideoToken')
+        $mock = Mockery::mock(DailyService::class);
+        $mock->shouldReceive('ensureRoom')
             ->once()
-            ->with("edubridge-{$onEarlyBoundary->id}", "student-{$this->student->id}")
+            ->with("edubridge-{$onEarlyBoundary->id}")
+            ->andReturn("https://daily.example/edubridge-{$onEarlyBoundary->id}");
+        $mock->shouldReceive('generateMeetingToken')
+            ->once()
+            ->with("edubridge-{$onEarlyBoundary->id}", "student-{$this->student->id}", false)
             ->andReturn('early-boundary-token');
-        $mock->shouldReceive('generateVideoToken')
+        $mock->shouldReceive('ensureRoom')
             ->once()
-            ->with("edubridge-{$onLateBoundary->id}", "student-{$this->student->id}")
+            ->with("edubridge-{$onLateBoundary->id}")
+            ->andReturn("https://daily.example/edubridge-{$onLateBoundary->id}");
+        $mock->shouldReceive('generateMeetingToken')
+            ->once()
+            ->with("edubridge-{$onLateBoundary->id}", "student-{$this->student->id}", false)
             ->andReturn('late-boundary-token');
-        $this->app->instance(TwilioService::class, $mock);
+        $this->app->instance(DailyService::class, $mock);
 
         $this->actingAs($this->student)
             ->postJson("/api/video-sessions/{$tooEarly->id}/token")
@@ -260,14 +268,18 @@ class VideoSessionTest extends TestCase
         ]);
     }
 
-    private function mockTwilioToken(string $roomName, string $identity, string $token): void
+    private function mockDailyToken(string $roomName, string $identity, string $token): void
     {
-        $mock = Mockery::mock(TwilioService::class);
-        $mock->shouldReceive('generateVideoToken')
+        $mock = Mockery::mock(DailyService::class);
+        $mock->shouldReceive('ensureRoom')
             ->once()
-            ->with($roomName, $identity)
+            ->with($roomName)
+            ->andReturn("https://daily.example/{$roomName}");
+        $mock->shouldReceive('generateMeetingToken')
+            ->once()
+            ->with($roomName, $identity, false)
             ->andReturn($token);
 
-        $this->app->instance(TwilioService::class, $mock);
+        $this->app->instance(DailyService::class, $mock);
     }
 }

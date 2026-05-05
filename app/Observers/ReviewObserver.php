@@ -3,6 +3,8 @@
 namespace App\Observers;
 
 use App\Models\Review;
+use Illuminate\Cache\TaggableStore;
+use Illuminate\Support\Facades\Cache;
 
 class ReviewObserver
 {
@@ -29,5 +31,29 @@ class ReviewObserver
         if ($isFlagged) {
             $review->updateQuietly(['is_flagged' => true]);
         }
+
+        $this->invalidateTeachersCache();
+    }
+
+    public function updated(Review $review): void
+    {
+        if ($review->wasChanged(['is_visible', 'rating', 'comment'])) {
+            $this->invalidateTeachersCache();
+        }
+    }
+
+    public function deleted(Review $review): void
+    {
+        $this->invalidateTeachersCache();
+    }
+
+    private function invalidateTeachersCache(): void
+    {
+        if (Cache::getStore() instanceof TaggableStore) {
+            Cache::tags(['teachers'])->flush();
+        }
+
+        $version = (int) Cache::get('teachers:cache_version', 1);
+        Cache::forever('teachers:cache_version', $version + 1);
     }
 }

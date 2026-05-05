@@ -9,6 +9,7 @@ use App\Http\Requests\Api\TeacherAvailabilityPublicRequest;
 use App\Jobs\SendBookingConfirmationNotification;
 use App\Models\Booking;
 use App\Models\BookingSlot;
+use App\Models\TeacherAvailability;
 use App\Models\TeacherEarning;
 use App\Models\TeacherProfile;
 use App\Models\User;
@@ -17,6 +18,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class BookingController extends Controller
 {
@@ -33,15 +35,22 @@ class BookingController extends Controller
         $month = $validated['month'] ?? now()->format('Y-m');
         $start = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
         $end   = $start->copy()->endOfMonth();
+        $teacherProfile = TeacherProfile::where('user_id', $id)->first();
+
+        $this->refreshBookableSlotsForMonth($id, $start, $end);
 
         $slots = BookingSlot::where('teacher_id', $id)
             ->whereBetween('slot_date', [$start->toDateString(), $end->toDateString()])
             ->where('is_booked', false)
+            ->whereNull('booking_id')
             ->orderBy('slot_date')
             ->orderBy('start_time')
             ->get();
 
         $grouped = $slots->groupBy(fn ($s) => $s->slot_date->format('Y-m-d'));
+
+        $hourlyRate = (float) ($teacherProfile?->hourly_rate ?? 0);
+        $isFree = (bool) ($teacherProfile?->is_free ?? $hourlyRate <= 0);
 
         return response()->json([
             'available_dates' => $grouped->keys()->values(),
@@ -50,6 +59,10 @@ class BookingController extends Controller
                 'start_time'       => substr($s->start_time, 0, 5),
                 'end_time'         => substr($s->end_time, 0, 5),
                 'duration_minutes' => $s->duration_minutes,
+                'hourly_rate'      => $isFree ? 0 : $hourlyRate,
+                'price'            => $isFree ? 0 : round($hourlyRate * ((int) $s->duration_minutes / 60), 2),
+                'platform_fee'     => $isFree ? 0 : round(($hourlyRate * ((int) $s->duration_minutes / 60)) * 0.12, 2),
+                'is_free'          => $isFree,
             ])->values()),
         ]);
     }
@@ -72,13 +85,24 @@ class BookingController extends Controller
                 // 1. Lock the slot for update
                 $slot = BookingSlot::where('id', $validated['slot_id'])->lockForUpdate()->firstOrFail();
 
-                // 2. Check if already booked
+                // 2. Check if already booked (confirmed) or reserved (pending booking)
                 if ($slot->is_booked) {
                     abort(422, 'This slot is already booked.');
                 }
 
+                if ($slot->booking_id) {
+                    $existingBooking = Booking::query()->whereKey($slot->booking_id)->first();
+                    if ($existingBooking && ! in_array($existingBooking->status, ['cancelled', 'no_show'], true)) {
+                        abort(422, 'This slot is already booked.');
+                    }
+                }
+
                 if ($student->id === $slot->teacher_id) {
                     abort(422, 'You cannot book your own slot.');
+                }
+
+                if (! $student->isStudent()) {
+                    abort(403, 'Only students can create bookings.');
                 }
 
                 // Teacher Validations
@@ -104,7 +128,8 @@ class BookingController extends Controller
                 }
 
                 $isFree = $teacherProfile->is_free;
-                $price  = $isFree ? 0 : (float) $teacherProfile->hourly_rate;
+                $durationHours = max(1, (int) $slot->duration_minutes) / 60;
+                $price  = $isFree ? 0 : round((float) $teacherProfile->hourly_rate * $durationHours, 2);
                 $platformFee   = round($price * 0.12, 2);
                 $teacherPayout = round($price * 0.88, 2);
 
@@ -124,9 +149,11 @@ class BookingController extends Controller
                     'payment_status' => 'unpaid',
                 ]);
 
-                // Reserve the slot immediately to prevent double-booking,
-                // and release it again if payment fails/cancelled.
-                $slot->update(['is_booked' => true, 'booking_id' => $booking->id]);
+                // Reserve slot for this booking; only mark is_booked=true once confirmed/paid.
+                $slot->update([
+                    'booking_id' => $booking->id,
+                    'is_booked' => $isFree,
+                ]);
 
                 return [
                     'booking'          => $booking,
@@ -135,7 +162,18 @@ class BookingController extends Controller
                 ];
             });
 
-            $bookingData['booking']->load('student', 'teacher', 'slot');
+            $bookingData['booking']->load([
+                'student:id,name,avatar,role,status',
+                'teacher:id,name,avatar,role,status',
+                'slot:id,teacher_id,slot_date,start_time,end_time,duration_minutes,is_booked',
+            ]);
+
+            Log::info('Booking created.', [
+                'booking_id' => $bookingData['booking']->id,
+                'student_id' => $student->id,
+                'teacher_id' => $bookingData['booking']->teacher_id,
+                'requires_payment' => (bool) $bookingData['requires_payment'],
+            ]);
 
             if (! $bookingData['requires_payment']) {
                 SendBookingConfirmationNotification::dispatch($bookingData['booking']);
@@ -144,6 +182,12 @@ class BookingController extends Controller
             return response()->json($bookingData, 201);
         } catch (\Exception $e) {
             $status = $e instanceof \Symfony\Component\HttpKernel\Exception\HttpException ? $e->getStatusCode() : 500;
+            Log::warning('Booking creation failed.', [
+                'student_id' => $student->id ?? null,
+                'slot_id' => $validated['slot_id'] ?? null,
+                'status' => $status,
+                'error' => $e->getMessage(),
+            ]);
             return response()->json(['message' => $e->getMessage()], $status);
         }
     }
@@ -167,7 +211,13 @@ class BookingController extends Controller
             $query->where('status', $validated['status']);
         }
 
-        $bookings = $query->with(['student', 'teacher', 'slot', 'videoSession', 'review'])
+        $bookings = $query->with([
+            'student:id,name,avatar,role,status',
+            'teacher:id,name,avatar,role,status',
+            'slot:id,teacher_id,slot_date,start_time,end_time,duration_minutes,is_booked',
+            'videoSession:id,booking_id,started_at,ended_at,duration_minutes,recording_url',
+            'review:id,booking_id,reviewer_id,reviewee_id,rating,comment,is_visible,is_flagged,created_at',
+        ])
             ->orderByDesc('start_at')
             ->paginate(20);
 
@@ -211,6 +261,12 @@ class BookingController extends Controller
         }
 
         $result = $this->bookingService->cancelBooking($booking, $user);
+        Log::info('Booking cancelled.', [
+            'booking_id' => $booking->id,
+            'cancelled_by' => $user->id,
+            'refund_amount' => (float) ($result['refund_amount'] ?? 0),
+            'refunded' => (bool) ($result['refunded'] ?? false),
+        ]);
 
         return response()->json([
             'message'       => 'Booking cancelled successfully.',
@@ -224,7 +280,14 @@ class BookingController extends Controller
      */
     public function show(int $id): JsonResponse
     {
-        $booking = Booking::with(['student', 'teacher', 'slot', 'videoSession', 'review', 'payment'])
+        $booking = Booking::with([
+            'student:id,name,avatar,role,status',
+            'teacher:id,name,avatar,role,status',
+            'slot:id,teacher_id,slot_date,start_time,end_time,duration_minutes,is_booked',
+            'videoSession:id,booking_id,started_at,ended_at,duration_minutes,recording_url',
+            'review:id,booking_id,reviewer_id,reviewee_id,rating,comment,is_visible,is_flagged,created_at',
+            'payment:id,booking_id,status,amount,amount_paise,platform_fee,teacher_payout,paid_at,released_at',
+        ])
             ->findOrFail($id);
 
         $user = auth()->user();
@@ -249,5 +312,66 @@ class BookingController extends Controller
         $response['session_expired'] = $sessionExpired;
 
         return response()->json($response);
+    }
+
+    private function refreshBookableSlotsForMonth(int $teacherId, Carbon $start, Carbon $end): void
+    {
+        BookingSlot::query()
+            ->where('teacher_id', $teacherId)
+            ->whereBetween('slot_date', [$start->toDateString(), $end->toDateString()])
+            ->where('is_booked', false)
+            ->whereNull('booking_id')
+            ->where('duration_minutes', '>', 60)
+            ->delete();
+
+        $availabilities = TeacherAvailability::query()
+            ->where('teacher_id', $teacherId)
+            ->where('is_active', true)
+            ->get();
+
+        foreach ($availabilities as $availability) {
+            $date = $start->copy();
+
+            while ($date->lte($end)) {
+                $matchesDate = $availability->is_recurring
+                    ? strtolower($date->format('l')) === $availability->day_of_week
+                    : $availability->specific_date && $date->isSameDay(Carbon::parse($availability->specific_date));
+
+                if ($matchesDate && $date->gte(Carbon::today())) {
+                    $slotStart = Carbon::parse($date->toDateString() . ' ' . $availability->start_time);
+                    $slotEnd = Carbon::parse($date->toDateString() . ' ' . $availability->end_time);
+
+                    while ($slotStart->copy()->addMinutes(60)->lte($slotEnd)) {
+                        $chunkEnd = $slotStart->copy()->addMinutes(60);
+
+                        $reserved = BookingSlot::query()
+                            ->where('teacher_id', $teacherId)
+                            ->where('slot_date', $date->toDateString())
+                            ->where('start_time', '<', $chunkEnd->format('H:i:s'))
+                            ->where('end_time', '>', $slotStart->format('H:i:s'))
+                            ->where(function ($query): void {
+                                $query->where('is_booked', true)->orWhereNotNull('booking_id');
+                            })
+                            ->exists();
+
+                        if (! $reserved) {
+                            BookingSlot::firstOrCreate([
+                                'teacher_id' => $teacherId,
+                                'slot_date' => $date->toDateString(),
+                                'start_time' => $slotStart->format('H:i:s'),
+                            ], [
+                                'end_time' => $chunkEnd->format('H:i:s'),
+                                'duration_minutes' => 60,
+                                'is_booked' => false,
+                            ]);
+                        }
+
+                        $slotStart = $chunkEnd;
+                    }
+                }
+
+                $date->addDay();
+            }
+        }
     }
 }

@@ -12,7 +12,6 @@ use App\Models\Booking;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Mail;
-use Twilio\Rest\Client;
 
 class NotificationService
 {
@@ -22,10 +21,6 @@ class NotificationService
 
         $this->mailIfEnabled($booking->student, 'booking_confirmed_email', new BookingConfirmedMail($booking, 'student'));
         $this->mailIfEnabled($booking->teacher, 'booking_confirmed_email', new BookingConfirmedMail($booking, 'teacher'));
-
-        $message = 'EduBridge: Your session on ' . $booking->start_at->format('M j, g:i A') . ' is confirmed.';
-        $this->smsIfEnabled($booking->student, 'booking_confirmed_sms', $message);
-        $this->smsIfEnabled($booking->teacher, 'booking_confirmed_sms', $message);
     }
 
     public function sendBookingCancelled(Booking $booking, float $refundAmount = 0): void
@@ -47,12 +42,6 @@ class NotificationService
 
         $this->mailIfEnabled($booking->student, 'session_reminder_email', new SessionReminderMail($booking, 'student', $minutesBefore));
         $this->mailIfEnabled($booking->teacher, 'session_reminder_email', new SessionReminderMail($booking, 'teacher', $minutesBefore));
-
-        if ($minutesBefore === 15) {
-            $message = 'EduBridge: Your session starts in 15 minutes. Join from your sessions page.';
-            $this->smsIfEnabled($booking->student, 'session_reminder_sms', $message);
-            $this->smsIfEnabled($booking->teacher, 'session_reminder_sms', $message);
-        }
     }
 
     public function sendSessionCompleted(Booking $booking): void
@@ -101,26 +90,6 @@ class NotificationService
         }
 
         Mail::to($user->email)->send($mailable);
-    }
-
-    private function smsIfEnabled(?User $user, string $preference, string $message): void
-    {
-        if (! $user?->phone || ! $this->preferenceEnabled($user, $preference)) {
-            return;
-        }
-
-        $sid = config('services.twilio.account_sid');
-        $token = config('services.twilio.auth_token');
-        $from = config('services.twilio.sms_from');
-
-        if (! $sid || ! $token || ! $from) {
-            return;
-        }
-
-        (new Client($sid, $token))->messages->create($user->phone, [
-            'from' => $from,
-            'body' => $message,
-        ]);
     }
 
     private function preferenceEnabled(User $user, string $preference): bool

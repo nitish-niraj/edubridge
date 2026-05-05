@@ -1,15 +1,16 @@
 <script setup>
 import TeacherLayout from '@/Layouts/TeacherLayout.vue';
+import EmptyState from '@/Components/Shared/EmptyState.vue';
 import axios from 'axios';
 import { Head, Link } from '@inertiajs/vue3';
 import { ref, onMounted, computed } from 'vue';
+import { useToast } from '@/composables/useToast';
 
 const availabilities = ref([]);
 const loading = ref(false);
 const saving = ref(false);
-const statusMessage = ref('');
-const statusType = ref('');
 const errors = ref({});
+const { success, error: toastError } = useToast();
 
 const showForm = ref(false);
 const editingId = ref(null);
@@ -32,19 +33,13 @@ const dayMeta = [
     { key: 'sunday', label: 'Sunday' },
 ];
 
-const setStatus = (type, message) => {
-    statusType.value = type;
-    statusMessage.value = message;
-    setTimeout(() => { statusMessage.value = ''; }, 5000);
-};
-
 const fetchAvailability = async () => {
     loading.value = true;
     try {
         const response = await axios.get('/api/teacher/availability');
         availabilities.value = response.data.data || [];
     } catch (e) {
-        setStatus('error', 'Failed to load availability.');
+        toastError('Failed to load availability.');
     } finally {
         loading.value = false;
     }
@@ -90,10 +85,10 @@ const saveSlot = async () => {
 
         if (editingId.value) {
             await axios.patch(`/api/teacher/availability/${editingId.value}`, payload);
-            setStatus('success', 'Time slot updated successfully.');
+            success('Time slot updated successfully.');
         } else {
             await axios.post('/api/teacher/availability', payload);
-            setStatus('success', 'Time slot added successfully.');
+            success('Time slot added successfully.');
         }
         
         showForm.value = false;
@@ -103,10 +98,10 @@ const saveSlot = async () => {
             if (error.response.data.errors) {
                 errors.value = error.response.data.errors;
             } else if (error.response.data.message) {
-                setStatus('error', error.response.data.message);
+                toastError(error.response.data.message);
             }
         } else {
-            setStatus('error', 'An error occurred while saving.');
+            toastError('An error occurred while saving.');
         }
     } finally {
         saving.value = false;
@@ -118,10 +113,10 @@ const deleteSlot = async (id) => {
     
     try {
         await axios.delete(`/api/teacher/availability/${id}`);
-        setStatus('success', 'Time slot deleted.');
+        success('Time slot deleted.');
         fetchAvailability();
     } catch (error) {
-        setStatus('error', 'Failed to delete time slot.');
+        toastError('Failed to delete time slot.');
     }
 };
 
@@ -151,10 +146,6 @@ onMounted(() => {
                     <h2>Your Availability Slots</h2>
                     <button class="add-btn" @click="openAddForm">+ Add Slot</button>
                 </header>
-
-                <p v-if="statusMessage" class="status-banner" :class="statusType === 'success' ? 'ok' : 'error'">
-                    {{ statusMessage }}
-                </p>
 
                 <div v-if="showForm" class="form-card">
                     <h3>{{ editingId ? 'Edit Time Slot' : 'Add Time Slot' }}</h3>
@@ -203,10 +194,18 @@ onMounted(() => {
                     </div>
                 </div>
 
-                <div v-if="loading" class="loading">Loading...</div>
+                <div v-if="loading" style="display: flex; flex-direction: column; gap: 16px;">
+                    <div v-for="index in 3" :key="index" class="skeleton-card skeleton" style="min-height: 80px;"></div>
+                </div>
                 
-                <div v-else-if="!availabilities.length && !showForm" class="empty">
-                    No availability slots configured yet. Click "+ Add Slot" to get started.
+                <div v-else-if="!availabilities.length && !showForm">
+                    <EmptyState
+                        illustration="calendar"
+                        title="No availability configured"
+                        body="Add weekly recurring slots or specific dates to start accepting bookings."
+                        cta-text="Add time slot"
+                        @cta="openAddForm"
+                    />
                 </div>
 
                 <div v-else class="slots-container">

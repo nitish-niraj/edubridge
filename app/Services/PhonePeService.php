@@ -22,7 +22,7 @@ class PhonePeService
             config('services.phonepe.client_id'),
             config('services.phonepe.client_version'),
             config('services.phonepe.client_secret'),
-            Env::PRODUCTION
+            config('services.phonepe.env') === 'PRODUCTION' ? Env::PRODUCTION : Env::UAT
         );
     }
 

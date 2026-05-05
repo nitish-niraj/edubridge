@@ -59,6 +59,8 @@ return [
 
     'asset_url' => env('ASSET_URL'),
 
+    'sms_provider' => env('SMS_PROVIDER', 'email_only'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Timezone

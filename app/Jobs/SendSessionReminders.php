@@ -20,7 +20,9 @@ class SendSessionReminders implements ShouldQueue
     {
         foreach ([1440, 60, 15] as $minutesBefore) {
             $windowStart = now()->copy()->addMinutes($minutesBefore);
-            $windowEnd = $windowStart->copy()->addMinutes(59);
+            // Keep windows non-overlapping so a booking only gets one tier per run.
+            // (e.g. a session exactly 60 mins away should not also match the 15-min window)
+            $windowEnd = $windowStart->copy()->addMinutes($minutesBefore === 1440 ? 59 : 14);
 
             Booking::query()
                 ->with(['student.notificationPreferences', 'teacher.notificationPreferences'])

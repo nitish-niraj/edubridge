@@ -135,7 +135,7 @@ const platformFee = computed(() => {
         return explicitFee;
     }
     if (sessionPrice.value > 0) {
-        return Number((sessionPrice.value * 0.05).toFixed(2));
+        return Number((sessionPrice.value * 0.12).toFixed(2));
     }
     return 0;
 });
@@ -381,7 +381,7 @@ const confirmBooking = async () => {
                 booking_id: data.booking.id,
             });
 
-            window.location.href = paymentResponse.data.redirect_url;
+            window.location.href = paymentResponse.data.redirect_url || `/student/bookings?payment=pending&booking=${data.booking.id}`;
             return;
         }
 

@@ -22,6 +22,7 @@ use App\Models\Message;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
@@ -149,24 +150,44 @@ class ChatController extends Controller
         $request->validated();
         $userId = $request->user()->id;
         $this->assertParticipant($conversation, $userId);
+        $mutedIds = [];
 
         $query = Message::query()
             ->where('conversation_id', $conversation->id)
-            ->with('sender:id,name,avatar');
+            ->with([
+                'sender:id,name,avatar',
+                'conversation:id,is_group,teacher_id',
+            ]);
 
         // For group chats: filter out muted student messages for non-teacher users
-        if ($conversation->is_group && $conversation->teacher_id !== $userId) {
+        if ($conversation->is_group) {
             $mutedIds = ClassMember::where('conversation_id', $conversation->id)
                 ->where('is_muted', true)
                 ->pluck('user_id')
-                ->toArray();
+                ->map(fn ($id): int => (int) $id)
+                ->all();
 
-            if (! empty($mutedIds)) {
+            if ($conversation->teacher_id !== $userId && ! empty($mutedIds)) {
                 $query->whereNotIn('sender_id', $mutedIds);
             }
         }
 
         $messages = $query->orderByDesc('id')->cursorPaginate(20);
+        $mutedLookup = array_flip($mutedIds);
+
+        $messages->setCollection(
+            $messages->getCollection()->map(function (Message $message) use ($conversation, $mutedLookup, $userId): Message {
+                $isTeacher = $conversation->is_group && (int) $conversation->teacher_id === (int) $message->sender_id;
+                $isMuted = isset($mutedLookup[(int) $message->sender_id]);
+                $isTeacherViewer = $conversation->is_group && $userId === (int) $conversation->teacher_id;
+
+                $message->setAttribute('is_teacher', $isTeacher);
+                $message->setAttribute('is_muted', $isMuted);
+                $message->setAttribute('muted_label', $isMuted && $isTeacherViewer ? '[MUTED]' : null);
+
+                return $message;
+            })
+        );
 
         return MessageResource::collection($messages);
     }
@@ -244,6 +265,13 @@ class ChatController extends Controller
         $request->validated();
         $user = $request->user();
         $this->assertParticipant($conversation, $user->id);
+        $throttleKey = "typing:{$conversation->id}:{$user->id}";
+
+        if (! Cache::add($throttleKey, now()->timestamp, now()->addSeconds(2))) {
+            return response()->json([
+                'message' => 'Typing event throttled.',
+            ]);
+        }
 
         broadcast(new UserTyping(
             conversationId: $conversation->id,

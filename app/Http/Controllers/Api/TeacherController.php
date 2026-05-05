@@ -26,8 +26,9 @@ class TeacherController extends Controller
     {
         $validated = $request->validated();
         $perPage = (int) ($validated['per_page'] ?? 12);
+        $cacheVersion = $this->teacherCacheVersion();
 
-        $cacheKey = 'teachers:index:' . md5(json_encode([
+        $cacheKey = 'teachers:index:v' . $cacheVersion . ':' . md5(json_encode([
             'viewer_id' => $request->user()?->id,
             'page' => (int) ($validated['page'] ?? 1),
             'per_page' => $perPage,
@@ -40,7 +41,7 @@ class TeacherController extends Controller
                 $this->applyFilters($query, $validated);
                 $this->applySort($query, $validated['sort'] ?? 'rating_desc');
 
-                return $query->paginate($perPage)->withQueryString();
+                return $query->simplePaginate($perPage)->withQueryString();
             });
         } catch (QueryException) {
             throw new ServiceUnavailableHttpException(null, 'Teacher directory is temporarily unavailable. Please try again soon.');
@@ -54,45 +55,56 @@ class TeacherController extends Controller
         $validated = $request->validated();
         $perPage = (int) ($validated['per_page'] ?? 12);
         $sort = $validated['sort'] ?? 'relevance';
+        $cacheVersion = $this->teacherCacheVersion();
+
+        $cacheKey = 'teachers:search:v' . $cacheVersion . ':' . md5(json_encode([
+            'viewer_id' => $request->user()?->id,
+            'page' => (int) ($validated['page'] ?? 1),
+            'per_page' => $perPage,
+            'sort' => $sort,
+            'filters' => $validated,
+        ]));
 
         try {
-            try {
-                $scoutIds = TeacherProfile::search($validated['q'])->keys()->map(fn ($id): int => (int) $id);
-            } catch (\Throwable) {
-                $scoutIds = collect();
-            }
+            $teachers = $this->rememberTeacherResults($cacheKey, function () use ($request, $validated, $perPage, $sort) {
+                try {
+                    $scoutIds = TeacherProfile::search($validated['q'])->keys()->map(fn ($id): int => (int) $id);
+                } catch (\Throwable) {
+                    $scoutIds = collect();
+                }
 
-            $query = $this->baseTeacherQuery($request->user()?->id)
-                ->when($scoutIds->isNotEmpty(), fn ($builder) => $builder->whereIn('teacher_profiles.id', $scoutIds->all()));
+                $query = $this->baseTeacherQuery($request->user()?->id)
+                    ->when($scoutIds->isNotEmpty(), fn ($builder) => $builder->whereIn('teacher_profiles.id', $scoutIds->all()));
 
-            if ($scoutIds->isEmpty()) {
-                $this->applySearchFallback($query, (string) $validated['q']);
-            }
+                if ($scoutIds->isEmpty()) {
+                    $this->applySearchFallback($query, (string) $validated['q']);
+                }
 
-            $this->applyFilters($query, $validated);
+                $this->applyFilters($query, $validated);
 
-            if ($sort === 'relevance') {
-                if ($scoutIds->isNotEmpty()) {
-                    $orderedIds = $scoutIds->values()->all();
-                    $driver = $query->getQuery()->getConnection()->getDriverName();
+                if ($sort === 'relevance') {
+                    if ($scoutIds->isNotEmpty()) {
+                        $orderedIds = $scoutIds->values()->all();
+                        $driver = $query->getQuery()->getConnection()->getDriverName();
 
-                    if ($driver === 'mysql') {
-                        $query->orderByRaw('FIELD(teacher_profiles.id, ' . implode(',', $orderedIds) . ')');
-                    } else {
-                        $caseParts = [];
-                        foreach ($orderedIds as $index => $id) {
-                            $caseParts[] = "WHEN {$id} THEN {$index}";
+                        if ($driver === 'mysql') {
+                            $query->orderByRaw('FIELD(teacher_profiles.id, ' . implode(',', $orderedIds) . ')');
+                        } else {
+                            $caseParts = [];
+                            foreach ($orderedIds as $index => $id) {
+                                $caseParts[] = "WHEN {$id} THEN {$index}";
+                            }
+                            $query->orderByRaw('CASE teacher_profiles.id ' . implode(' ', $caseParts) . ' ELSE ' . count($orderedIds) . ' END');
                         }
-                        $query->orderByRaw('CASE teacher_profiles.id ' . implode(' ', $caseParts) . ' ELSE ' . count($orderedIds) . ' END');
+                    } else {
+                        $query->orderByDesc('rating_avg')->orderByDesc('total_reviews');
                     }
                 } else {
-                    $query->orderByDesc('rating_avg')->orderByDesc('total_reviews');
+                    $this->applySort($query, $sort);
                 }
-            } else {
-                $this->applySort($query, $sort);
-            }
 
-            $teachers = $query->paginate($perPage)->withQueryString();
+                return $query->simplePaginate($perPage)->withQueryString();
+            }, 120);
         } catch (QueryException) {
             throw new ServiceUnavailableHttpException(null, 'Teacher search is temporarily unavailable. Please try again soon.');
         }
@@ -123,26 +135,58 @@ class TeacherController extends Controller
     {
         $request->validated();
         $studentId = $request->user()?->isStudent() ? $request->user()->id : null;
-
-        $query = TeacherProfile::query()
-            ->with('user:id,name,avatar,status')
-            ->where('user_id', $teacher)
-            ->where('is_verified', true)
-            ->whereHas('user', function (Builder $builder): void {
-                $builder->where('role', 'teacher')->where('status', 'active');
-            });
-
-        if ($studentId) {
-            $query->addSelect([
-                'is_saved' => SavedTeacher::query()
-                    ->selectRaw('count(*) > 0')
-                    ->whereColumn('saved_teachers.teacher_id', 'teacher_profiles.user_id')
-                    ->where('saved_teachers.student_id', $studentId),
-            ]);
-        }
+        $cacheVersion = $this->teacherCacheVersion();
+        $cacheKey = 'teachers:profile:v' . $cacheVersion . ':teacher:' . $teacher . ':viewer:' . ($studentId ?? 'guest');
 
         try {
-            $profile = $query->first();
+            $profile = $this->rememberTeacherResults($cacheKey, function () use ($teacher, $studentId) {
+                $query = TeacherProfile::query()
+                    ->with('user:id,name,avatar,status')
+                    ->where('user_id', $teacher)
+                    ->where('is_verified', true)
+                    ->whereHas('user', function (Builder $builder): void {
+                        $builder->where('role', 'teacher')->where('status', 'active');
+                    });
+
+                if ($studentId) {
+                    $query->addSelect([
+                        'is_saved' => SavedTeacher::query()
+                            ->selectRaw('count(*) > 0')
+                            ->whereColumn('saved_teachers.teacher_id', 'teacher_profiles.user_id')
+                            ->where('saved_teachers.student_id', $studentId),
+                    ]);
+                }
+
+                $profile = $query->first();
+
+                if (! $profile) {
+                    return null;
+                }
+
+                $latestReviews = Review::query()
+                    ->where('reviewee_id', $teacher)
+                    ->where('is_visible', true)
+                    ->whereNotNull('comment')
+                    ->with(['reviewer:id,name'])
+                    ->orderByDesc('created_at')
+                    ->limit(6)
+                    ->get()
+                    ->map(function (Review $review): array {
+                        return [
+                            'id' => $review->id,
+                            'rating' => (float) $review->rating,
+                            'student_name' => $review->reviewer?->name,
+                            'comment' => $review->comment,
+                            'date' => optional($review->created_at)->toDateString(),
+                        ];
+                    })
+                    ->values()
+                    ->all();
+
+                $profile->setAttribute('latest_reviews', $latestReviews);
+
+                return $profile;
+            }, 300);
         } catch (QueryException) {
             throw new ServiceUnavailableHttpException(null, 'Teacher profile is temporarily unavailable. Please try again soon.');
         }
@@ -150,28 +194,6 @@ class TeacherController extends Controller
         if (! $profile) {
             throw new NotFoundHttpException('Teacher profile not found.');
         }
-
-        $latestReviews = Review::query()
-            ->where('reviewee_id', $teacher)
-            ->where('is_visible', true)
-            ->whereNotNull('comment')
-            ->with(['reviewer:id,name'])
-            ->orderByDesc('created_at')
-            ->limit(6)
-            ->get()
-            ->map(function (Review $review): array {
-                return [
-                    'id' => $review->id,
-                    'rating' => (float) $review->rating,
-                    'student_name' => $review->reviewer?->name,
-                    'comment' => $review->comment,
-                    'date' => optional($review->created_at)->toDateString(),
-                ];
-            })
-            ->values()
-            ->all();
-
-        $profile->setAttribute('latest_reviews', $latestReviews);
 
         return new TeacherPublicProfileResource($profile);
     }
@@ -329,14 +351,19 @@ class TeacherController extends Controller
         };
     }
 
-    private function rememberTeacherResults(string $cacheKey, \Closure $callback)
+    private function rememberTeacherResults(string $cacheKey, \Closure $callback, int $ttlSeconds = 120)
     {
         $store = Cache::getStore();
 
         if ($store instanceof TaggableStore) {
-            return Cache::tags(['teachers'])->remember($cacheKey, 120, $callback);
+            return Cache::tags(['teachers'])->remember($cacheKey, $ttlSeconds, $callback);
         }
 
-        return Cache::remember($cacheKey, 120, $callback);
+        return Cache::remember($cacheKey, $ttlSeconds, $callback);
+    }
+
+    private function teacherCacheVersion(): int
+    {
+        return (int) Cache::get('teachers:cache_version', 1);
     }
 }

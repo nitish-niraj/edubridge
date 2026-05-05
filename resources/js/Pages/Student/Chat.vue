@@ -36,6 +36,9 @@ const reportTargetMessage = ref(null);
 const reportReason = ref('');
 const reporting = ref(false);
 const chatError = ref('');
+const messagesNextCursor = ref(null);
+const loadingMoreMessages = ref(false);
+let refreshConversationsTimer = null;
 
 const activeConversationId = computed(() => activeConversation.value?.id ?? null);
 const showConversationSkeleton = computed(() => isLoadingConversations.value && conversations.value.length === 0);
@@ -97,16 +100,41 @@ const fetchConversations = async () => {
     }
 };
 
+const extractNextCursor = (payload) => {
+    return payload?.next_cursor ?? payload?.meta?.next_cursor ?? null;
+};
+
 const fetchMessages = async (conversationId) => {
     try {
         const response = await axios.get(`/api/conversations/${conversationId}/messages`);
-        messages.value = [...(response.data.data ?? [])].reverse();
+        const payload = response.data ?? {};
+        messages.value = [...(payload.data ?? [])].reverse();
+        messagesNextCursor.value = extractNextCursor(payload);
         await markAsRead(conversationId);
         await nextTick();
         scrollToBottom();
     } catch (error) {
         chatError.value = error?.response?.data?.message || 'Unable to load this conversation right now.';
         messages.value = [];
+    }
+};
+
+const loadOlderMessages = async () => {
+    if (!activeConversationId.value || !messagesNextCursor.value || loadingMoreMessages.value) return;
+
+    loadingMoreMessages.value = true;
+    try {
+        const response = await axios.get(`/api/conversations/${activeConversationId.value}/messages`, {
+            params: { cursor: messagesNextCursor.value },
+        });
+        const payload = response.data ?? {};
+        const olderMessages = [...(payload.data ?? [])].reverse();
+        messages.value = [...olderMessages, ...messages.value];
+        messagesNextCursor.value = extractNextCursor(payload);
+    } catch (error) {
+        chatError.value = error?.response?.data?.message || 'Unable to load older messages right now.';
+    } finally {
+        loadingMoreMessages.value = false;
     }
 };
 
@@ -157,7 +185,7 @@ const sendMessage = async () => {
         revokeAttachmentPreview();
         await nextTick();
         scrollToBottom();
-        await fetchConversations();
+        scheduleConversationsRefresh();
     } finally {
         isSending.value = false;
     }
@@ -207,7 +235,7 @@ const subscribeToConversation = (conversationId) => {
             await markAsRead(conversationId);
             await nextTick();
             scrollToBottom();
-            await fetchConversations();
+            scheduleConversationsRefresh();
         });
 
     presenceChannel.value = window.Echo.join(`conversation.${conversationId}`)
@@ -235,6 +263,17 @@ const emitTyping = () => {
     presenceChannel.value.whisper('typing', {
         name: 'Student',
     });
+};
+
+const scheduleConversationsRefresh = () => {
+    if (refreshConversationsTimer) {
+        return;
+    }
+
+    refreshConversationsTimer = window.setTimeout(async () => {
+        refreshConversationsTimer = null;
+        await fetchConversations();
+    }, 600);
 };
 
 const openMessageActions = (message) => {
@@ -294,6 +333,10 @@ onBeforeUnmount(() => {
     window.removeEventListener('keydown', handleEscape);
     unsubscribeFromConversation();
     revokeAttachmentPreview();
+    if (refreshConversationsTimer) {
+        window.clearTimeout(refreshConversationsTimer);
+        refreshConversationsTimer = null;
+    }
 });
 </script>
 
@@ -379,6 +422,11 @@ onBeforeUnmount(() => {
                 </div>
 
                 <div v-else ref="messagesContainer" class="messages-scroll">
+                    <div v-if="messagesNextCursor" class="load-more-messages-wrap">
+                        <button type="button" class="load-more-messages-btn" :disabled="loadingMoreMessages" @click="loadOlderMessages">
+                            {{ loadingMoreMessages ? 'Loading...' : 'Load older messages' }}
+                        </button>
+                    </div>
                     <TransitionGroup name="message-flow" tag="div" class="messages-list">
                         <div
                             v-for="(message, index) in messages"
@@ -684,6 +732,24 @@ h2 {
     display: flex;
     flex-direction: column;
     gap: 10px;
+}
+
+.load-more-messages-wrap {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 12px;
+}
+
+.load-more-messages-btn {
+    border: 1px solid #f0ddd5;
+    background: #fff;
+    color: #475569;
+    border-radius: 999px;
+    min-height: 36px;
+    padding: 0 14px;
+    font-family: Nunito, sans-serif;
+    font-weight: 700;
+    cursor: pointer;
 }
 
 .time-divider {

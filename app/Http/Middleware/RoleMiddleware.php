@@ -10,7 +10,9 @@ class RoleMiddleware
 {
     public function handle(Request $request, Closure $next, string $role): Response
     {
-        if (! $request->user()) {
+        $user = $request->user();
+
+        if (! $user) {
             if ($request->expectsJson()) {
                 return response()->json(['message' => 'Unauthenticated.'], 401);
             }
@@ -18,15 +20,18 @@ class RoleMiddleware
             return redirect()->route('login');
         }
 
-        if (! $request->user()->hasRole($role)) {
+        $hasSpatieRole = method_exists($user, 'hasRole') ? (bool) $user->hasRole($role) : false;
+        $hasRoleColumn = isset($user->role) && is_string($user->role) && $user->role === $role;
+
+        if (! $hasSpatieRole && ! $hasRoleColumn) {
             if ($request->expectsJson()) {
                 return response()->json(['message' => 'Unauthorized.'], 403);
             }
 
             $redirectRoute = match (true) {
-                $request->user()->hasRole('student') => 'student.dashboard',
-                $request->user()->hasRole('teacher') => 'teacher.dashboard',
-                $request->user()->hasRole('admin') => 'admin.dashboard',
+                (method_exists($user, 'hasRole') && $user->hasRole('student')) || ($user->role ?? null) === 'student' => 'student.dashboard',
+                (method_exists($user, 'hasRole') && $user->hasRole('teacher')) || ($user->role ?? null) === 'teacher' => 'teacher.dashboard',
+                (method_exists($user, 'hasRole') && $user->hasRole('admin')) || ($user->role ?? null) === 'admin' => 'admin.dashboard',
                 default => 'login',
             };
 

@@ -57,8 +57,21 @@ class DashboardController extends Controller
         $unreadMessages = Message::query()
             ->whereNull('read_at')
             ->where('sender_id', '!=', $teacherId)
-            ->whereHas('conversation.participants', function ($query) use ($teacherId): void {
-                $query->where('users.id', $teacherId);
+            ->whereHas('conversation', function ($query) use ($teacherId): void {
+                $query->where(function ($visible) use ($teacherId): void {
+                    $visible->where(function ($direct) use ($teacherId): void {
+                        $direct->where('is_group', false)
+                            ->whereHas('participants', function ($participant) use ($teacherId): void {
+                                $participant->where('users.id', $teacherId)
+                                    ->wherePivotNull('left_at');
+                            });
+                    })->orWhere(function ($group) use ($teacherId): void {
+                        $group->where('is_group', true)
+                            ->whereHas('activeClassMembers', function ($member) use ($teacherId): void {
+                                $member->where('user_id', $teacherId);
+                            });
+                    });
+                });
             })
             ->count();
 

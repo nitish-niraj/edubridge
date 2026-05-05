@@ -1,5 +1,7 @@
 <script setup>
 import TeacherLayout from '@/Layouts/TeacherLayout.vue';
+import EmptyState from '@/Components/Shared/EmptyState.vue';
+import ErrorState from '@/Components/Shared/ErrorState.vue';
 import { ref, onMounted, computed } from 'vue';
 import axios from 'axios';
 
@@ -7,9 +9,11 @@ const bookings = ref([]);
 const earningsSummary = ref({ this_month: 0, total: 0, pending: 0 });
 const loading = ref(true);
 const filter = ref('all');
+const loadError = ref('');
 
 const fetchBookings = async () => {
     loading.value = true;
+    loadError.value = '';
     try {
         const params = filter.value !== 'all' ? { status: filter.value } : {};
         const { data } = await axios.get('/api/bookings', { params });
@@ -17,6 +21,7 @@ const fetchBookings = async () => {
         earningsSummary.value = data.earnings_summary || earningsSummary.value;
     } catch (e) {
         console.error(e);
+        loadError.value = e?.response?.data?.message || 'Unable to load your sessions right now. Please try again.';
     } finally {
         loading.value = false;
     }
@@ -36,6 +41,11 @@ const statusColor = (s) => ({
 
 const formatDate = (d) => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 const formatTime = (d) => new Date(d).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+const durationMinutes = (b) => {
+    if (b.video_session?.duration_minutes) return Number(b.video_session.duration_minutes);
+    if (b.slot?.duration_minutes) return Number(b.slot.duration_minutes);
+    return Math.max(0, Math.round((new Date(b.end_at) - new Date(b.start_at)) / 60000));
+};
 
 const canJoin = (b) => {
     if (b.status !== 'confirmed') return false;
@@ -83,7 +93,19 @@ const pendingRelease = computed(() => {
             </div>
 
             <!-- Loading -->
-            <div v-if="loading" style="text-align: center; padding: 60px; color: #999; font-family: 'Nunito', sans-serif;">Loading sessions...</div>
+            <div v-if="loading" style="display: flex; flex-direction: column; gap: 16px;">
+                <div v-for="index in 3" :key="index" class="skeleton-card skeleton" style="padding: 20px 24px; min-height: 80px;"></div>
+            </div>
+
+            <!-- Error -->
+            <div v-else-if="loadError" style="background: #fff; border-radius: 12px; padding: 12px; border: 1px solid #E0E0E0;">
+                <ErrorState
+                    code="503"
+                    title="Sessions unavailable"
+                    :message="loadError"
+                    :show-back="false"
+                />
+            </div>
 
             <!-- Table -->
             <div v-else-if="filteredBookings.length" style="border-radius: 12px; overflow: hidden; border: 1px solid #E0E0E0;">
@@ -106,10 +128,10 @@ const pendingRelease = computed(() => {
                             <td style="padding: 14px 20px; font-size: 15px; color: #333;">{{ b.student?.name || '—' }}</td>
                             <td style="padding: 14px 20px; font-size: 15px; color: #333;">{{ b.subject || '—' }}</td>
                             <td style="padding: 14px 20px; font-size: 15px; color: #333;">
-                                {{ b.video_session?.duration_minutes ? b.video_session.duration_minutes + ' min' : '60 min' }}
+                                {{ durationMinutes(b) }} min
                             </td>
                             <td style="padding: 14px 20px; font-size: 15px; color: #333;">
-                                {{ b.price > 0 ? '₹' + parseFloat(b.teacher_payout || 0).toFixed(0) : 'Free' }}
+                                {{ b.price > 0 ? '₹' + parseFloat(b.price || 0).toFixed(0) : 'Free' }}
                             </td>
                             <td style="padding: 14px 20px;">
                                 <span :style="{
@@ -129,8 +151,14 @@ const pendingRelease = computed(() => {
                 </table>
             </div>
 
-            <div v-else style="text-align: center; padding: 60px; color: #999; font-family: 'Nunito', sans-serif;">
-                No sessions found.
+            <div v-else style="text-align: center; padding: 30px 12px; background: #fff; border-radius: 12px; border: 1px solid #E0E0E0;">
+                <EmptyState
+                    v-if="filter === 'all' || filter === 'upcoming'"
+                    illustration="calendar"
+                    title="No sessions"
+                    body="You don't have any sessions matching this filter."
+                />
+                <span v-else style="color: #999; font-family: 'Nunito', sans-serif;">No {{ filter }} sessions found.</span>
             </div>
 
             <!-- Summary bar -->

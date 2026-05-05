@@ -21,6 +21,15 @@ class SendChatNotification implements ShouldQueue
     use Queueable;
     use SerializesModels;
 
+    public int $tries = 3;
+
+    public int $timeout = 120;
+
+    public function backoff(): array
+    {
+        return [15, 60, 180];
+    }
+
     public function __construct(public int $messageId) {}
 
     public function handle(NotificationService $notifications): void
@@ -146,5 +155,13 @@ class SendChatNotification implements ShouldQueue
             'file' => '[File]',
             default => '[Message]',
         };
+    }
+
+    public function failed(Throwable $exception): void
+    {
+        Log::error('SendChatNotification failed.', [
+            'message_id' => $this->messageId,
+            'error' => $exception->getMessage(),
+        ]);
     }
 }

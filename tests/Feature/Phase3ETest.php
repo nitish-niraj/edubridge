@@ -160,9 +160,10 @@ class Phase3ETest extends TestCase
         $this->actingAs($this->teacher)
             ->getJson('/api/bookings')
             ->assertOk()
-            ->assertJsonPath('earnings_summary.this_month', 440.0)
-            ->assertJsonPath('earnings_summary.total', 440.0)
-            ->assertJsonPath('earnings_summary.pending', 264.0);
+            // JSON numbers don't preserve trailing .0; assert numeric value.
+            ->assertJsonPath('earnings_summary.this_month', 440)
+            ->assertJsonPath('earnings_summary.total', 440)
+            ->assertJsonPath('earnings_summary.pending', 264);
     }
 
     private function createBooking(User $student, string $status, Carbon $startAt, float $price = 0): Booking

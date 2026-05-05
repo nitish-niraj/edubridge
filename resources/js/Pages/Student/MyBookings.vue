@@ -112,9 +112,9 @@ const cancelBooking = async (b) => {
 const retryPayment = async (b) => {
     try {
         const { data } = await axios.post('/api/payments/initiate', { booking_id: b.id });
-        window.location.href = data.redirect_url;
+        window.location.href = data.redirect_url || `/student/bookings?payment=pending&booking=${b.id}`;
     } catch (e) {
-        alert(e.response?.data?.message || 'Payment initiation failed');
+        alert(e.response?.data?.message || e.message || 'Payment initiation failed');
     }
 };
 </script>

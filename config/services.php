@@ -60,6 +60,16 @@ return [
         'sms_from'    => env('TWILIO_SMS_FROM'),
     ],
 
+    'daily' => [
+        'api_key' => env('DAILY_API_KEY'),
+    ],
+
+    'bitrix24' => [
+        'webhook_url' => env('BITRIX24_WEBHOOK_URL'),
+        'default_user_id' => env('BITRIX24_DEFAULT_USER_ID'),
+        'sms_sender_id' => env('BITRIX24_SMS_SENDER_ID'),
+    ],
+
     'sentry' => [
         'dsn' => env('SENTRY_LARAVEL_DSN'),
         'browser_dsn' => env('VITE_SENTRY_DSN'),

@@ -28,6 +28,9 @@ const loadingMessages = ref(false);
 const conversationError = ref('');
 const messagesError = ref('');
 const sending = ref(false);
+const messagesNextCursor = ref(null);
+const loadingMoreMessages = ref(false);
+let refreshConversationsTimer = null;
 
 const activeConversationId = computed(() => activeConversation.value?.id ?? null);
 
@@ -87,7 +90,9 @@ const fetchMessages = async (conversationId) => {
 
     try {
         const response = await axios.get(`/api/conversations/${conversationId}/messages`);
-        messages.value = [...(response.data.data ?? [])].reverse();
+        const payload = response.data ?? {};
+        messages.value = [...(payload.data ?? [])].reverse();
+        messagesNextCursor.value = payload.next_cursor ?? payload.meta?.next_cursor ?? null;
         await axios.patch(`/api/conversations/${conversationId}/read`);
         await nextTick();
         scrollToBottom();
@@ -96,6 +101,27 @@ const fetchMessages = async (conversationId) => {
         messagesError.value = error?.response?.data?.message || 'Unable to load messages for this conversation.';
     } finally {
         loadingMessages.value = false;
+    }
+};
+
+const loadOlderMessages = async () => {
+    if (!activeConversationId.value || !messagesNextCursor.value || loadingMoreMessages.value) {
+        return;
+    }
+
+    loadingMoreMessages.value = true;
+    try {
+        const response = await axios.get(`/api/conversations/${activeConversationId.value}/messages`, {
+            params: { cursor: messagesNextCursor.value },
+        });
+        const payload = response.data ?? {};
+        const olderMessages = [...(payload.data ?? [])].reverse();
+        messages.value = [...olderMessages, ...messages.value];
+        messagesNextCursor.value = payload.next_cursor ?? payload.meta?.next_cursor ?? null;
+    } catch (error) {
+        messagesError.value = error?.response?.data?.message || 'Unable to load older messages.';
+    } finally {
+        loadingMoreMessages.value = false;
     }
 };
 
@@ -114,8 +140,19 @@ const subscribe = (conversationId) => {
         await axios.patch(`/api/conversations/${conversationId}/read`);
         await nextTick();
         scrollToBottom();
-        await fetchConversations();
+        scheduleConversationsRefresh();
     });
+};
+
+const scheduleConversationsRefresh = () => {
+    if (refreshConversationsTimer) {
+        return;
+    }
+
+    refreshConversationsTimer = window.setTimeout(async () => {
+        refreshConversationsTimer = null;
+        await fetchConversations();
+    }, 600);
 };
 
 const openConversation = async (conversation) => {
@@ -147,7 +184,7 @@ const sendMessage = async () => {
         messageText.value = '';
         await nextTick();
         scrollToBottom();
-        await fetchConversations();
+        scheduleConversationsRefresh();
         showBanner('Message sent successfully.');
     } catch (error) {
         showBanner(error?.response?.data?.message || 'Message could not be sent.');
@@ -177,6 +214,10 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
     unsubscribe();
+    if (refreshConversationsTimer) {
+        window.clearTimeout(refreshConversationsTimer);
+        refreshConversationsTimer = null;
+    }
 });
 </script>
 
@@ -231,6 +272,11 @@ onBeforeUnmount(() => {
                 </div>
 
                 <div ref="messageContainer" class="messages-scroll">
+                    <div v-if="messagesNextCursor" class="load-more-messages-wrap">
+                        <button type="button" class="secondary-btn" :disabled="loadingMoreMessages" @click="loadOlderMessages">
+                            {{ loadingMoreMessages ? 'Loading...' : 'Load older messages' }}
+                        </button>
+                    </div>
                     <div v-if="loadingMessages" class="state-card">Loading messages...</div>
                     <div v-else-if="messagesError" class="state-card error">{{ messagesError }}</div>
                     <div v-else-if="!messages.length" class="state-card empty">No messages in this conversation yet.</div>

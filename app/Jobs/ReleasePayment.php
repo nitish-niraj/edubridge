@@ -11,12 +11,21 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class ReleasePayment implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 3;
+
+    public int $timeout = 120;
+
+    public function backoff(): array
+    {
+        return [60, 300, 900];
+    }
 
     public function __construct(
         public int $bookingId
@@ -58,5 +67,13 @@ class ReleasePayment implements ShouldQueue
         });
 
         // TODO: Notify teacher about earnings credit
+    }
+
+    public function failed(Throwable $exception): void
+    {
+        Log::error('ReleasePayment job failed.', [
+            'booking_id' => $this->bookingId,
+            'error' => $exception->getMessage(),
+        ]);
     }
 }

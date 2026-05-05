@@ -51,7 +51,7 @@ export default defineConfig({
                     manualChunks: {
                         vendor: ['vue', 'axios'],
                         charts: ['chart.js'],
-                        video: ['twilio-video'],
+                        video: ['@daily-co/daily-js'],
                     },
                 },
             },

@@ -1,6 +1,6 @@
 <script setup>
 import axios from 'axios';
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { usePage, Link } from '@inertiajs/vue3';
 import { useAnalytics } from '@/composables/useAnalytics';
 
@@ -14,6 +14,7 @@ const props = defineProps({
 const page = usePage();
 const token = ref(null);
 const roomName = ref('');
+const roomUrl = ref('');
 const identity = ref('');
 const connected = ref(false);
 const tooEarly = ref(false);
@@ -41,38 +42,27 @@ const hasDurationMeta = ref(false);
 
 const { trackEvent } = useAnalytics();
 
-let room = null;
 let timerInterval = null;
 let controlsHideTimer = null;
 let timerPulseTimeout = null;
 let earlyRefreshTimer = null;
-let localTracks = [];
-let VideoModule = null;
-let activeVideoTrack = null;
-let screenTrack = null;
-let screenShareRestorePromise = null;
+let DailyModule = null;
+let callObject = null;
 let endingCall = false;
 const remoteParticipantSids = ref([]);
 
 const isTeacher = computed(() => identity.value.startsWith('teacher-'));
-
 const hasRemoteParticipant = computed(() => remoteParticipantSids.value.length > 0);
 
 const participantDisplayName = computed(() => {
-    if (participantName.value) {
-        const parsedIdentity = participantName.value.replace(/^(teacher|student)-/, '');
-        if (/^\d+$/.test(parsedIdentity)) {
-            return expectedParticipantName.value;
-        }
-        return parsedIdentity;
-    }
-    return expectedParticipantName.value;
-});
+    if (!participantName.value) return expectedParticipantName.value;
 
-const formatElapsed = computed(() => {
-    const minutes = Math.floor(elapsed.value / 60);
-    const seconds = elapsed.value % 60;
-    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    const parsedIdentity = participantName.value.replace(/^(teacher|student)-/, '');
+    if (/^\d+$/.test(parsedIdentity)) {
+        return expectedParticipantName.value;
+    }
+
+    return parsedIdentity;
 });
 
 const displaySeconds = computed(() => {
@@ -153,19 +143,122 @@ const resetControlsHideTimer = () => {
     }, 3000);
 };
 
-const loadTwilioVideo = async () => {
-    if (!VideoModule) {
-        const module = await import('twilio-video');
-        VideoModule = module.default || module;
-    }
-
-    return VideoModule;
-};
-
 const handleUserActivity = () => {
     if (!connected.value) return;
     controlsVisible.value = true;
     resetControlsHideTimer();
+};
+
+const loadDaily = async () => {
+    if (!DailyModule) {
+        const module = await import('@daily-co/daily-js');
+        DailyModule = module.default || module;
+    }
+
+    return DailyModule;
+};
+
+const buildMediaElement = (track, kind, mutedValue = false) => {
+    if (!track) return null;
+
+    const element = document.createElement(kind === 'audio' ? 'audio' : 'video');
+    element.autoplay = true;
+    element.playsInline = true;
+    element.muted = mutedValue;
+    element.srcObject = new MediaStream([track]);
+
+    if (kind === 'audio') {
+        element.style.display = 'none';
+    }
+
+    return element;
+};
+
+const clearMediaContainers = () => {
+    const remoteContainer = document.getElementById('remote-video');
+    const localContainer = document.getElementById('local-video');
+
+    if (remoteContainer) remoteContainer.innerHTML = '';
+    if (localContainer) localContainer.innerHTML = '';
+};
+
+const trackFromParticipant = (participant, preferKinds = ['screenVideo', 'video']) => {
+    if (!participant?.tracks) return null;
+
+    for (const kind of preferKinds) {
+        const trackInfo = participant.tracks[kind];
+        if (trackInfo?.state === 'playable' && trackInfo.track) {
+            return trackInfo.track;
+        }
+    }
+
+    return null;
+};
+
+const audioTrackFromParticipant = (participant) => {
+    const trackInfo = participant?.tracks?.audio;
+    if (trackInfo?.state === 'playable' && trackInfo.track) {
+        return trackInfo.track;
+    }
+    return null;
+};
+
+const syncParticipants = () => {
+    if (!callObject) return;
+
+    const participants = Object.values(callObject.participants() || {});
+    const localParticipant = participants.find((participant) => participant?.local);
+    const remotes = participants.filter((participant) => participant && !participant.local && participant.session_id);
+    const primaryRemote = remotes[0] || null;
+
+    remoteParticipantSids.value = remotes.map((participant) => participant.session_id);
+    participantName.value = primaryRemote?.user_name || primaryRemote?.user_id || '';
+
+    screenSharing.value = Boolean(localParticipant?.tracks?.screenVideo?.state === 'playable');
+
+    const localContainer = document.getElementById('local-video');
+    if (localContainer) {
+        localContainer.innerHTML = '';
+        const localVideoTrack = trackFromParticipant(localParticipant);
+        const localVideoElement = buildMediaElement(localVideoTrack, 'video', true);
+        if (localVideoElement) {
+            localContainer.appendChild(localVideoElement);
+        }
+    }
+
+    const remoteContainer = document.getElementById('remote-video');
+    if (remoteContainer) {
+        remoteContainer.innerHTML = '';
+        const remoteVideoTrack = trackFromParticipant(primaryRemote);
+        const remoteAudioTrack = audioTrackFromParticipant(primaryRemote);
+        const remoteVideoElement = buildMediaElement(remoteVideoTrack, 'video', false);
+        const remoteAudioElement = buildMediaElement(remoteAudioTrack, 'audio', false);
+
+        if (remoteVideoElement) remoteContainer.appendChild(remoteVideoElement);
+        if (remoteAudioElement) remoteContainer.appendChild(remoteAudioElement);
+    }
+};
+
+const destroyCallObject = async () => {
+    if (!callObject) return;
+
+    try {
+        await callObject.destroy();
+    } catch {
+        // Ignore Daily teardown errors during navigation.
+    } finally {
+        callObject = null;
+    }
+};
+
+const cleanupRoom = async () => {
+    await destroyCallObject();
+    clearMediaContainers();
+    screenSharing.value = false;
+    remoteParticipantSids.value = [];
+    participantName.value = '';
+    window.clearInterval(timerInterval);
+    timerInterval = null;
 };
 
 const fetchBookingMeta = async () => {
@@ -208,6 +301,7 @@ const fetchToken = async () => {
 
         token.value = data.token;
         roomName.value = data.room_name;
+        roomUrl.value = data.room_url;
         identity.value = data.identity;
         tooEarly.value = false;
     } catch (requestError) {
@@ -227,143 +321,6 @@ const refreshTokenForRejoin = async () => {
     }
 };
 
-const attachRemoteTrack = (track) => {
-    const container = document.getElementById('remote-video');
-    if (!container) return;
-    container.appendChild(track.attach());
-};
-
-const detachTrackElements = (track) => {
-    track.detach().forEach((element) => element.remove());
-};
-
-const attachLocalVideoTrack = (track) => {
-    const localContainer = document.getElementById('local-video');
-    if (!localContainer || track.kind !== 'video') return;
-
-    localContainer.querySelectorAll('video').forEach((element) => element.remove());
-    localContainer.appendChild(track.attach());
-};
-
-const removeLocalTrack = (track, shouldStop = true) => {
-    if (!track) return;
-
-    if (room?.localParticipant) {
-        room.localParticipant.unpublishTrack(track);
-    }
-
-    detachTrackElements(track);
-    localTracks = localTracks.filter((localTrack) => localTrack !== track);
-
-    if (activeVideoTrack === track) {
-        activeVideoTrack = null;
-    }
-
-    if (shouldStop) {
-        track.stop();
-    }
-};
-
-const replaceLocalVideoTrack = async (nextTrack, { stopCurrent = true } = {}) => {
-    if (activeVideoTrack) {
-        removeLocalTrack(activeVideoTrack, stopCurrent);
-    }
-
-    activeVideoTrack = nextTrack;
-    localTracks = [...localTracks.filter((track) => track.kind !== 'video'), nextTrack];
-
-    if (room?.localParticipant) {
-        await room.localParticipant.publishTrack(nextTrack);
-    }
-
-    if (cameraOff.value && !screenSharing.value) {
-        nextTrack.disable();
-    }
-
-    attachLocalVideoTrack(nextTrack);
-};
-
-const restoreCameraTrack = async () => {
-    if (screenShareRestorePromise) {
-        return screenShareRestorePromise;
-    }
-
-    screenShareRestorePromise = (async () => {
-        try {
-            if (screenTrack) {
-                removeLocalTrack(screenTrack);
-                screenTrack = null;
-            }
-
-            screenSharing.value = false;
-
-            const Video = await loadTwilioVideo();
-            const cameraTrack = await Video.createLocalVideoTrack({ width: 1280 });
-            await replaceLocalVideoTrack(cameraTrack, { stopCurrent: false });
-            connectionError.value = null;
-        } catch (restoreError) {
-            activeVideoTrack = null;
-            connectionError.value = `Screen sharing stopped, but camera could not restart: ${restoreError.message || restoreError}`;
-        } finally {
-            screenShareRestorePromise = null;
-        }
-    })();
-
-    return screenShareRestorePromise;
-};
-
-const cleanupRoom = () => {
-    if (screenTrack) {
-        screenTrack.mediaStreamTrack.onended = null;
-        screenTrack = null;
-    }
-
-    localTracks.forEach((track) => {
-        detachTrackElements(track);
-        track.stop();
-    });
-
-    localTracks = [];
-    activeVideoTrack = null;
-    room = null;
-    screenSharing.value = false;
-    remoteParticipantSids.value = [];
-    participantName.value = '';
-    window.clearInterval(timerInterval);
-    timerInterval = null;
-};
-
-const addRemoteParticipant = (participant) => {
-    if (!remoteParticipantSids.value.includes(participant.sid)) {
-        remoteParticipantSids.value = [...remoteParticipantSids.value, participant.sid];
-    }
-
-    participantName.value = participant.identity;
-
-    participant.tracks.forEach((publication) => {
-        if (publication.track) {
-            attachRemoteTrack(publication.track);
-        }
-    });
-
-    participant.on('trackSubscribed', attachRemoteTrack);
-    participant.on('trackUnsubscribed', detachTrackElements);
-};
-
-const removeRemoteParticipant = (participant) => {
-    remoteParticipantSids.value = remoteParticipantSids.value.filter((sid) => sid !== participant.sid);
-
-    participant.tracks.forEach((publication) => {
-        if (publication.track) {
-            detachTrackElements(publication.track);
-        }
-    });
-
-    if (!remoteParticipantSids.value.length) {
-        participantName.value = '';
-    }
-};
-
 const connectToRoom = async () => {
     if (joining.value) return;
 
@@ -375,52 +332,48 @@ const connectToRoom = async () => {
             await refreshTokenForRejoin();
         }
 
-        if (!token.value) return;
+        if (!token.value || !roomUrl.value) return;
 
         connectionState.value = 'connecting';
+        const Daily = await loadDaily();
+        await destroyCallObject();
 
-        const Video = await loadTwilioVideo();
-
-        const tracks = await Video.createLocalTracks({
-            audio: true,
-            video: { width: 1280 },
+        callObject = Daily.createCallObject({
+            userName: identity.value,
         });
 
-        localTracks = tracks;
-        activeVideoTrack = tracks.find((track) => track.kind === 'video') || null;
-        room = await Video.connect(token.value, { name: roomName.value, tracks });
+        callObject.on('participant-joined', syncParticipants);
+        callObject.on('participant-updated', syncParticipants);
+        callObject.on('participant-left', syncParticipants);
+        callObject.on('camera-error', (event) => {
+            connectionError.value = event?.errorMsg || 'Unable to access camera or microphone.';
+        });
+        callObject.on('error', (event) => {
+            connectionError.value = event?.errorMsg || 'Video connection error.';
+        });
+        callObject.on('meeting-session-state-updated', (event) => {
+            const state = event?.meetingSessionState;
+            if (state === 'reconnecting') {
+                connectionState.value = 'reconnecting';
+            } else if (state === 'joined-meeting') {
+                connectionState.value = 'connected';
+            } else if (state === 'left-meeting' && !endingCall) {
+                connectionState.value = 'disconnected';
+            }
+        });
+
+        await callObject.join({
+            url: roomUrl.value,
+            token: token.value,
+            userName: identity.value,
+        });
+
+        await callObject.setLocalAudio(!muted.value);
+        await callObject.setLocalVideo(!cameraOff.value);
+        syncParticipants();
+
         connected.value = true;
         connectionState.value = 'connected';
-        await nextTick();
-
-        tracks.forEach((track) => {
-            if (track.kind === 'video') {
-                attachLocalVideoTrack(track);
-            }
-        });
-
-        room.participants.forEach(addRemoteParticipant);
-        room.on('participantConnected', addRemoteParticipant);
-        room.on('participantDisconnected', removeRemoteParticipant);
-        room.on('reconnecting', () => {
-            connectionError.value = null;
-            connectionState.value = 'reconnecting';
-            controlsVisible.value = true;
-        });
-        room.on('reconnected', () => {
-            connectionError.value = null;
-            connectionState.value = 'connected';
-        });
-        room.on('disconnected', (_disconnectedRoom, disconnectError) => {
-            const wasEndingCall = endingCall;
-            cleanupRoom();
-            connected.value = false;
-            connectionState.value = wasEndingCall ? 'idle' : 'disconnected';
-
-            if (!wasEndingCall && disconnectError) {
-                connectionError.value = disconnectError.message || 'Disconnected from the video room.';
-            }
-        });
 
         if (!timerInterval) {
             timerInterval = window.setInterval(() => {
@@ -433,7 +386,7 @@ const connectToRoom = async () => {
 
         await axios.patch(`/api/video-sessions/${props.bookingId}/start`);
     } catch (connectError) {
-        cleanupRoom();
+        await cleanupRoom();
         connected.value = false;
         connectionState.value = 'disconnected';
         connectionError.value = `Failed to connect: ${connectError.message || connectError}`;
@@ -442,11 +395,12 @@ const connectToRoom = async () => {
     }
 };
 
-const toggleMute = () => {
+const toggleMute = async () => {
     muted.value = !muted.value;
-    localTracks
-        .filter((track) => track.kind === 'audio')
-        .forEach((track) => (muted.value ? track.disable() : track.enable()));
+
+    if (callObject) {
+        await callObject.setLocalAudio(!muted.value);
+    }
 
     if (muted.value) {
         micBounce.value = true;
@@ -456,50 +410,31 @@ const toggleMute = () => {
     }
 };
 
-const toggleCamera = () => {
+const toggleCamera = async () => {
     cameraOff.value = !cameraOff.value;
-
-    if (screenSharing.value) return;
-
-    localTracks
-        .filter((track) => track.kind === 'video')
-        .forEach((track) => (cameraOff.value ? track.disable() : track.enable()));
+    if (callObject) {
+        await callObject.setLocalVideo(!cameraOff.value);
+        syncParticipants();
+    }
 };
 
 const toggleScreenShare = async () => {
-    if (screenSharing.value) {
-        await restoreCameraTrack();
-        return;
-    }
+    if (!callObject) return;
 
     try {
         connectionError.value = null;
 
-        const Video = await loadTwilioVideo();
-
-        const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-        const displayTrack = stream.getVideoTracks()[0];
-        if (!displayTrack) {
-            throw new Error('No screen video track was selected.');
+        if (screenSharing.value) {
+            await callObject.stopScreenShare();
+        } else {
+            await callObject.startScreenShare();
         }
 
-        screenTrack = new Video.LocalVideoTrack(displayTrack, { name: 'screen-share' });
-        screenSharing.value = true;
-        displayTrack.onended = () => {
-            void restoreCameraTrack();
-        };
-
-        await replaceLocalVideoTrack(screenTrack);
+        syncParticipants();
     } catch (shareError) {
-        if (screenTrack) {
-            removeLocalTrack(screenTrack);
-            screenTrack = null;
-        }
-
-        screenSharing.value = false;
         connectionError.value = shareError?.name === 'NotAllowedError'
             ? 'Screen sharing was cancelled.'
-            : `Unable to start screen sharing: ${shareError.message || shareError}`;
+            : `Unable to change screen sharing state: ${shareError.message || shareError}`;
     }
 };
 
@@ -519,12 +454,17 @@ const performEndCall = async () => {
         ended_by: isTeacher.value ? 'teacher' : 'student',
     });
 
-    if (room) {
-        room.disconnect();
+    if (callObject) {
+        try {
+            await callObject.leave();
+        } catch {
+            // Ignore leave errors during call end.
+        }
     }
 
-    cleanupRoom();
-    window.clearInterval(timerInterval);
+    await cleanupRoom();
+    connected.value = false;
+    connectionState.value = 'idle';
 
     window.location.href = isTeacher.value
         ? '/teacher/sessions'
@@ -561,14 +501,18 @@ onMounted(async () => {
     await Promise.all([fetchBookingMeta(), fetchToken()]);
 });
 
-onUnmounted(() => {
+onUnmounted(async () => {
     endingCall = true;
 
-    if (room) {
-        room.disconnect();
+    if (callObject) {
+        try {
+            await callObject.leave();
+        } catch {
+            // Ignore leave errors on unmount.
+        }
     }
 
-    cleanupRoom();
+    await cleanupRoom();
 
     window.clearInterval(timerInterval);
     window.clearTimeout(controlsHideTimer);

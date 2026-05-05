@@ -14,7 +14,9 @@ use App\Services\PhonePeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class PaymentController extends Controller
@@ -62,6 +64,14 @@ class PaymentController extends Controller
                 'raw_response' => $order['raw_response'],
             ]
         );
+
+        Log::info('Payment initiated.', [
+            'payment_id' => $payment->id,
+            'booking_id' => $booking->id,
+            'student_id' => $user->id,
+            'gateway' => $payment->gateway,
+            'amount' => (float) $payment->amount,
+        ]);
 
         return response()->json([
             'payment_id' => $payment->id,
@@ -139,6 +149,74 @@ class PaymentController extends Controller
         }
 
         return redirect('/student/bookings?payment=pending&booking=' . $booking->id);
+    }
+
+    public function demoCheckout(string $gatewayOrderId): Response
+    {
+        $payment = Payment::with('booking.teacher:id,name')
+            ->where('gateway_order_id', $gatewayOrderId)
+            ->firstOrFail();
+
+        abort_unless($payment->booking?->student_id === auth()->id(), 403);
+
+        $amount = number_format((float) $payment->amount, 2);
+        $teacherName = e($payment->booking->teacher?->name ?? 'Teacher');
+        $completeUrl = e(url('/payment/demo/' . rawurlencode($payment->gateway_order_id) . '/complete'));
+        $cancelUrl = e(url('/student/bookings?payment=pending&booking=' . $payment->booking_id));
+        $csrf = csrf_field();
+
+        return response(<<<HTML
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PhonePe Demo Checkout</title>
+    <style>
+        body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #f6f7fb; font-family: Arial, sans-serif; color: #1f2937; }
+        main { width: min(440px, calc(100% - 32px)); background: #fff; border-radius: 18px; padding: 24px; box-shadow: 0 24px 70px rgba(15, 23, 42, 0.16); }
+        .brand { color: #5f259f; font-size: 28px; font-weight: 800; margin: 0 0 4px; }
+        .muted { color: #6b7280; margin: 0 0 20px; }
+        .amount { font-size: 36px; font-weight: 800; margin: 10px 0; }
+        .row { display: flex; justify-content: space-between; border-top: 1px solid #eef2f7; padding: 12px 0; }
+        button, a { width: 100%; min-height: 46px; border-radius: 999px; border: 0; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; font-weight: 800; cursor: pointer; }
+        button { background: #5f259f; color: #fff; margin-top: 18px; }
+        a { color: #6b7280; margin-top: 8px; }
+    </style>
+</head>
+<body>
+    <main>
+        <p class="brand">PhonePe</p>
+        <p class="muted">Demo checkout for local development</p>
+        <div class="row"><span>Teacher</span><strong>{$teacherName}</strong></div>
+        <div class="row"><span>Order</span><strong>{$payment->gateway_order_id}</strong></div>
+        <p class="amount">₹{$amount}</p>
+        <form method="post" action="{$completeUrl}">
+            {$csrf}
+            <button type="submit">Pay Demo Amount</button>
+        </form>
+        <a href="{$cancelUrl}">Return without paying</a>
+    </main>
+</body>
+</html>
+HTML);
+    }
+
+    public function demoComplete(string $gatewayOrderId): RedirectResponse
+    {
+        $payment = Payment::with('booking')
+            ->where('gateway_order_id', $gatewayOrderId)
+            ->firstOrFail();
+
+        abort_unless($payment->booking?->student_id === auth()->id(), 403);
+
+        $this->markPaymentHeld($payment, [
+            'gateway_payment_id' => $payment->gateway_payment_id ?: ('DEMO-' . $payment->gateway_order_id),
+            'raw' => ['state' => 'COMPLETED', 'source' => 'local_demo_checkout'],
+            'verification' => 'local_demo_checkout',
+        ]);
+
+        return redirect('/student/bookings?payment=success&booking=' . $payment->booking_id);
     }
 
     public function webhook(Request $request): JsonResponse
@@ -225,6 +303,12 @@ class PaymentController extends Controller
         });
 
         if ($held) {
+            Log::info('Payment held and booking confirmed.', [
+                'payment_id' => $payment->id,
+                'booking_id' => $payment->booking_id,
+                'gateway_payment_id' => $context['gateway_payment_id'] ?? null,
+                'verification' => $context['verification'] ?? 'unknown',
+            ]);
             dispatch(new SendBookingConfirmationNotification($payment->booking));
         }
     }
@@ -259,6 +343,12 @@ class PaymentController extends Controller
                     ->update(['is_booked' => false, 'booking_id' => null]);
             }
         });
+
+        Log::warning('Payment failed.', [
+            'payment_id' => $payment->id,
+            'booking_id' => $payment->booking_id,
+            'gateway' => $payment->gateway,
+        ]);
     }
 
     private function extractOrderId(array $data): ?string

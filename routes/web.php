@@ -20,6 +20,7 @@ use App\Http\Controllers\Teacher\AvailabilityController;
 use App\Http\Controllers\Teacher\DashboardController as TeacherDashboardController;
 use App\Http\Controllers\Teacher\ProfileController as TeacherProfileController;
 use App\Http\Middleware\VerifyCsrfToken;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -149,12 +150,18 @@ Route::middleware(['auth', 'role:student'])->prefix('student')->name('student.')
     Route::patch('/profile',   [StudentProfileController::class, 'update'])->name('profile.update');
     Route::get('/settings', fn () => Inertia::render('Student/Settings'))->name('settings');
     Route::get('/saved-teachers', fn () => Inertia::render('Student/SavedTeachers'))->name('saved-teachers');
-    Route::get('/chat', fn () => Inertia::render('Student/Chat'))->name('chat');
+    Route::get('/chat', fn (Request $request) => Inertia::render('Student/Chat', [
+        'initialConversationId' => $request->integer('conversation') ?: null,
+    ]))->name('chat');
     Route::get('/bookings', fn () => Inertia::render('Student/MyBookings'))->name('bookings');
 });
 
 // ─── Payment Callback (PhonePe redirect-back) ────────────────────────────────
 Route::middleware('auth')->get('/payment/callback', [PaymentController::class, 'callback'])->name('payment.callback');
+Route::middleware(['auth', 'role:student'])->get('/payment/demo/{gatewayOrderId}', [PaymentController::class, 'demoCheckout'])
+    ->name('payment.demo');
+Route::middleware(['auth', 'role:student'])->post('/payment/demo/{gatewayOrderId}/complete', [PaymentController::class, 'demoComplete'])
+    ->name('payment.demo.complete');
 
 // ─── PhonePe Webhook (server-to-server, no CSRF) ─────────────────────────────
 Route::post('/api/webhooks/phonepe', [PaymentController::class, 'webhook'])
@@ -181,10 +188,10 @@ Route::get('/join/{inviteCode}', function (string $inviteCode) {
     return Inertia::render('JoinClass', ['inviteCode' => $inviteCode]);
 })->name('class.join');
 
-// ─── Twilio Recording Webhook (no CSRF) ───────────────────────────────────
-Route::post('/api/webhooks/twilio/recording-complete', [VideoSessionController::class, 'recordingWebhook'])
+// ─── Daily Recording Webhook (no CSRF) ────────────────────────────────────
+Route::post('/api/webhooks/daily/recording-ready', [VideoSessionController::class, 'recordingWebhook'])
     ->withoutMiddleware([VerifyCsrfToken::class])
-    ->name('webhooks.twilio.recording');
+    ->name('webhooks.daily.recording');
 
 // ─── Teacher Portal ──────────────────────────────────────────────────────────
 Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')->group(function () {
@@ -200,7 +207,9 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     Route::post('/profile/step/3',      [TeacherProfileController::class, 'saveStep3'])->name('profile.step3.save');
     Route::post('/profile/step/4',      [TeacherProfileController::class, 'saveStep4'])->name('profile.step4.save');
     Route::post('/profile/step/5',      [TeacherProfileController::class, 'saveStep5'])->name('profile.step5.save');
-    Route::get('/chat', fn () => Inertia::render('Teacher/Chat'))->name('chat');
+    Route::get('/chat', fn (Request $request) => Inertia::render('Teacher/Chat', [
+        'initialConversationId' => $request->integer('conversation') ?: null,
+    ]))->name('chat');
 
     Route::get('/settings', function () {
         $preference = auth()->user()?->notificationPreferences;

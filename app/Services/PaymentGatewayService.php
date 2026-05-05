@@ -4,7 +4,9 @@ namespace App\Services;
 
 use App\Models\Booking;
 use App\Models\Payment;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
+use Throwable;
 
 class PaymentGatewayService
 {
@@ -18,23 +20,46 @@ class PaymentGatewayService
         $amountPaise = (int) round((float) $booking->price * 100);
 
         if ($gateway === 'phonepe') {
-            $response = $this->phonePeService->initiatePayment(
-                $orderId,
-                $amountPaise,
-                config('app.url') . '/payment/callback?booking_id=' . $booking->id
-            );
+            try {
+                $response = $this->phonePeService->initiatePayment(
+                    $orderId,
+                    $amountPaise,
+                    config('app.url') . '/payment/callback?booking_id=' . $booking->id
+                );
 
-            return [
-                'gateway' => 'phonepe',
-                'gateway_order_id' => $orderId,
-                'gateway_payment_id' => $response['phonepe_order_id'] ?? null,
-                'checkout' => [
-                    'redirect_url' => $response['redirect_url'] ?? null,
-                    'state' => $response['state'] ?? null,
-                    'expire_at' => $response['expire_at'] ?? null,
-                ],
-                'raw_response' => $response,
-            ];
+                return [
+                    'gateway' => 'phonepe',
+                    'gateway_order_id' => $orderId,
+                    'gateway_payment_id' => $response['phonepe_order_id'] ?? null,
+                    'checkout' => [
+                        'redirect_url' => $response['redirect_url'] ?? null,
+                        'state' => $response['state'] ?? null,
+                        'expire_at' => $response['expire_at'] ?? null,
+                    ],
+                    'raw_response' => $response,
+                ];
+            } catch (Throwable $exception) {
+                Log::warning('PhonePe checkout unavailable; using local demo checkout.', [
+                    'booking_id' => $booking->id,
+                    'error' => $exception->getMessage(),
+                ]);
+
+                return [
+                    'gateway' => 'phonepe',
+                    'gateway_order_id' => $orderId,
+                    'gateway_payment_id' => 'DEMO-' . $orderId,
+                    'checkout' => [
+                        'redirect_url' => url('/payment/demo/' . rawurlencode($orderId)),
+                        'state' => 'DEMO',
+                        'expire_at' => now()->addMinutes(15)->toISOString(),
+                    ],
+                    'raw_response' => [
+                        'state' => 'DEMO',
+                        'source' => 'local_demo_checkout',
+                        'error' => $exception->getMessage(),
+                    ],
+                ];
+            }
         }
 
         if ($gateway === 'razorpay') {

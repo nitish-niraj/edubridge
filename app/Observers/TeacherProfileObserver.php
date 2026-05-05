@@ -10,18 +10,21 @@ class TeacherProfileObserver
 {
     public function saving(TeacherProfile $teacherProfile): void
     {
-        $this->flushTeachersCache();
+        $this->invalidateTeachersCache();
     }
 
     public function deleted(TeacherProfile $teacherProfile): void
     {
-        $this->flushTeachersCache();
+        $this->invalidateTeachersCache();
     }
 
-    private function flushTeachersCache(): void
+    private function invalidateTeachersCache(): void
     {
         if (Cache::getStore() instanceof TaggableStore) {
             Cache::tags(['teachers'])->flush();
         }
+
+        $version = (int) Cache::get('teachers:cache_version', 1);
+        Cache::forever('teachers:cache_version', $version + 1);
     }
 }

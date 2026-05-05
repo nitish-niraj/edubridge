@@ -8,13 +8,24 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
+use Throwable;
 
 class ExportUsersJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+
+    public int $tries = 3;
+
+    public int $timeout = 300;
+
+    public function backoff(): array
+    {
+        return [60, 300, 900];
+    }
 
     public function __construct(
         public string $role,
@@ -57,5 +68,14 @@ class ExportUsersJob implements ShouldQueue
         Mail::raw("Your user export is ready: {$downloadUrl}", function ($msg) {
             $msg->to($this->adminEmail)->subject('EduBridge — User Export Ready');
         });
+    }
+
+    public function failed(Throwable $exception): void
+    {
+        Log::error('ExportUsersJob failed.', [
+            'role' => $this->role,
+            'admin_email' => $this->adminEmail,
+            'error' => $exception->getMessage(),
+        ]);
     }
 }

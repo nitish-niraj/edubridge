@@ -132,12 +132,16 @@ const startConversation = async () => {
         return;
     }
 
-    const response = await axios.post('/api/conversations', {
-        teacher_id: teacher.value.teacher_id,
-        message: 'Hello teacher, I would like to connect.',
-    });
+    try {
+        const response = await axios.post('/api/conversations', {
+            teacher_id: teacher.value.teacher_id,
+            message: 'Hello teacher, I would like to connect.',
+        });
 
-    window.location.href = `/chat/${response.data.data.id}`;
+        window.location.href = `/student/chat?conversation=${response.data.data.id}`;
+    } catch (error) {
+        window.alert(error.response?.data?.message || 'Could not start the conversation. Please try again.');
+    }
 };
 
 const bookSession = (event) => {

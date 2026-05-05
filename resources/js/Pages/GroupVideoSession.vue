@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { usePage, Link } from '@inertiajs/vue3';
 import axios from 'axios';
 
@@ -10,6 +10,7 @@ const user = computed(() => page.props.auth?.user);
 // Connection state
 const token = ref(null);
 const roomName = ref(null);
+const roomUrl = ref(null);
 const identity = ref(null);
 const sessionId = ref(null);
 const connected = ref(false);
@@ -30,7 +31,8 @@ const cameraOn = ref(true);
 const micOn = ref(true);
 const timer = ref(0);
 let timerInterval = null;
-let twilioRoom = null;
+let dailyModule = null;
+let callObject = null;
 
 // Raise hand
 const raisedHands = ref([]);
@@ -49,6 +51,54 @@ const formatTime = (s) => {
     return `${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
 };
 
+const loadDaily = async () => {
+    if (!dailyModule) {
+        const mod = await import('@daily-co/daily-js');
+        dailyModule = mod.default || mod;
+    }
+
+    return dailyModule;
+};
+
+const toTrackShape = (participant, trackKind, mediaKind = 'video') => {
+    const trackInfo = participant?.tracks?.[trackKind];
+    const mediaStreamTrack = trackInfo?.track;
+    if (trackInfo?.state !== 'playable' || !mediaStreamTrack) {
+        return null;
+    }
+
+    return {
+        sid: `${participant.session_id || participant.user_id || 'participant'}-${trackKind}`,
+        kind: mediaKind,
+        mediaStreamTrack,
+    };
+};
+
+const syncParticipants = () => {
+    if (!callObject) return;
+
+    const participants = Object.values(callObject.participants() || {});
+    const local = participants.find((participant) => participant?.local);
+    const remotes = participants.filter((participant) => participant && !participant.local && participant.session_id);
+
+    const localVideoTrack = toTrackShape(local, 'screenVideo', 'video') || toTrackShape(local, 'video', 'video');
+    localTrackEls.value = localVideoTrack ? [localVideoTrack] : [];
+
+    remoteParticipants.value = remotes.map((participant) => {
+        const videoTrack = toTrackShape(participant, 'screenVideo', 'video') || toTrackShape(participant, 'video', 'video');
+        const audioPlayable = participant?.tracks?.audio?.state === 'playable';
+        const videoPlayable = Boolean(videoTrack);
+
+        return {
+            sid: participant.session_id,
+            identity: participant.user_name || participant.user_id || 'Participant',
+            tracks: videoTrack ? [videoTrack] : [],
+            audioEnabled: audioPlayable,
+            videoEnabled: videoPlayable,
+        };
+    });
+};
+
 onMounted(async () => {
     try {
         // Fetch group info
@@ -64,10 +114,11 @@ onMounted(async () => {
         const { data } = await axios.post(endpoint);
         token.value = data.token;
         roomName.value = data.room_name;
+        roomUrl.value = data.room_url;
         identity.value = data.identity;
         sessionId.value = data.video_session_id;
 
-        // Connect to Twilio
+        // Connect to Daily
         await connectToRoom();
     } catch (e) {
         error.value = e.response?.data?.message || 'Failed to connect.';
@@ -77,78 +128,50 @@ onMounted(async () => {
 
 const connectToRoom = async () => {
     try {
-        const Video = await import('twilio-video');
-        twilioRoom = await Video.connect(token.value, {
-            name: roomName.value,
-            audio: true,
-            video: { width: 640 },
+        const Daily = await loadDaily();
+        callObject = Daily.createCallObject({
+            userName: identity.value,
+        });
+
+        callObject.on('participant-joined', syncParticipants);
+        callObject.on('participant-updated', syncParticipants);
+        callObject.on('participant-left', syncParticipants);
+        callObject.on('left-meeting', () => {
+            connected.value = false;
+        });
+
+        await callObject.join({
+            url: roomUrl.value,
+            token: token.value,
+            userName: identity.value,
         });
 
         connected.value = true;
+        await callObject.setLocalAudio(true);
+        await callObject.setLocalVideo(true);
+        syncParticipants();
 
         // Start timer
         timerInterval = setInterval(() => timer.value++, 1000);
-
-        // Local tracks
-        twilioRoom.localParticipant.tracks.forEach(pub => {
-            if (pub.track) localTrackEls.value.push(pub.track);
-        });
-
-        // Remote participants
-        twilioRoom.participants.forEach(handleParticipantConnected);
-        twilioRoom.on('participantConnected', handleParticipantConnected);
-        twilioRoom.on('participantDisconnected', handleParticipantDisconnected);
     } catch (e) {
         error.value = 'Failed to connect to video room: ' + e.message;
     }
 };
 
-const handleParticipantConnected = (participant) => {
-    const p = { sid: participant.sid, identity: participant.identity, tracks: [], audioEnabled: true, videoEnabled: true };
-    remoteParticipants.value.push(p);
-
-    participant.tracks.forEach(pub => {
-        if (pub.isSubscribed && pub.track) p.tracks.push(pub.track);
-    });
-
-    participant.on('trackSubscribed', track => {
-        p.tracks.push(track);
-        remoteParticipants.value = [...remoteParticipants.value];
-    });
-
-    participant.on('trackUnsubscribed', track => {
-        p.tracks = p.tracks.filter(t => t !== track);
-    });
-
-    participant.on('trackDisabled', track => {
-        if (track.kind === 'audio') p.audioEnabled = false;
-        if (track.kind === 'video') p.videoEnabled = false;
-        remoteParticipants.value = [...remoteParticipants.value];
-    });
-
-    participant.on('trackEnabled', track => {
-        if (track.kind === 'audio') p.audioEnabled = true;
-        if (track.kind === 'video') p.videoEnabled = true;
-        remoteParticipants.value = [...remoteParticipants.value];
-    });
-};
-
-const handleParticipantDisconnected = (participant) => {
-    remoteParticipants.value = remoteParticipants.value.filter(p => p.sid !== participant.sid);
-};
-
-const toggleCamera = () => {
+const toggleCamera = async () => {
     cameraOn.value = !cameraOn.value;
-    twilioRoom?.localParticipant.videoTracks.forEach(pub => {
-        cameraOn.value ? pub.track.enable() : pub.track.disable();
-    });
+    if (callObject) {
+        await callObject.setLocalVideo(cameraOn.value);
+        syncParticipants();
+    }
 };
 
-const toggleMic = () => {
+const toggleMic = async () => {
     micOn.value = !micOn.value;
-    twilioRoom?.localParticipant.audioTracks.forEach(pub => {
-        micOn.value ? pub.track.enable() : pub.track.disable();
-    });
+    if (callObject) {
+        await callObject.setLocalAudio(micOn.value);
+        syncParticipants();
+    }
 };
 
 const endSession = async () => {
@@ -161,8 +184,22 @@ const endSession = async () => {
         } catch (e) { /* noop */ }
     }
 
-    twilioRoom?.disconnect();
-    window.location.href = `/teacher/classes/${props.conversationId}`;
+    if (callObject) {
+        try {
+            await callObject.leave();
+        } catch {
+            // noop
+        }
+        try {
+            await callObject.destroy();
+        } catch {
+            // noop
+        }
+        callObject = null;
+    }
+    window.location.href = isTeacher.value
+        ? `/teacher/classes/${props.conversationId}`
+        : '/student/dashboard';
 };
 
 // Raise hand
@@ -219,7 +256,11 @@ const requestRecording = async () => {
 
 onUnmounted(() => {
     clearInterval(timerInterval);
-    twilioRoom?.disconnect();
+    if (callObject) {
+        void callObject.leave().catch(() => {});
+        void callObject.destroy().catch(() => {});
+        callObject = null;
+    }
 });
 </script>
 
@@ -235,7 +276,12 @@ onUnmounted(() => {
         <div v-else-if="error" style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;">
             <div style="font-size: 48px;">😕</div>
             <p style="font-size: 18px; color: #ff6b6b;">{{ error }}</p>
-            <Link :href="route('teacher.classes.manage', { id: conversationId })" style="color: #4ecdc4; text-decoration: underline;">← Back to Class</Link>
+            <Link
+                :href="isTeacher ? route('teacher.classes.manage', { id: props.conversationId }) : route('student.dashboard')"
+                style="color: #4ecdc4; text-decoration: underline;"
+            >
+                Back
+            </Link>
         </div>
 
         <!-- Video session -->

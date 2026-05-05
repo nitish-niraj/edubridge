@@ -9,6 +9,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Redirect;
+use Illuminate\Support\Facades\Storage;
 
 class ProfileController extends Controller
 {
@@ -37,9 +38,17 @@ class ProfileController extends Controller
         }
 
         if ($request->hasFile('avatar')) {
+            $previousAvatar = (string) ($user->avatar ?? '');
             $avatarPath = UploadSecurity::storeAvatarWebp($request->file('avatar'), 'public');
             $user->avatar = '/storage/' . ltrim($avatarPath, '/');
             $saveUser = true;
+
+            if (str_starts_with($previousAvatar, '/storage/')) {
+                $previousRelativePath = ltrim(substr($previousAvatar, strlen('/storage/')), '/');
+                if ($previousRelativePath !== '' && Storage::disk('public')->exists($previousRelativePath)) {
+                    Storage::disk('public')->delete($previousRelativePath);
+                }
+            }
         }
 
         if ($user->isDirty('email')) {

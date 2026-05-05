@@ -9,8 +9,10 @@ use App\Http\Requests\Api\TeacherAvailabilityUpdateRequest;
 use App\Models\BookingSlot;
 use App\Models\TeacherAvailability;
 use App\Models\User;
+use Illuminate\Cache\TaggableStore;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 
 class TeacherAvailabilityController extends Controller
 {
@@ -33,6 +35,7 @@ class TeacherAvailabilityController extends Controller
         $availability = $request->user()->teacherAvailability()->create($validated);
 
         $this->regenerateSlots($request->user());
+        $this->invalidateTeachersCache();
 
         return response()->json(['data' => $availability, 'message' => 'Availability created successfully.'], 201);
     }
@@ -49,6 +52,7 @@ class TeacherAvailabilityController extends Controller
         $availability->update($validated);
 
         $this->regenerateSlots($request->user());
+        $this->invalidateTeachersCache();
 
         return response()->json(['data' => $availability, 'message' => 'Availability updated successfully.']);
     }
@@ -63,6 +67,7 @@ class TeacherAvailabilityController extends Controller
         $availability->delete();
 
         $this->regenerateSlots($request->user());
+        $this->invalidateTeachersCache();
 
         return response()->json(['message' => 'Availability removed.']);
     }
@@ -174,14 +179,33 @@ class TeacherAvailabilityController extends Controller
 
         if ($bookedExists) return;
 
-        BookingSlot::firstOrCreate([
-            'teacher_id' => $teacherId,
-            'slot_date'  => $date,
-            'start_time' => $startTime,
-        ], [
-            'end_time'         => $endTime,
-            'duration_minutes' => Carbon::parse($startTime)->diffInMinutes(Carbon::parse($endTime)),
-            'is_booked'        => false,
-        ]);
+        $slotStart = Carbon::parse($date . ' ' . $startTime);
+        $slotEnd = Carbon::parse($date . ' ' . $endTime);
+
+        while ($slotStart->copy()->addMinutes(60)->lte($slotEnd)) {
+            $chunkEnd = $slotStart->copy()->addMinutes(60);
+
+            BookingSlot::firstOrCreate([
+                'teacher_id' => $teacherId,
+                'slot_date'  => $date,
+                'start_time' => $slotStart->format('H:i:s'),
+            ], [
+                'end_time'         => $chunkEnd->format('H:i:s'),
+                'duration_minutes' => 60,
+                'is_booked'        => false,
+            ]);
+
+            $slotStart = $chunkEnd;
+        }
+    }
+
+    private function invalidateTeachersCache(): void
+    {
+        if (Cache::getStore() instanceof TaggableStore) {
+            Cache::tags(['teachers'])->flush();
+        }
+
+        $version = (int) Cache::get('teachers:cache_version', 1);
+        Cache::forever('teachers:cache_version', $version + 1);
     }
 }

@@ -146,8 +146,8 @@ class BookingPhase3BTest extends TestCase
 
         // Cancel < 2 hours -> fails
         $response2 = $this->actingAs($this->student)->patchJson("/api/bookings/{$booking2->id}/cancel");
-        $response2->assertStatus(403)
-            ->assertJsonFragment(['message' => 'Cannot cancel within 2 hours of session start.']);
+        $response2->assertStatus(200)
+            ->assertJsonPath('refunded', false);
     }
 
     public function test_no_show_detection_works()
