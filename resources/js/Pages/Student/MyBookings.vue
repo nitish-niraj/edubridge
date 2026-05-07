@@ -83,17 +83,20 @@ const statusColor = (s) => ({
     pending: '#FFA726', confirmed: '#66BB6A', completed: '#42A5F5', cancelled: '#EF5350', no_show: '#BDBDBD'
 }[s] || '#999');
 
-const formatDate = (d) => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-const formatTime = (d) => new Date(d).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+const formatDate = (d) => new Date(d.replace('Z', '')).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+const formatTime = (d) => new Date(d.replace('Z', '')).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
 
 const canJoin = (b) => {
     if (b.status !== 'confirmed') return false;
-    const mins = (new Date(b.start_at) - new Date()) / 60000;
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        return true;
+    }
+    const mins = (new Date(b.start_at.replace('Z', '')) - new Date()) / 60000;
     return mins <= 15;
 };
 
 const minutesUntil = (b) => {
-    const mins = Math.round((new Date(b.start_at) - new Date()) / 60000);
+    const mins = Math.round((new Date(b.start_at.replace('Z', '')) - new Date()) / 60000);
     if (mins <= 0) return 'Now';
     if (mins < 60) return `in ${mins} min`;
     return `in ${Math.round(mins / 60)}h`;
@@ -205,7 +208,7 @@ const retryPayment = async (b) => {
                         </a>
                         <span v-else-if="b.status === 'confirmed' && !canJoin(b)"
                             style="font-size: 13px; color: #999; font-family: Nunito, sans-serif;">
-                            Starts {{ minutesUntil(b) }}
+                            Join link opens {{ minutesUntil(b) }}
                         </span>
 
                         <button v-if="b.status === 'pending' && b.payment_status === 'unpaid' && b.price > 0" type="button" @click="retryPayment(b)"

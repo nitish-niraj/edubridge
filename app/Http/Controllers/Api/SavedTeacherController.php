@@ -34,9 +34,7 @@ class SavedTeacherController extends Controller
             ->where('languages', '!=', '[]')
             ->whereHas('user', function (Builder $builder): void {
                 $builder->where('role', 'teacher')
-                    ->where('status', 'active')
-                    ->whereNotNull('avatar')
-                    ->where('avatar', '!=', '');
+                    ->where('status', 'active');
             })
             ->orderByDesc('rating_avg')
             ->orderByDesc('total_reviews')
@@ -68,9 +66,7 @@ class SavedTeacherController extends Controller
             ->where('languages', '!=', '[]')
             ->whereHas('user', function (Builder $builder): void {
                 $builder->where('role', 'teacher')
-                    ->where('status', 'active')
-                    ->whereNotNull('avatar')
-                    ->where('avatar', '!=', '');
+                    ->where('status', 'active');
             })
             ->exists();
 

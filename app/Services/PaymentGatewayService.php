@@ -108,6 +108,13 @@ class PaymentGatewayService
 
     public function refund(Payment $payment): array
     {
+        if ($payment->gateway_payment_id && str_starts_with($payment->gateway_payment_id, 'DEMO-')) {
+            return [
+                'state' => 'COMPLETED',
+                'order_id' => 'DEMO-REFUND-' . $payment->booking_id . '-' . now()->timestamp,
+            ];
+        }
+
         if ($payment->gateway === 'phonepe') {
             return $this->phonePeService->initiateRefund(
                 'REFUND-' . $payment->booking_id . '-' . now()->timestamp,

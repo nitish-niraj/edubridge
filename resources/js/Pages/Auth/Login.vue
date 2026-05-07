@@ -32,6 +32,7 @@ const form = useForm({
 const emailError     = ref('');
 const showPassword   = ref(false);
 const isSubmitting   = ref(false);
+const showRegisterModal = ref(false);
 
 const validateEmailField = () => {
     const result = validateEmail(form.email);
@@ -48,8 +49,20 @@ const submit = () => {
 
     form.redirect = redirectTarget.value;
     form.post(route('login'), {
-        onFinish: () => form.reset('password'),
+        onFinish: () => {
+            form.reset('password');
+        },
+        onError: (errors) => {
+            if (errors.user_not_found) {
+                showRegisterModal.value = true;
+            }
+        },
     });
+};
+
+const closeModal = () => {
+    showRegisterModal.value = false;
+    form.clearErrors();
 };
 </script>
 
@@ -212,6 +225,32 @@ const submit = () => {
                             Register here →
                         </Link>
                     </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- User Not Found Modal -->
+        <div v-if="showRegisterModal" @click="closeModal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:9999;">
+            <div @click.stop style="background:#fff; border-radius:20px; padding:40px; max-width:500px; width:90%; box-shadow:0 10px 40px rgba(0,0,0,0.2);">
+                <div style="text-align:center; margin-bottom:24px;">
+                    <div style="font-size:64px; margin-bottom:16px;">🔍</div>
+                    <h3 style="font-family:'Fredoka One',cursive; font-size:24px; color:#E8553E; margin:0 0 12px;">
+                        Account Not Found
+                    </h3>
+                    <p style="font-family:'Nunito',sans-serif; font-size:16px; color:#666; margin:0; line-height:1.6;">
+                        We couldn't find an account with this email address. Would you like to register?
+                    </p>
+                </div>
+                <div style="display:flex; gap:12px; flex-direction:column;">
+                    <Link :href="route('student.register')" style="width:100%; padding:14px; background:#E8553E; color:#fff; border:none; border-radius:50px; font-family:'Fredoka One',cursive; font-size:18px; text-align:center; text-decoration:none; display:block;">
+                        Register as Student
+                    </Link>
+                    <Link :href="route('teacher.register')" style="width:100%; padding:14px; background:#66BB6A; color:#fff; border:none; border-radius:50px; font-family:'Fredoka One',cursive; font-size:18px; text-align:center; text-decoration:none; display:block;">
+                        Register as Teacher
+                    </Link>
+                    <button @click="closeModal" type="button" style="width:100%; padding:14px; background:#f5f5f5; color:#666; border:none; border-radius:50px; font-family:'Nunito',sans-serif; font-size:16px; cursor:pointer;">
+                        Cancel
+                    </button>
                 </div>
             </div>
         </div>

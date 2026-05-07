@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
@@ -17,31 +18,37 @@ class DailyService
 
     /**
      * Ensure a Daily room exists. Returns the room URL.
+     *
+     * @param  string       $roomName
+     * @param  Carbon|null  $expiresAt  Exact UTC expiry for the room (defaults to now + 2 hours).
+     * @return string  The Daily room URL.
      */
-    public function ensureRoom(string $roomName, int $expiryMinutes = 120): string
+    public function ensureRoom(string $roomName, ?Carbon $expiresAt = null): string
     {
         $this->validateConfig();
 
-        // Check if room exists
-        $response = Http::withToken($this->apiKey)
-            ->get("{$this->baseUrl}/rooms/{$roomName}");
+        $exp = $this->resolveExpiry($expiresAt);
+
+        // Check if room already exists
+        $response = $this->client()->get("{$this->baseUrl}/rooms/{$roomName}");
 
         if ($response->successful()) {
+            // Update room expiry to match the booking's end time, in case it
+            // was created previously with a different (or default) expiry.
+            $this->client()->post("{$this->baseUrl}/rooms/{$roomName}", [
+                'properties' => ['exp' => $exp],
+            ]);
+
             return $response->json('url');
         }
 
-        // Create room if not exists
-        $createResponse = Http::withToken($this->apiKey)
-            ->post("{$this->baseUrl}/rooms", [
-                'name' => $roomName,
-                'properties' => [
-                    'exp' => $this->expiryTimestamp($expiryMinutes),
-                    'enable_recording' => 'cloud',
-                    'enable_screenshare' => true,
-                    'start_video_off' => false,
-                    'start_audio_off' => false,
-                ]
-            ]);
+        // Create room if it does not yet exist
+        $createResponse = $this->client()->post("{$this->baseUrl}/rooms", [
+            'name'       => $roomName,
+            'properties' => [
+                'exp' => $exp,
+            ],
+        ]);
 
         if ($createResponse->successful()) {
             return $createResponse->json('url');
@@ -52,20 +59,31 @@ class DailyService
 
     /**
      * Generate a meeting token for a specific room and identity.
+     *
+     * @param  string       $roomName
+     * @param  string       $identity
+     * @param  bool         $isOwner
+     * @param  Carbon|null  $expiresAt  Token expiry (defaults to now + 2 hours).
+     * @return string  The meeting token.
      */
-    public function generateMeetingToken(string $roomName, string $identity, bool $isOwner = false): string
-    {
+    public function generateMeetingToken(
+        string $roomName,
+        string $identity,
+        bool $isOwner = false,
+        ?Carbon $expiresAt = null
+    ): string {
         $this->validateConfig();
 
-        $response = Http::withToken($this->apiKey)
-            ->post("{$this->baseUrl}/meeting-tokens", [
-                'properties' => [
-                    'room_name' => $roomName,
-                    'user_name' => $identity,
-                    'is_owner' => $isOwner,
-                    'enable_recording' => 'cloud',
-                ]
-            ]);
+        $tokenProperties = [
+            'room_name' => $roomName,
+            'user_name' => $identity,
+            'is_owner'  => $isOwner,
+            'exp'       => $this->resolveExpiry($expiresAt),
+        ];
+
+        $response = $this->client()->post("{$this->baseUrl}/meeting-tokens", [
+            'properties' => $tokenProperties,
+        ]);
 
         if ($response->successful()) {
             return $response->json('token');
@@ -81,8 +99,32 @@ class DailyService
         }
     }
 
-    private function expiryTimestamp(int $expiryMinutes): int
+    /**
+     * Build a pre-configured HTTP client with the Daily API token.
+     * SSL verification is disabled on local environments (XAMPP on Windows
+     * ships without a CA bundle, causing cURL error 60).
+     */
+    protected function client()
     {
-        return max(now()->addMinutes($expiryMinutes)->timestamp, time() + ($expiryMinutes * 60));
+        $http = Http::withToken($this->apiKey)
+            ->timeout(15)
+            ->acceptJson();
+
+        if (app()->environment('local')) {
+            $http = $http->withoutVerifying();
+        }
+
+        return $http;
+    }
+
+    /**
+     * Resolve a Carbon expiry to a Unix timestamp.
+     * Falls back to now() + 2 hours when no expiry is provided.
+     */
+    private function resolveExpiry(?Carbon $expiresAt): int
+    {
+        return $expiresAt
+            ? $expiresAt->utc()->timestamp
+            : now()->utc()->addHours(2)->timestamp;
     }
 }

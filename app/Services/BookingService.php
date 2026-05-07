@@ -29,38 +29,58 @@ class BookingService
         $isTeacher  = $cancelledBy->id === $booking->teacher_id;
         $isStudent  = $cancelledBy->id === $booking->student_id;
         $refundAmount = 0;
+        $refunded = false;
 
         if ($isTeacher) {
-            $refundAmount = $booking->price; // Teacher always full refund
+            $refundAmount = (float) $booking->price; // Teacher always full refund
         } elseif ($isStudent) {
-            $refundAmount = $hoursUntilSession > 2 ? $booking->price : 0;
+            $refundAmount = $hoursUntilSession > 2 ? (float) $booking->price : 0;
         }
 
-        DB::transaction(function () use ($booking, $refundAmount) {
-            $booking->loadMissing('payment');
+        try {
+            DB::transaction(function () use ($booking, $refundAmount, &$refunded) {
+                $booking->loadMissing('payment');
 
-            $booking->update([
-                'status' => 'cancelled',
-                'payment_status' => $refundAmount > 0 && $booking->payment?->status === Payment::STATUS_HELD
-                    ? 'refunded'
-                    : $booking->payment_status,
-            ]);
-
-            BookingSlot::where('id', $booking->slot_id)
-                ->update(['is_booked' => false, 'booking_id' => null]);
-
-            if ($refundAmount > 0 && $booking->payment && $booking->payment->status === Payment::STATUS_HELD) {
-                $refundResponse = $this->paymentGateway->refund($booking->payment);
-                $booking->payment->transitionTo(Payment::STATUS_REFUNDED, [
-                    'raw_response' => array_merge($booking->payment->raw_response ?? [], [
-                        'refund' => $refundResponse,
-                    ]),
+                $booking->update([
+                    'status' => 'cancelled',
+                    'payment_status' => $refundAmount > 0 && $booking->payment?->status === Payment::STATUS_HELD
+                        ? 'refunded'
+                        : $booking->payment_status,
                 ]);
-            }
-        });
 
-        dispatch(new SendCancellationNotification($booking, $refundAmount));
+                BookingSlot::where('id', $booking->slot_id)
+                    ->update(['is_booked' => false, 'booking_id' => null]);
 
-        return ['refund_amount' => $refundAmount, 'refunded' => $refundAmount > 0];
+                if ($refundAmount > 0 && $booking->payment && $booking->payment->status === Payment::STATUS_HELD) {
+                    try {
+                        $refundResponse = $this->paymentGateway->refund($booking->payment);
+                        $booking->payment->transitionTo(Payment::STATUS_REFUNDED, [
+                            'raw_response' => array_merge($booking->payment->raw_response ?? [], [
+                                'refund' => $refundResponse,
+                            ]),
+                        ]);
+                        $refunded = true;
+                    } catch (\Exception $e) {
+                        \Log::error('Refund failed during cancellation', [
+                            'booking_id' => $booking->id,
+                            'payment_id' => $booking->payment->id,
+                            'error' => $e->getMessage(),
+                        ]);
+                        // Continue with cancellation even if refund fails
+                    }
+                }
+            });
+
+            dispatch(new SendCancellationNotification($booking, $refundAmount));
+
+            return ['refund_amount' => $refundAmount, 'refunded' => $refunded];
+        } catch (\Exception $e) {
+            \Log::error('Booking cancellation failed', [
+                'booking_id' => $booking->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            throw $e;
+        }
     }
 }

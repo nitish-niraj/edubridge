@@ -40,7 +40,7 @@ class ChatController extends Controller
                     $directQuery->where('is_group', false)
                         ->whereHas('participants', function ($participantQuery) use ($userId): void {
                             $participantQuery->where('users.id', $userId)
-                                ->wherePivotNull('left_at');
+                                ->whereNull('conversation_participants.left_at');
                         });
                 })->orWhere(function ($groupQuery) use ($userId): void {
                     $groupQuery->where('is_group', true)

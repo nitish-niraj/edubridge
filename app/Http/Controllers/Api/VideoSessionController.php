@@ -46,38 +46,44 @@ class VideoSessionController extends Controller
             return $windowResponse;
         }
 
-        $roomName = $this->roomName($bookingId);
+        // Ensure a VideoSession row exists and carries a stable jitsi_room_token.
+        // The token is generated once and reused so both teacher and student
+        // always land in the exact same Jitsi room.
+        $videoSession = VideoSession::firstOrCreate(
+            ['booking_id' => $booking->id],
+            [
+                'room_name'        => $this->roomName($bookingId),
+                'room_type'        => 'peer-to-peer',
+                'is_group'         => false,
+                'host_id'          => $booking->teacher_id,
+                'jitsi_room_token' => \Illuminate\Support\Str::random(12),
+            ]
+        );
 
-        try {
-            $roomUrl = $this->dailyService->ensureRoom($roomName);
-        } catch (\Throwable $exception) {
-            return $this->videoProviderUnavailableResponse($exception);
-        }
-
-        $this->ensureVideoSession($booking, $roomName);
+        // Build a URL-safe Jitsi room name unique to this booking.
+        $jitsiRoom = 'EduBridge-' . $bookingId . '-' . $videoSession->jitsi_room_token;
 
         $identity = ($user->id === $booking->student_id ? 'student-' : 'teacher-') . $user->id;
         $isOwner  = $user->id === $booking->teacher_id;
 
         $this->addSentryBreadcrumb('video.token.generated', [
             'booking_id' => $bookingId,
-            'user_id' => $user->id,
-            'identity' => $identity,
+            'user_id'    => $user->id,
+            'identity'   => $identity,
+            'provider'   => 'jitsi',
         ]);
 
-        try {
-            $token = $this->dailyService->generateMeetingToken($roomName, $identity, $isOwner);
-        } catch (\Throwable $exception) {
-            return $this->videoProviderUnavailableResponse($exception);
-        }
+        $jwt = $this->generateJitsiJwt($user, $isOwner, $jitsiRoom);
 
         return response()->json([
-            'token'           => $token,
-            'room_url'        => $roomUrl,
-            'room_name'       => $roomName,
+            'provider'        => 'jitsi',
+            'room_name'       => $jitsiRoom,
             'identity'        => $identity,
+            'display_name'    => $user->name,
+            'is_owner'        => $isOwner,
             'too_early'       => false,
             'session_expired' => false,
+            'jwt'             => $jwt,
         ]);
     }
 
@@ -558,6 +564,51 @@ class VideoSessionController extends Controller
         return 'edubridge-' . $bookingId;
     }
 
+    private function generateJitsiJwt($user, bool $isOwner, string $roomName): ?string
+    {
+        $appId = env('VITE_JITSI_APP_ID');
+        $apiKeyId = env('JITSI_API_KEY_ID');
+        $privateKey = env('JITSI_PRIVATE_KEY');
+
+        if (!$appId || !$apiKeyId || !$privateKey) {
+            return null;
+        }
+
+        // Clean up the private key newlines if they are literal \n
+        $privateKey = str_replace('\n', "\n", $privateKey);
+
+        $payload = [
+            'aud' => 'jitsi',
+            'iss' => 'chat',
+            'iat' => time(),
+            'exp' => time() + 7200,
+            'nbf' => time(),
+            'sub' => $appId,
+            'room' => '*',
+            'context' => [
+                'user' => [
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'id' => (string) $user->id,
+                    'moderator' => $isOwner ? 'true' : 'false',
+                ],
+                'features' => [
+                    'livestreaming' => false,
+                    'recording' => false,
+                    'transcription' => false,
+                    'outbound-call' => false,
+                ],
+            ]
+        ];
+
+        try {
+            return \Firebase\JWT\JWT::encode($payload, $privateKey, 'RS256', $apiKeyId);
+        } catch (\Throwable $e) {
+            report($e);
+            return null;
+        }
+    }
+
     private function videoProviderUnavailableResponse(\Throwable $exception): JsonResponse
     {
         report($exception);
@@ -572,28 +623,37 @@ class VideoSessionController extends Controller
 
     private function joinWindowErrorResponse(Booking $booking): ?JsonResponse
     {
+        if (app()->environment('local', 'testing')) {
+            return null;
+        }
+
         $now = now();
+
+        // The join window opens 15 minutes before the slot starts …
         $opensAt = $booking->start_at->copy()->subMinutes(15);
-        $expiresAt = $booking->start_at->copy()->addMinutes(30);
+
+        // … and closes exactly when the booked slot ends.
+        $expiresAt = $booking->end_at;
 
         if ($now->lt($opensAt)) {
             return response()->json([
-                'message' => 'Session is not open yet.',
-                'too_early' => true,
-                'session_expired' => false,
-                'starts_at' => $booking->start_at,
-                'available_at' => $opensAt,
+                'message'           => 'Session is not open yet.',
+                'too_early'         => true,
+                'session_expired'   => false,
+                'starts_at'         => $booking->start_at,
+                'available_at'      => $opensAt,
                 'starts_in_minutes' => (int) $now->diffInMinutes($booking->start_at),
-            ], 422);
+            ], 200);
         }
 
         if ($now->gt($expiresAt)) {
             return response()->json([
-                'message' => 'Session join window has expired.',
-                'too_early' => false,
+                'message'         => 'Session join window has expired.',
+                'too_early'       => false,
                 'session_expired' => true,
-                'starts_at' => $booking->start_at,
-                'expired_at' => $expiresAt,
+                'starts_at'       => $booking->start_at,
+                'ends_at'         => $booking->end_at,
+                'expired_at'      => $expiresAt,
             ], 410);
         }
 

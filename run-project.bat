@@ -52,23 +52,10 @@ if not exist ".env" (
 )
 
 if "!NEW_ENV!"=="1" (
-  echo [2/5] Configuring sqlite for local startup...
-  powershell -NoProfile -Command "$root=(Resolve-Path .).Path -replace '\\','/'; $dbPath=$root + '/database/database.sqlite'; $c=Get-Content .env; $c=$c -replace '^DB_CONNECTION=.*','DB_CONNECTION=sqlite'; $c=$c -replace '^DB_DATABASE=.*',('DB_DATABASE=' + $dbPath); Set-Content .env -Value $c"
+  echo [2/5] Configuring MySQL for local startup...
+  powershell -NoProfile -Command "$c=Get-Content .env; $c=$c -replace '^DB_CONNECTION=.*','DB_CONNECTION=mysql'; $c=$c -replace '^DB_DATABASE=.*','DB_DATABASE=edubridge_db'; $c=$c -replace '^DB_USERNAME=.*','DB_USERNAME=root'; $c=$c -replace '^DB_PASSWORD=.*','DB_PASSWORD='; Set-Content .env -Value $c"
   if errorlevel 1 (
-    echo Failed to configure sqlite in .env
-    exit /b 1
-  )
-)
-
-for /f "tokens=1,* delims==" %%A in ('findstr /b "DB_CONNECTION=" ".env"') do set "DB_CONNECTION=%%B"
-if /I "!DB_CONNECTION!"=="sqlite" (
-  if not exist "database" mkdir "database"
-  if not exist "database\database.sqlite" type nul > "database\database.sqlite"
-
-  echo [2/5] Ensuring absolute sqlite path in .env...
-  powershell -NoProfile -Command "$root=(Resolve-Path .).Path -replace '\\','/'; $dbPath=$root + '/database/database.sqlite'; $c=Get-Content .env; $c=$c -replace '^DB_DATABASE=.*',('DB_DATABASE=' + $dbPath); Set-Content .env -Value $c"
-  if errorlevel 1 (
-    echo Failed to update sqlite path in .env
+    echo Failed to configure MySQL in .env
     exit /b 1
   )
 )

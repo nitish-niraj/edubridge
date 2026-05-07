@@ -39,8 +39,8 @@ const statusColor = (s) => ({
     pending: '#FFA726', confirmed: '#66BB6A', completed: '#42A5F5', cancelled: '#EF5350', no_show: '#BDBDBD'
 }[s] || '#999');
 
-const formatDate = (d) => new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-const formatTime = (d) => new Date(d).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+const formatDate = (d) => new Date(d.replace('Z', '')).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+const formatTime = (d) => new Date(d.replace('Z', '')).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
 const durationMinutes = (b) => {
     if (b.video_session?.duration_minutes) return Number(b.video_session.duration_minutes);
     if (b.slot?.duration_minutes) return Number(b.slot.duration_minutes);
@@ -49,8 +49,18 @@ const durationMinutes = (b) => {
 
 const canJoin = (b) => {
     if (b.status !== 'confirmed') return false;
-    const mins = (new Date(b.start_at) - new Date()) / 60000;
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        return true;
+    }
+    const mins = (new Date(b.start_at.replace('Z', '')) - new Date()) / 60000;
     return mins <= 15;
+};
+
+const minutesUntil = (b) => {
+    const mins = Math.round((new Date(b.start_at.replace('Z', '')) - new Date()) / 60000);
+    if (mins <= 0) return 'Now';
+    if (mins < 60) return `in ${mins} min`;
+    return `in ${Math.round(mins / 60)}h`;
 };
 
 const monthEarnings = computed(() => {
@@ -58,10 +68,17 @@ const monthEarnings = computed(() => {
 });
 
 const monthSessions = computed(() => {
+    // Use backend-calculated count from bookings API
+    // Count completed bookings from current month
     const now = new Date();
-    return bookings.value
-        .filter(b => b.status === 'completed' && new Date(b.start_at).getMonth() === now.getMonth())
-        .length;
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    
+    return bookings.value.filter(b => {
+        if (b.status !== 'completed') return false;
+        const bookingDate = new Date(b.start_at);
+        return bookingDate.getMonth() === currentMonth && bookingDate.getFullYear() === currentYear;
+    }).length;
 });
 
 const pendingRelease = computed(() => {
@@ -112,7 +129,7 @@ const pendingRelease = computed(() => {
                 <table style="width: 100%; border-collapse: collapse; font-family: 'Nunito', sans-serif;">
                     <thead>
                         <tr style="background: #FFF3EF;">
-                            <th style="text-align: left; padding: 16px 20px; font-family: 'Fredoka One', cursive; font-size: 15px; color: #E8553E;">Date</th>
+                            <th style="text-align: left; padding: 16px 20px; font-family: 'Fredoka One', cursive; font-size: 15px; color: #E8553E;">Date &amp; Time</th>
                             <th style="text-align: left; padding: 16px 20px; font-family: 'Fredoka One', cursive; font-size: 15px; color: #E8553E;">Student</th>
                             <th style="text-align: left; padding: 16px 20px; font-family: 'Fredoka One', cursive; font-size: 15px; color: #E8553E;">Subject</th>
                             <th style="text-align: left; padding: 16px 20px; font-family: 'Fredoka One', cursive; font-size: 15px; color: #E8553E;">Duration</th>
@@ -124,7 +141,10 @@ const pendingRelease = computed(() => {
                     <tbody>
                         <tr v-for="(b, i) in filteredBookings" :key="b.id"
                             :style="{ background: i % 2 === 0 ? '#fff' : '#F5FAF7', minHeight: '64px' }">
-                            <td style="padding: 14px 20px; font-size: 15px; color: #333;">{{ formatDate(b.start_at) }}</td>
+                            <td style="padding: 14px 20px; font-size: 15px; color: #333;">
+                                <div style="font-weight: 600;">{{ formatDate(b.start_at) }}</div>
+                                <div style="font-size: 13px; color: #6B7280; margin-top: 2px;">{{ formatTime(b.start_at) }} – {{ formatTime(b.end_at) }}</div>
+                            </td>
                             <td style="padding: 14px 20px; font-size: 15px; color: #333;">{{ b.student?.name || '—' }}</td>
                             <td style="padding: 14px 20px; font-size: 15px; color: #333;">{{ b.subject || '—' }}</td>
                             <td style="padding: 14px 20px; font-size: 15px; color: #333;">
@@ -144,6 +164,9 @@ const pendingRelease = computed(() => {
                                     style="display: inline-block; padding: 10px 20px; background: #E8553E; color: #fff; border-radius: 10px; text-decoration: none; font-weight: bold; font-size: 14px;">
                                     🎥 Join Session
                                 </a>
+                                <span v-else-if="b.status === 'confirmed' && !canJoin(b)" style="color: #999; font-size: 13px;">
+                                    Link opens {{ minutesUntil(b) }}
+                                </span>
                                 <span v-else style="color: #aaa; font-size: 13px;">—</span>
                             </td>
                         </tr>

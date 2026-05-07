@@ -5,7 +5,9 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
+use Throwable;
 
 class Payment extends Model
 {
@@ -86,21 +88,46 @@ class Payment extends Model
 
     public function getMerchantOrderIdAttribute(): ?string
     {
-        return $this->gateway_order_id;
+        return $this->attributes['merchant_order_id'] ?? $this->gateway_order_id;
     }
 
     public function setMerchantOrderIdAttribute(?string $value): void
     {
         $this->attributes['gateway_order_id'] = $value;
+        $this->setLegacyColumnIfPresent('merchant_order_id', $value);
     }
 
     public function getPhonepeOrderIdAttribute(): ?string
     {
-        return $this->gateway_payment_id;
+        return $this->attributes['phonepe_order_id'] ?? $this->gateway_payment_id;
     }
 
     public function setPhonepeOrderIdAttribute(?string $value): void
     {
         $this->attributes['gateway_payment_id'] = $value;
+        $this->setLegacyColumnIfPresent('phonepe_order_id', $value);
+    }
+
+    public function setGatewayOrderIdAttribute(?string $value): void
+    {
+        $this->attributes['gateway_order_id'] = $value;
+        $this->setLegacyColumnIfPresent('merchant_order_id', $value);
+    }
+
+    public function setGatewayPaymentIdAttribute(?string $value): void
+    {
+        $this->attributes['gateway_payment_id'] = $value;
+        $this->setLegacyColumnIfPresent('phonepe_order_id', $value);
+    }
+
+    private function setLegacyColumnIfPresent(string $column, ?string $value): void
+    {
+        try {
+            if (Schema::hasTable('payments') && Schema::hasColumn('payments', $column)) {
+                $this->attributes[$column] = $value;
+            }
+        } catch (Throwable) {
+            // Schema checks can fail during early migrations; the canonical columns remain set.
+        }
     }
 }

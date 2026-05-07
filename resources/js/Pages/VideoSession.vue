@@ -1,6 +1,6 @@
 <script setup>
 import axios from 'axios';
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { usePage, Link } from '@inertiajs/vue3';
 import { useAnalytics } from '@/composables/useAnalytics';
 
@@ -12,10 +12,10 @@ const props = defineProps({
 });
 
 const page = usePage();
-const token = ref(null);
 const roomName = ref('');
-const roomUrl = ref('');
 const identity = ref('');
+const displayName = ref('');
+const jwt = ref(null);
 const connected = ref(false);
 const tooEarly = ref(false);
 const startsIn = ref(0);
@@ -23,13 +23,16 @@ const muted = ref(false);
 const cameraOff = ref(false);
 const screenSharing = ref(false);
 const elapsed = ref(0);
-const participantName = ref('');
 const expectedParticipantName = ref('Participant');
 const error = ref(null);
 const connectionError = ref(null);
 const connectionState = ref('idle');
 const loading = ref(true);
 const joining = ref(false);
+
+const rawJitsiDomain = import.meta.env.VITE_JITSI_DOMAIN || 'meet.jit.si';
+const jitsiDomain = rawJitsiDomain.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+const jitsiExternalApiUrl = import.meta.env.VITE_JITSI_EXTERNAL_API_URL || `https://${jitsiDomain}/external_api.js`;
 
 const showEndDialog = ref(false);
 const controlsVisible = ref(true);
@@ -46,24 +49,14 @@ let timerInterval = null;
 let controlsHideTimer = null;
 let timerPulseTimeout = null;
 let earlyRefreshTimer = null;
-let DailyModule = null;
-let callObject = null;
+let jitsiApi = null;
 let endingCall = false;
 const remoteParticipantSids = ref([]);
 
 const isTeacher = computed(() => identity.value.startsWith('teacher-'));
 const hasRemoteParticipant = computed(() => remoteParticipantSids.value.length > 0);
 
-const participantDisplayName = computed(() => {
-    if (!participantName.value) return expectedParticipantName.value;
-
-    const parsedIdentity = participantName.value.replace(/^(teacher|student)-/, '');
-    if (/^\d+$/.test(parsedIdentity)) {
-        return expectedParticipantName.value;
-    }
-
-    return parsedIdentity;
-});
+const participantDisplayName = computed(() => expectedParticipantName.value);
 
 const displaySeconds = computed(() => {
     if (hasDurationMeta.value && remainingSeconds.value !== null) {
@@ -149,114 +142,56 @@ const handleUserActivity = () => {
     resetControlsHideTimer();
 };
 
-const loadDaily = async () => {
-    if (!DailyModule) {
-        const module = await import('@daily-co/daily-js');
-        DailyModule = module.default || module;
+const resolveJitsiErrorMessage = (payload) => {
+    const raw = payload?.error || payload?.name || payload?.error?.name || payload?.error?.message || payload?.message;
+    const text = typeof raw === 'string' ? raw : null;
+
+    if (!text) return 'Video connection error.';
+
+    const normalized = text.toLowerCase();
+    if (normalized.includes('membersonly')) {
+        return 'This room uses a lobby. Ask the host to admit you, or disable the lobby on the Jitsi server.';
+    }
+    if (normalized.includes('passwordrequired')) {
+        return 'This room requires a password.';
+    }
+    if (normalized.includes('notallowed')) {
+        return 'You are not allowed to join this room.';
+    }
+    if (normalized.includes('connectionerror')) {
+        return 'Network error while joining the room. Please try again.';
     }
 
-    return DailyModule;
+    return text;
 };
 
-const buildMediaElement = (track, kind, mutedValue = false) => {
-    if (!track) return null;
-
-    const element = document.createElement(kind === 'audio' ? 'audio' : 'video');
-    element.autoplay = true;
-    element.playsInline = true;
-    element.muted = mutedValue;
-    element.srcObject = new MediaStream([track]);
-
-    if (kind === 'audio') {
-        element.style.display = 'none';
-    }
-
-    return element;
+const handleJitsiFailure = (payload) => {
+    connectionError.value = resolveJitsiErrorMessage(payload);
+    connectionState.value = 'disconnected';
+    connected.value = false;
 };
 
-const clearMediaContainers = () => {
-    const remoteContainer = document.getElementById('remote-video');
-    const localContainer = document.getElementById('local-video');
+// ── Jitsi helpers ─────────────────────────────────────────────────────────
 
-    if (remoteContainer) remoteContainer.innerHTML = '';
-    if (localContainer) localContainer.innerHTML = '';
+const loadJitsiScript = () => new Promise((resolve, reject) => {
+    if (window.JitsiMeetExternalAPI) { resolve(); return; }
+    const script = document.createElement('script');
+    script.src = jitsiExternalApiUrl;
+    script.onload = resolve;
+    script.onerror = () => reject(new Error('Failed to load Jitsi script.'));
+    document.head.appendChild(script);
+});
+
+const destroyJitsi = () => {
+    if (!jitsiApi) return;
+    try { jitsiApi.dispose(); } catch { /* ignore */ }
+    jitsiApi = null;
 };
 
-const trackFromParticipant = (participant, preferKinds = ['screenVideo', 'video']) => {
-    if (!participant?.tracks) return null;
-
-    for (const kind of preferKinds) {
-        const trackInfo = participant.tracks[kind];
-        if (trackInfo?.state === 'playable' && trackInfo.track) {
-            return trackInfo.track;
-        }
-    }
-
-    return null;
-};
-
-const audioTrackFromParticipant = (participant) => {
-    const trackInfo = participant?.tracks?.audio;
-    if (trackInfo?.state === 'playable' && trackInfo.track) {
-        return trackInfo.track;
-    }
-    return null;
-};
-
-const syncParticipants = () => {
-    if (!callObject) return;
-
-    const participants = Object.values(callObject.participants() || {});
-    const localParticipant = participants.find((participant) => participant?.local);
-    const remotes = participants.filter((participant) => participant && !participant.local && participant.session_id);
-    const primaryRemote = remotes[0] || null;
-
-    remoteParticipantSids.value = remotes.map((participant) => participant.session_id);
-    participantName.value = primaryRemote?.user_name || primaryRemote?.user_id || '';
-
-    screenSharing.value = Boolean(localParticipant?.tracks?.screenVideo?.state === 'playable');
-
-    const localContainer = document.getElementById('local-video');
-    if (localContainer) {
-        localContainer.innerHTML = '';
-        const localVideoTrack = trackFromParticipant(localParticipant);
-        const localVideoElement = buildMediaElement(localVideoTrack, 'video', true);
-        if (localVideoElement) {
-            localContainer.appendChild(localVideoElement);
-        }
-    }
-
-    const remoteContainer = document.getElementById('remote-video');
-    if (remoteContainer) {
-        remoteContainer.innerHTML = '';
-        const remoteVideoTrack = trackFromParticipant(primaryRemote);
-        const remoteAudioTrack = audioTrackFromParticipant(primaryRemote);
-        const remoteVideoElement = buildMediaElement(remoteVideoTrack, 'video', false);
-        const remoteAudioElement = buildMediaElement(remoteAudioTrack, 'audio', false);
-
-        if (remoteVideoElement) remoteContainer.appendChild(remoteVideoElement);
-        if (remoteAudioElement) remoteContainer.appendChild(remoteAudioElement);
-    }
-};
-
-const destroyCallObject = async () => {
-    if (!callObject) return;
-
-    try {
-        await callObject.destroy();
-    } catch {
-        // Ignore Daily teardown errors during navigation.
-    } finally {
-        callObject = null;
-    }
-};
-
-const cleanupRoom = async () => {
-    await destroyCallObject();
-    clearMediaContainers();
+const cleanupRoom = () => {
+    destroyJitsi();
     screenSharing.value = false;
     remoteParticipantSids.value = [];
-    participantName.value = '';
     window.clearInterval(timerInterval);
     timerInterval = null;
 };
@@ -293,31 +228,20 @@ const fetchToken = async () => {
             tooEarly.value = true;
             startsIn.value = data.starts_in_minutes;
             loading.value = false;
-
             window.clearTimeout(earlyRefreshTimer);
             earlyRefreshTimer = window.setTimeout(fetchToken, Math.min(startsIn.value * 60000, 60000));
             return;
         }
 
-        token.value = data.token;
-        roomName.value = data.room_name;
-        roomUrl.value = data.room_url;
-        identity.value = data.identity;
-        tooEarly.value = false;
+        roomName.value    = data.room_name;
+        identity.value    = data.identity;
+        displayName.value = data.display_name;
+        jwt.value         = data.jwt || null;
+        tooEarly.value    = false;
     } catch (requestError) {
-        error.value = requestError.response?.data?.message || 'Failed to get video token';
+        error.value = requestError.response?.data?.message || 'Failed to get session details.';
     } finally {
         loading.value = false;
-    }
-};
-
-const refreshTokenForRejoin = async () => {
-    const previousRoomName = roomName.value;
-
-    await fetchToken();
-
-    if (previousRoomName && roomName.value && roomName.value !== previousRoomName) {
-        throw new Error('Unable to rejoin the original video room.');
     }
 };
 
@@ -329,64 +253,79 @@ const connectToRoom = async () => {
         connectionError.value = null;
 
         if (connectionState.value === 'disconnected') {
-            await refreshTokenForRejoin();
+            await fetchToken();
         }
 
-        if (!token.value || !roomUrl.value) return;
+        if (!roomName.value) return;
 
         connectionState.value = 'connecting';
-        const Daily = await loadDaily();
-        await destroyCallObject();
+        await nextTick();
+        
+        await loadJitsiScript();
+        destroyJitsi();
 
-        callObject = Daily.createCallObject({
-            userName: identity.value,
+        const container = document.getElementById('jitsi-container');
+        if (!container) throw new Error('Jitsi container not found.');
+
+        const appId = import.meta.env.VITE_JITSI_APP_ID;
+        const fullRoomName = appId ? `${appId}/${roomName.value}` : roomName.value;
+
+        jitsiApi = new window.JitsiMeetExternalAPI(jitsiDomain, {
+            roomName: fullRoomName,
+            jwt: jwt.value,
+            parentNode: container,
+            width: '100%',
+            height: '100%',
+            userInfo: { displayName: displayName.value || identity.value },
+            configOverwrite: {
+                startWithAudioMuted: muted.value,
+                startWithVideoMuted: cameraOff.value,
+                prejoinPageEnabled: false,
+                disableDeepLinking: true,
+            },
+            interfaceConfigOverwrite: {
+                TOOLBAR_BUTTONS: [],
+                SHOW_JITSI_WATERMARK: false,
+                SHOW_WATERMARK_FOR_GUESTS: false,
+                SHOW_BRAND_WATERMARK: false,
+                DEFAULT_BACKGROUND: '#050816',
+            },
         });
 
-        callObject.on('participant-joined', syncParticipants);
-        callObject.on('participant-updated', syncParticipants);
-        callObject.on('participant-left', syncParticipants);
-        callObject.on('camera-error', (event) => {
-            connectionError.value = event?.errorMsg || 'Unable to access camera or microphone.';
-        });
-        callObject.on('error', (event) => {
-            connectionError.value = event?.errorMsg || 'Video connection error.';
-        });
-        callObject.on('meeting-session-state-updated', (event) => {
-            const state = event?.meetingSessionState;
-            if (state === 'reconnecting') {
-                connectionState.value = 'reconnecting';
-            } else if (state === 'joined-meeting') {
+        jitsiApi.addEventListeners({
+            videoConferenceJoined: () => {
+                connected.value = true;
                 connectionState.value = 'connected';
-            } else if (state === 'left-meeting' && !endingCall) {
-                connectionState.value = 'disconnected';
-            }
+                controlsVisible.value = true;
+                resetControlsHideTimer();
+                if (!timerInterval) {
+                    timerInterval = window.setInterval(() => { elapsed.value += 1; }, 1000);
+                }
+                axios.patch(`/api/video-sessions/${props.bookingId}/start`).catch(() => {});
+            },
+            videoConferenceLeft: () => {
+                if (!endingCall) {
+                    connectionState.value = 'disconnected';
+                    connected.value = false;
+                }
+            },
+            participantJoined: (e) => {
+                remoteParticipantSids.value = [...remoteParticipantSids.value, e.id];
+            },
+            participantLeft: (e) => {
+                remoteParticipantSids.value = remoteParticipantSids.value.filter(id => id !== e.id);
+            },
+            audioMuteStatusChanged: (e) => { muted.value = e.muted; },
+            videoMuteStatusChanged: (e) => { cameraOff.value = e.muted; },
+            screenSharingStatusChanged: (e) => { screenSharing.value = e.on; },
+            errorOccurred: (e) => {
+                connectionError.value = resolveJitsiErrorMessage(e);
+            },
+            conferenceFailed: handleJitsiFailure,
         });
 
-        await callObject.join({
-            url: roomUrl.value,
-            token: token.value,
-            userName: identity.value,
-        });
-
-        await callObject.setLocalAudio(!muted.value);
-        await callObject.setLocalVideo(!cameraOff.value);
-        syncParticipants();
-
-        connected.value = true;
-        connectionState.value = 'connected';
-
-        if (!timerInterval) {
-            timerInterval = window.setInterval(() => {
-                elapsed.value += 1;
-            }, 1000);
-        }
-
-        controlsVisible.value = true;
-        resetControlsHideTimer();
-
-        await axios.patch(`/api/video-sessions/${props.bookingId}/start`);
     } catch (connectError) {
-        await cleanupRoom();
+        cleanupRoom();
         connected.value = false;
         connectionState.value = 'disconnected';
         connectionError.value = `Failed to connect: ${connectError.message || connectError}`;
@@ -395,47 +334,18 @@ const connectToRoom = async () => {
     }
 };
 
-const toggleMute = async () => {
-    muted.value = !muted.value;
-
-    if (callObject) {
-        await callObject.setLocalAudio(!muted.value);
-    }
-
-    if (muted.value) {
-        micBounce.value = true;
-        window.setTimeout(() => {
-            micBounce.value = false;
-        }, 280);
-    }
+const toggleMute = () => {
+    if (jitsiApi) { jitsiApi.executeCommand('toggleAudio'); } else { muted.value = !muted.value; }
+    micBounce.value = true;
+    window.setTimeout(() => { micBounce.value = false; }, 280);
 };
 
-const toggleCamera = async () => {
-    cameraOff.value = !cameraOff.value;
-    if (callObject) {
-        await callObject.setLocalVideo(!cameraOff.value);
-        syncParticipants();
-    }
+const toggleCamera = () => {
+    if (jitsiApi) { jitsiApi.executeCommand('toggleVideo'); } else { cameraOff.value = !cameraOff.value; }
 };
 
-const toggleScreenShare = async () => {
-    if (!callObject) return;
-
-    try {
-        connectionError.value = null;
-
-        if (screenSharing.value) {
-            await callObject.stopScreenShare();
-        } else {
-            await callObject.startScreenShare();
-        }
-
-        syncParticipants();
-    } catch (shareError) {
-        connectionError.value = shareError?.name === 'NotAllowedError'
-            ? 'Screen sharing was cancelled.'
-            : `Unable to change screen sharing state: ${shareError.message || shareError}`;
-    }
+const toggleScreenShare = () => {
+    if (jitsiApi) jitsiApi.executeCommand('toggleShareScreen');
 };
 
 const performEndCall = async () => {
@@ -445,24 +355,18 @@ const performEndCall = async () => {
         if (isTeacher.value) {
             await axios.patch(`/api/video-sessions/${props.bookingId}/end`);
         }
-    } catch {
-        // Ignore end call API failure and continue local cleanup.
-    }
+    } catch { /* ignore */ }
 
     trackEvent('session_completed', {
         booking_id: props.bookingId,
         ended_by: isTeacher.value ? 'teacher' : 'student',
     });
 
-    if (callObject) {
-        try {
-            await callObject.leave();
-        } catch {
-            // Ignore leave errors during call end.
-        }
+    if (jitsiApi) {
+        try { jitsiApi.executeCommand('hangup'); } catch { /* ignore */ }
     }
 
-    await cleanupRoom();
+    cleanupRoom();
     connected.value = false;
     connectionState.value = 'idle';
 
@@ -501,20 +405,9 @@ onMounted(async () => {
     await Promise.all([fetchBookingMeta(), fetchToken()]);
 });
 
-onUnmounted(async () => {
+onUnmounted(() => {
     endingCall = true;
-
-    if (callObject) {
-        try {
-            await callObject.leave();
-        } catch {
-            // Ignore leave errors on unmount.
-        }
-    }
-
-    await cleanupRoom();
-
-    window.clearInterval(timerInterval);
+    cleanupRoom();
     window.clearTimeout(controlsHideTimer);
     window.clearTimeout(timerPulseTimeout);
     window.clearTimeout(earlyRefreshTimer);
@@ -543,7 +436,7 @@ onUnmounted(async () => {
             <Link :href="route('student.bookings')">Go back</Link>
         </div>
 
-        <div v-else-if="!connected" class="state-screen">
+        <div v-else-if="connectionState === 'idle' || connectionState === 'disconnected'" class="state-screen">
             <h2>{{ connectionState === 'disconnected' ? 'Session disconnected' : 'Ready to Join?' }}</h2>
             <p>{{ connectionStatus || 'Step in when you are set. Camera and microphone will initialize automatically.' }}</p>
             <button type="button" class="join-button" :disabled="joining || loading" @click="connectToRoom">
@@ -562,19 +455,8 @@ onUnmounted(async () => {
                 {{ connectionStatus }}
             </div>
 
-            <div id="remote-video" class="remote-video-layer" :class="{ 'remote-video-layer--active': hasRemoteParticipant }" />
-
-            <div
-                id="local-video"
-                class="local-video-tile"
-                :class="{
-                    'local-video-tile--lobby': !hasRemoteParticipant,
-                    'local-video-tile--pip': hasRemoteParticipant,
-                    'is-sharing': screenSharing,
-                }"
-            >
-                <span v-if="screenSharing && hasRemoteParticipant" class="sharing-badge">Sharing</span>
-            </div>
+            <!-- Jitsi Meet iframe -->
+            <div id="jitsi-container" class="jitsi-layer" />
 
             <div class="top-strip">
                 <div
@@ -1372,5 +1254,17 @@ onUnmounted(async () => {
         max-width: 52%;
         text-align: right;
     }
+}
+
+.jitsi-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+}
+
+.jitsi-layer iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
 }
 </style>

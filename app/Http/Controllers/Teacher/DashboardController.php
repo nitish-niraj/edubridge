@@ -63,7 +63,7 @@ class DashboardController extends Controller
                         $direct->where('is_group', false)
                             ->whereHas('participants', function ($participant) use ($teacherId): void {
                                 $participant->where('users.id', $teacherId)
-                                    ->wherePivotNull('left_at');
+                                    ->whereNull('conversation_participants.left_at');
                             });
                     })->orWhere(function ($group) use ($teacherId): void {
                         $group->where('is_group', true)

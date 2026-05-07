@@ -26,6 +26,7 @@
         "algolia/algoliasearch-client-php": "^3.4",
         "algolia/scout-extended": "^3.2",
         "bacon/bacon-qr-code": "^3.0",
+        "firebase/php-jwt": "^7.0",
         "guzzlehttp/guzzle": "^7.2",
         "inertiajs/inertia-laravel": "^2.0",
         "intervention/image": "^2.7",

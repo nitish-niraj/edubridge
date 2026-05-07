@@ -44,6 +44,19 @@ class LoginRequest extends FormRequest
     {
         $this->ensureIsNotRateLimited();
 
+        // Check if user exists
+        $user = User::where('email', $this->input('email'))->first();
+        
+        if (! $user) {
+            RateLimiter::hit($this->throttleKey());
+            $this->recordFailedLoginAttempt();
+
+            throw ValidationException::withMessages([
+                'email' => 'No account found with this email. Please register first.',
+                'user_not_found' => true,
+            ]);
+        }
+
         if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
             RateLimiter::hit($this->throttleKey());
             $this->recordFailedLoginAttempt();

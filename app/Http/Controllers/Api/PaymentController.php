@@ -171,32 +171,78 @@ class PaymentController extends Controller
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>PhonePe Demo Checkout</title>
+    <title>PhonePe Payment Gateway</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
-        body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #f6f7fb; font-family: Arial, sans-serif; color: #1f2937; }
-        main { width: min(440px, calc(100% - 32px)); background: #fff; border-radius: 18px; padding: 24px; box-shadow: 0 24px 70px rgba(15, 23, 42, 0.16); }
-        .brand { color: #5f259f; font-size: 28px; font-weight: 800; margin: 0 0 4px; }
-        .muted { color: #6b7280; margin: 0 0 20px; }
-        .amount { font-size: 36px; font-weight: 800; margin: 10px 0; }
-        .row { display: flex; justify-content: space-between; border-top: 1px solid #eef2f7; padding: 12px 0; }
-        button, a { width: 100%; min-height: 46px; border-radius: 999px; border: 0; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; font-weight: 800; cursor: pointer; }
-        button { background: #5f259f; color: #fff; margin-top: 18px; }
-        a { color: #6b7280; margin-top: 8px; }
+        body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #EAE6F0; font-family: 'Inter', sans-serif; color: #1f2937; }
+        .wrapper { width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; }
+        main { width: min(440px, 100%); background: #fff; border-radius: 24px; padding: 32px; box-shadow: 0 12px 40px rgba(95, 37, 159, 0.12); box-sizing: border-box; position: relative; overflow: hidden; }
+        main::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 6px; background: linear-gradient(90deg, #5f259f, #9b51e0); }
+        .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+        .brand-logo { font-size: 26px; font-weight: 800; color: #5f259f; letter-spacing: -0.5px; display: flex; align-items: center; gap: 8px; }
+        .brand-logo svg { width: 28px; height: 28px; }
+        .env-badge { background: #F3E8FF; color: #7E22CE; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
+        .amount-container { text-align: center; padding: 32px 0; border-bottom: 1px dashed #e2e8f0; margin-bottom: 24px; }
+        .amount-label { color: #64748b; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; display: block; }
+        .amount { font-size: 48px; font-weight: 800; color: #0f172a; margin: 0; line-height: 1; }
+        .details-box { background: #f8fafc; border-radius: 16px; padding: 20px; margin-bottom: 24px; }
+        .row { display: flex; justify-content: space-between; padding: 8px 0; }
+        .row span { color: #64748b; font-size: 14px; }
+        .row strong { color: #334155; font-size: 14px; font-weight: 600; text-align: right; }
+        .actions { display: flex; flex-direction: column; gap: 12px; }
+        button, a.btn-cancel { width: 100%; min-height: 52px; border-radius: 14px; border: 0; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        button { background: #5f259f; color: #fff; box-shadow: 0 4px 12px rgba(95, 37, 159, 0.25); }
+        button:hover { background: #4a1d7d; transform: translateY(-1px); box-shadow: 0 6px 16px rgba(95, 37, 159, 0.3); }
+        button:active { transform: translateY(0); box-shadow: none; }
+        a.btn-cancel { background: transparent; color: #64748b; border: 2px solid transparent; }
+        a.btn-cancel:hover { background: #f1f5f9; color: #475569; }
+        .footer-note { text-align: center; font-size: 12px; color: #94a3b8; margin-top: 24px; }
     </style>
 </head>
 <body>
-    <main>
-        <p class="brand">PhonePe</p>
-        <p class="muted">Demo checkout for local development</p>
-        <div class="row"><span>Teacher</span><strong>{$teacherName}</strong></div>
-        <div class="row"><span>Order</span><strong>{$payment->gateway_order_id}</strong></div>
-        <p class="amount">₹{$amount}</p>
-        <form method="post" action="{$completeUrl}">
-            {$csrf}
-            <button type="submit">Pay Demo Amount</button>
-        </form>
-        <a href="{$cancelUrl}">Return without paying</a>
-    </main>
+    <div class="wrapper">
+        <main>
+            <div class="header">
+                <div class="brand-logo">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM15.29 14.71L12.41 11.83C12.02 11.44 11.46 11.23 10.93 11.35C10.45 11.45 10 11.9 9.89 12.38C9.77 12.91 9.98 13.47 10.37 13.86L13.25 16.74C13.66 17.15 14.33 17.15 14.74 16.74C15.15 16.33 15.15 15.66 14.74 15.25L15.29 14.71ZM13.86 10.37L10.98 7.49C10.57 7.08 9.9 7.08 9.49 7.49C9.08 7.9 9.08 8.57 9.49 8.98L12.37 11.86C12.76 12.25 13.32 12.46 13.85 12.34C14.33 12.24 14.78 11.79 14.89 11.31C15.01 10.78 14.8 10.22 14.41 9.83L13.86 10.37Z" fill="currentColor"/>
+                    </svg>
+                    PhonePe
+                </div>
+                <div class="env-badge">Local Sandbox</div>
+            </div>
+            
+            <div class="amount-container">
+                <span class="amount-label">You are paying</span>
+                <h1 class="amount">₹{$amount}</h1>
+            </div>
+
+            <div class="details-box">
+                <div class="row">
+                    <span>Pay to</span>
+                    <strong>EduBridge Inc.</strong>
+                </div>
+                <div class="row">
+                    <span>Teacher</span>
+                    <strong>{$teacherName}</strong>
+                </div>
+                <div class="row">
+                    <span>Transaction ID</span>
+                    <strong style="font-family: monospace; letter-spacing: -0.5px;">{$payment->gateway_order_id}</strong>
+                </div>
+            </div>
+
+            <form method="post" action="{$completeUrl}" class="actions">
+                {$csrf}
+                <button type="submit">Pay Securely</button>
+                <a href="{$cancelUrl}" class="btn-cancel">Cancel and Return</a>
+            </form>
+
+            <div class="footer-note">
+                Secured by PhonePe Demo Simulator
+            </div>
+        </main>
+    </div>
 </body>
 </html>
 HTML);
