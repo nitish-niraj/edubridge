@@ -39,25 +39,43 @@ const statusColor = (s) => ({
     pending: '#FFA726', confirmed: '#66BB6A', completed: '#42A5F5', cancelled: '#EF5350', no_show: '#BDBDBD'
 }[s] || '#999');
 
-const formatDate = (d) => new Date(d.replace('Z', '')).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-const formatTime = (d) => new Date(d.replace('Z', '')).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+const formatDate = (d) => {
+    if (!d) return '—';
+    const date = d.includes('Z') || d.includes('+') ? new Date(d) : new Date(d + 'Z');
+    return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+};
+
+const formatTime = (d) => {
+    if (!d) return '—';
+    const date = d.includes('Z') || d.includes('+') ? new Date(d) : new Date(d + 'Z');
+    return date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+};
+
 const durationMinutes = (b) => {
     if (b.video_session?.duration_minutes) return Number(b.video_session.duration_minutes);
     if (b.slot?.duration_minutes) return Number(b.slot.duration_minutes);
-    return Math.max(0, Math.round((new Date(b.end_at) - new Date(b.start_at)) / 60000));
+    const start = b.start_at.includes('Z') ? new Date(b.start_at) : new Date(b.start_at + 'Z');
+    const end = b.end_at.includes('Z') ? new Date(b.end_at) : new Date(b.end_at + 'Z');
+    return Math.max(0, Math.round((end - start) / 60000));
 };
 
 const canJoin = (b) => {
     if (b.status !== 'confirmed') return false;
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        return true;
-    }
-    const mins = (new Date(b.start_at.replace('Z', '')) - new Date()) / 60000;
-    return mins <= 15;
+    const start = b.start_at.includes('Z') ? new Date(b.start_at) : new Date(b.start_at + 'Z');
+    const now = new Date();
+    const earlyWindowMins = (start - now) / 60000;
+    const lateWindowMins = (now - start) / 60000;
+    if (earlyWindowMins > 15 || lateWindowMins > 30) return false;
+
+    const session = b.video_session;
+    if (!session) return true;
+    if (session.ended_at) return false;
+    return !session.started_at || (session.started_at && !session.ended_at);
 };
 
 const minutesUntil = (b) => {
-    const mins = Math.round((new Date(b.start_at.replace('Z', '')) - new Date()) / 60000);
+    const start = b.start_at.includes('Z') ? new Date(b.start_at) : new Date(b.start_at + 'Z');
+    const mins = Math.round((start - new Date()) / 60000);
     if (mins <= 0) return 'Now';
     if (mins < 60) return `in ${mins} min`;
     return `in ${Math.round(mins / 60)}h`;
@@ -68,15 +86,14 @@ const monthEarnings = computed(() => {
 });
 
 const monthSessions = computed(() => {
-    // Use backend-calculated count from bookings API
-    // Count completed bookings from current month
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
     
     return bookings.value.filter(b => {
-        if (b.status !== 'completed') return false;
-        const bookingDate = new Date(b.start_at);
+        // Count both confirmed (upcoming) and completed sessions for the summary
+        if (!['confirmed', 'completed'].includes(b.status)) return false;
+        const bookingDate = b.start_at.includes('Z') ? new Date(b.start_at) : new Date(b.start_at + 'Z');
         return bookingDate.getMonth() === currentMonth && bookingDate.getFullYear() === currentYear;
     }).length;
 });

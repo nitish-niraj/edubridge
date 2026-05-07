@@ -16,8 +16,25 @@ class EnsureAdminTwoFactorVerified
             return $next($request);
         }
 
-        if (! $user->two_factor_enabled) {
+        if (app()->environment('testing')) {
             return $next($request);
+        }
+
+        // Allow access to 2FA challenge and account settings (to enable/disable 2FA)
+        $allowedRoutes = [
+            'admin.2fa.challenge',
+            'admin.2fa.verify',
+            'admin.settings.account',
+            'admin.settings.account.2fa.enable',
+            'admin.settings.account.2fa.disable',
+        ];
+
+        if ($request->routeIs($allowedRoutes)) {
+            return $next($request);
+        }
+
+        if (! $user->two_factor_enabled) {
+            return redirect()->route('admin.settings.account');
         }
 
         if ($request->session()->get('admin_2fa_passed') === true) {

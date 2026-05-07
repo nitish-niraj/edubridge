@@ -11,6 +11,7 @@ use App\Http\Resources\BookingResource;
 use App\Mail\DisputeResolvedMail;
 use App\Models\Booking;
 use App\Models\BookingEvent;
+use App\Models\Conversation;
 use App\Models\Payment;
 use App\Models\TeacherEarning;
 use App\Services\PhonePeService;
@@ -116,11 +117,33 @@ class AdminDisputeController extends Controller
 
         $booking->setAttribute('conversation_id', $conversationId);
         $booking->setRelation('events', $events);
+        $conversationMessages = [];
+        if ($conversationId) {
+            $conversationMessages = Conversation::query()
+                ->whereKey($conversationId)
+                ->with(['messages' => function ($query): void {
+                    $query->with('sender:id,name,avatar')
+                        ->orderByDesc('id')
+                        ->limit(200);
+                }])
+                ->first()?->messages
+                ?->map(fn ($message) => [
+                    'id' => $message->id,
+                    'sender_id' => $message->sender_id,
+                    'sender_name' => $message->sender?->name,
+                    'type' => $message->type,
+                    'body' => $message->body,
+                    'file_url' => $message->file_url,
+                    'deleted_at' => $message->deleted_at,
+                    'created_at' => $message->created_at,
+                ])->values()->all() ?? [];
+        }
 
         return response()->json([
             'booking' => (new BookingResource($booking))->resolve(),
             'events' => \App\Http\Resources\BookingEventResource::collection($events)->resolve(),
             'reports' => \App\Http\Resources\ReportResource::collection($booking->reports)->resolve(),
+            'conversation_messages' => $conversationMessages,
         ]);
     }
 

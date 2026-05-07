@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Models\AuditLog;
 use App\Models\User;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Foundation\Http\FormRequest;
@@ -43,6 +44,7 @@ class LoginRequest extends FormRequest
     public function authenticate(): void
     {
         $this->ensureIsNotRateLimited();
+        $this->ensureIsNotLockedOut();
 
         // Check if user exists
         $user = User::where('email', $this->input('email'))->first();
@@ -67,6 +69,7 @@ class LoginRequest extends FormRequest
         }
 
         RateLimiter::clear($this->throttleKey());
+        $this->clearLoginAttempts();
     }
 
     /**
@@ -100,29 +103,89 @@ class LoginRequest extends FormRequest
         return Str::transliterate(Str::lower($this->string('email')).'|'.$this->ip());
     }
 
-    private function recordFailedLoginAttempt(): void
+    /**
+     * Ensure the login request is not locked out due to too many failed attempts.
+     *
+     * @throws \Illuminate\Validation\ValidationException
+     */
+    private function ensureIsNotLockedOut(): void
     {
         try {
-            $redisKey = 'login_attempts:' . $this->ip();
+            $lockKey = 'login_lock:' . $this->loginAttemptKey();
+            
+            if (Redis::exists($lockKey)) {
+                $remainingSeconds = (int) Redis::ttl($lockKey);
+                $remainingMinutes = ceil($remainingSeconds / 60);
 
-            $attempts = (int) Redis::incr($redisKey);
-            Redis::expire($redisKey, 1800);
-
-            if ($attempts <= 10) {
-                return;
+                throw ValidationException::withMessages([
+                    'email' => "Too many failed login attempts. Your account is locked for {$remainingMinutes} minutes. Please try again later.",
+                ]);
             }
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (\Throwable) {
+            // If Redis is unavailable, allow the request to proceed
+            return;
+        }
+    }
 
-            $user = User::query()->where('email', $this->string('email'))->first();
-            if (! $user) {
-                return;
-            }
-
-            $user->forceFill([
-                'status' => 'suspended',
-                'last_login_ip' => $this->ip(),
-            ])->save();
+    /**
+     * Clear login attempts on successful authentication.
+     */
+    private function clearLoginAttempts(): void
+    {
+        try {
+            $redisKey = 'login_attempts:' . $this->loginAttemptKey();
+            $lockKey = 'login_lock:' . $this->loginAttemptKey();
+            
+            Redis::del($redisKey);
+            Redis::del($lockKey);
         } catch (\Throwable) {
             return;
         }
+    }
+
+    private function recordFailedLoginAttempt(): void
+    {
+        try {
+            $redisKey = 'login_attempts:' . $this->loginAttemptKey();
+            $lockKey = 'login_lock:' . $this->loginAttemptKey();
+
+            $attempts = (int) Redis::incr($redisKey);
+            Redis::expire($redisKey, 1800); // 30 minutes
+
+            if ($attempts >= 10) {
+                Redis::setex($lockKey, 1800, '1'); // 30 minutes = 1800 seconds
+
+                $user = User::query()->where('email', $this->string('email'))->first();
+                if ($user) {
+                    $user->forceFill([
+                        'status' => 'suspended',
+                        'last_login_ip' => $this->ip(),
+                    ])->save();
+
+                    AuditLog::create([
+                        'admin_id' => $user->id,
+                        'action' => 'auth.lockout_suspended',
+                        'entity_type' => 'User',
+                        'entity_id' => $user->id,
+                        'details' => [
+                            'reason' => 'Too many failed login attempts',
+                            'attempts' => $attempts,
+                            'email' => (string) $this->string('email'),
+                        ],
+                        'ip_address' => $this->ip(),
+                        'created_at' => now(),
+                    ]);
+                }
+            }
+        } catch (\Throwable) {
+            return;
+        }
+    }
+
+    private function loginAttemptKey(): string
+    {
+        return Str::lower((string) $this->string('email')) . '|' . $this->ip();
     }
 }

@@ -11,12 +11,18 @@ class UserResource extends JsonResource
         $currentUser = $request?->user();
         $isAdmin = (bool) ($currentUser?->isAdmin() ?? false);
         $isSelf = $currentUser && (int) $currentUser->id === (int) $this->id;
+        $isTeacherViewingStudent = $currentUser && ($currentUser->isTeacher() ?? false) && $this->role === 'student';
+        $maskedName = $this->name;
+        if ($isTeacherViewingStudent && is_string($maskedName)) {
+            $first = trim(explode(' ', trim($maskedName))[0] ?? '');
+            $maskedName = $first !== '' ? $first : $maskedName;
+        }
 
         return [
             'id'                    => $this->id,
-            'name'                  => $this->name,
-            'email'                 => $this->email,
-            'phone'                 => $this->phone,
+            'name'                  => $maskedName,
+            'email'                 => $this->when($isAdmin || $isSelf, $this->email),
+            'phone'                 => $this->when($isAdmin || $isSelf, $this->phone),
             'role'                  => $this->role,
             'avatar'                => $this->avatar,
             'status'                => $this->status,

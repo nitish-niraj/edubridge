@@ -5,12 +5,14 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\GroupAddMemberRequest;
 use App\Http\Requests\Api\GroupStoreRequest;
+use App\Http\Requests\Api\GroupUpdateRequest;
 use App\Models\ClassMember;
 use App\Models\Conversation;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 
 class GroupController extends Controller
 {
@@ -90,6 +92,53 @@ class GroupController extends Controller
         }
 
         return response()->json($conversation);
+    }
+
+    /**
+     * Update group settings (teacher only).
+     */
+    public function update(int $id, GroupUpdateRequest $request): JsonResponse
+    {
+        $validated = $request->validated();
+        $conversation = Conversation::findOrFail($id);
+
+        if (! $conversation->is_group || $conversation->teacher_id !== $request->user()->id) {
+            return response()->json(['message' => 'Only the class teacher can update settings.'], 403);
+        }
+
+        // If reducing max_students, ensure it's not below current student count
+        if (isset($validated['max_students'])) {
+            $currentCount = $conversation->studentCount();
+            if ($validated['max_students'] < $currentCount) {
+                return response()->json([
+                    'message' => "Cannot reduce max students below current count ({$currentCount}).",
+                ], 422);
+            }
+        }
+
+        $updates = [];
+        if (isset($validated['name'])) {
+            $updates['title'] = $validated['name'];
+        }
+        if (isset($validated['subject'])) {
+            $updates['subject'] = $validated['subject'];
+        }
+        if (array_key_exists('description', $validated)) {
+            $updates['description'] = $validated['description'];
+        }
+        if (isset($validated['max_students'])) {
+            $updates['max_students'] = $validated['max_students'];
+        }
+
+        if ($updates !== []) {
+            $conversation->update($updates);
+            $conversation->refresh();
+        }
+
+        return response()->json([
+            'message' => 'Group updated successfully.',
+            'conversation' => $conversation,
+        ]);
     }
 
     /**
@@ -222,6 +271,14 @@ class GroupController extends Controller
             ]);
         });
 
+        Mail::raw(
+            "You have been added to {$conversation->title} on EduBridge. Open your student dashboard to view the class.",
+            function ($message) use ($student, $conversation): void {
+                $message->to($student->email)
+                    ->subject("Added to {$conversation->title}");
+            }
+        );
+
         return response()->json([
             'message' => $student->name . ' added to ' . $conversation->title,
             'student' => $student->only(['id', 'name', 'email', 'avatar']),
@@ -304,18 +361,25 @@ class GroupController extends Controller
             return response()->json(['message' => 'Student not found.'], 404);
         }
 
-        $member->update(['can_draw' => ! $member->can_draw]);
+        $validated = $request->validate([
+            'can_draw' => ['sometimes', 'boolean'],
+        ]);
 
-        // Broadcast to all participants
-        broadcast(new \App\Events\DrawPermissionGranted(
+        $canDraw = array_key_exists('can_draw', $validated)
+            ? (bool) $validated['can_draw']
+            : ! $member->can_draw;
+
+        $member->update(['can_draw' => $canDraw]);
+
+        broadcast(new \App\Events\DrawPermissionChanged(
             $groupId,
             $userId,
-            $member->can_draw
+            $canDraw
         ));
 
         return response()->json([
-            'can_draw' => $member->can_draw,
-            'message'  => $member->can_draw ? 'Draw permission granted.' : 'Draw permission revoked.',
+            'can_draw' => $canDraw,
+            'message'  => $canDraw ? 'Draw permission granted.' : 'Draw permission revoked.',
         ]);
     }
 

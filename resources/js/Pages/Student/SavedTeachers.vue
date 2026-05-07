@@ -2,13 +2,14 @@
 import StudentLayout from '@/Layouts/StudentLayout.vue';
 import EmptyState from '@/Components/Shared/EmptyState.vue';
 import ErrorState from '@/Components/Shared/ErrorState.vue';
+import TeacherCard from '@/Components/Student/TeacherCard.vue';
 import { Head, Link } from '@inertiajs/vue3';
 import axios from 'axios';
 import { onMounted, ref } from 'vue';
 
 const teachers = ref([]);
 const isLoading = ref(false);
-const pageNumber = ref(1);
+const nextCursor = ref(null);
 const hasMore = ref(true);
 const loadError = ref('');
 
@@ -16,7 +17,8 @@ const loadSavedTeachers = async (reset = false) => {
     if (isLoading.value) return;
 
     if (reset) {
-        pageNumber.value = 1;
+        teachers.value = [];
+        nextCursor.value = null;
         hasMore.value = true;
     }
 
@@ -24,7 +26,10 @@ const loadSavedTeachers = async (reset = false) => {
     loadError.value = '';
     try {
         const response = await axios.get('/api/students/saved-teachers', {
-            params: { page: pageNumber.value, per_page: 12 },
+            params: { 
+                cursor: nextCursor.value,
+                per_page: 12 
+            },
         });
 
         const payload = response.data;
@@ -36,9 +41,14 @@ const loadSavedTeachers = async (reset = false) => {
             teachers.value = [...teachers.value, ...items];
         }
 
-        hasMore.value = Boolean(payload.links?.next);
-        if (hasMore.value) {
-            pageNumber.value += 1;
+        const nextUrl = payload.links?.next;
+        if (nextUrl) {
+            const url = new URL(nextUrl);
+            nextCursor.value = url.searchParams.get('cursor');
+            hasMore.value = true;
+        } else {
+            nextCursor.value = null;
+            hasMore.value = false;
         }
     } catch (error) {
         loadError.value = error?.response?.data?.message || 'Unable to load saved teachers right now. Please try again.';
@@ -50,9 +60,10 @@ const loadSavedTeachers = async (reset = false) => {
     }
 };
 
-const removeTeacher = async (teacher) => {
-    await axios.delete(`/api/students/saved-teachers/${teacher.teacher_id}`);
-    teachers.value = teachers.value.filter((item) => item.teacher_id !== teacher.teacher_id);
+const handleToggleBookmark = (teacher) => {
+    if (!teacher.is_saved) {
+        teachers.value = teachers.value.filter((item) => (item.teacher_id ?? item.id) !== (teacher.teacher_id ?? teacher.id));
+    }
 };
 
 onMounted(async () => {
@@ -84,24 +95,18 @@ onMounted(async () => {
                     title="No saved teachers"
                     body="Browse teachers and save your favourites."
                     cta-text="Browse teachers"
-                    :cta-route="route('teachers.index')"
+                    :cta-route="route('student.teachers')"
                 />
             </div>
 
             <div v-else class="grid">
-                <article v-for="teacher in teachers" :key="teacher.id" class="card">
-                    <img :src="teacher.avatar || '/favicon.ico'" loading="lazy" alt="Teacher avatar" class="avatar" width="82" height="82" />
-                    <h3>{{ teacher.name }}</h3>
-                    <p>⭐ {{ teacher.rating_avg.toFixed(1) }} ({{ teacher.total_reviews }})</p>
-                    <p class="teacher-topics">
-                        {{ Array.isArray(teacher.subjects) && teacher.subjects.length ? teacher.subjects.slice(0, 2).join(' · ') : 'Saved mentor for future booking' }}
-                    </p>
-                    <p class="teacher-note">
-                        {{ teacher.tagline || teacher.headline || 'Review profile details and class availability before confirming your booking.' }}
-                    </p>
-                    <Link :href="route('teachers.show', { teacher: teacher.teacher_id })" class="view-btn">View Profile</Link>
-                    <button class="remove-btn" @click="removeTeacher(teacher)">Remove</button>
-                </article>
+                <TeacherCard
+                    v-for="(teacher, index) in teachers"
+                    :key="teacher.id"
+                    :teacher="teacher"
+                    :index="index"
+                    @toggle-bookmark="handleToggleBookmark"
+                />
             </div>
 
             <div v-if="hasMore && teachers.length" class="load-wrap">

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Teacher;
 
 use App\Http\Controllers\Controller;
+use App\Models\Announcement;
 use App\Models\Booking;
 use App\Models\Message;
 use App\Models\TeacherEarning;
@@ -38,7 +39,7 @@ class DashboardController extends Controller
 
         $sessionsThisMonth = Booking::query()
             ->where('teacher_id', $teacherId)
-            ->where('status', 'completed')
+            ->whereIn('status', ['confirmed', 'completed'])
             ->whereBetween('start_at', [Carbon::now('UTC')->startOfMonth(), Carbon::now('UTC')->endOfMonth()])
             ->count();
 
@@ -50,8 +51,8 @@ class DashboardController extends Controller
 
         $earningsThisMonth = (float) TeacherEarning::query()
             ->where('teacher_id', $teacherId)
-            ->where('status', 'released')
-            ->whereBetween('payout_date', [Carbon::now('UTC')->startOfMonth(), Carbon::now('UTC')->endOfMonth()])
+            ->whereIn('status', ['released', 'pending'])
+            ->whereBetween('created_at', [Carbon::now('UTC')->startOfMonth(), Carbon::now('UTC')->endOfMonth()])
             ->sum('net_amount');
 
         $unreadMessages = Message::query()
@@ -75,10 +76,16 @@ class DashboardController extends Controller
             })
             ->count();
 
+        $announcements = Announcement::activeForRole('teacher')
+            ->orderByDesc('starts_at')
+            ->get();
+
         return Inertia::render('Teacher/Dashboard', [
             'user'        => $user,
             'profile'     => $profile,
             'is_verified' => $profile?->is_verified ?? false,
+            'completeness_score' => $profile?->getCompletenessScore() ?? 0,
+            'announcements' => $announcements,
             'stats'       => [
                 'sessions_this_month' => $sessionsThisMonth,
                 'total_students'      => $totalStudents,

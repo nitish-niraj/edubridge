@@ -8,7 +8,8 @@ import TextInput from '@/Components/TextInput.vue';
 import Modal from '@/Components/Modal.vue';
 import StudentLayout from '@/Layouts/StudentLayout.vue';
 import { Head, useForm, usePage } from '@inertiajs/vue3';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
+import axios from 'axios';
 
 defineOptions({ inheritAttrs: false });
 
@@ -33,6 +34,15 @@ const passwordForm = useForm({
 const deleteForm = useForm({
     password: '',
 });
+const notificationPreferences = reactive({
+    new_message_email: Boolean(page.props.notificationPreferences?.new_message_email ?? true),
+    booking_confirmed_email: Boolean(page.props.notificationPreferences?.booking_confirmed_email ?? true),
+    session_reminder_email: Boolean(page.props.notificationPreferences?.session_reminder_email ?? true),
+    booking_cancelled_email: Boolean(page.props.notificationPreferences?.booking_cancelled_email ?? true),
+    review_received_email: Boolean(page.props.notificationPreferences?.review_received_email ?? true),
+});
+const savingPreferences = ref(false);
+const preferencesStatus = ref('');
 
 onMounted(() => {
     document.body.setAttribute('data-portal', 'student');
@@ -80,6 +90,24 @@ const deleteAccount = () => {
         onError: () => deletePasswordInput.value?.focus(),
     });
 };
+
+const saveNotificationPreferences = async () => {
+    if (savingPreferences.value) {
+        return;
+    }
+
+    savingPreferences.value = true;
+    preferencesStatus.value = '';
+
+    try {
+        await axios.patch('/api/notification-preferences', notificationPreferences);
+        preferencesStatus.value = 'Notification preferences saved.';
+    } catch {
+        preferencesStatus.value = 'Unable to save notification preferences right now.';
+    } finally {
+        savingPreferences.value = false;
+    }
+};
 </script>
 
 <template>
@@ -111,6 +139,37 @@ const deleteAccount = () => {
                         <div class="action-row">
                             <PrimaryButton :disabled="profileForm.processing">Save Details</PrimaryButton>
                             <p v-if="profileForm.recentlySuccessful" class="status-text">Saved.</p>
+                        </div>
+                    </form>
+                </section>
+
+                <section class="settings-section">
+                    <h2>Notifications</h2>
+                    <p class="helper">Choose which email updates you want to receive. Security emails still arrive by default.</p>
+                    <form class="form-stack" @submit.prevent="saveNotificationPreferences">
+                        <label class="pref-row">
+                            <input v-model="notificationPreferences.new_message_email" type="checkbox">
+                            <span>New message email</span>
+                        </label>
+                        <label class="pref-row">
+                            <input v-model="notificationPreferences.booking_confirmed_email" type="checkbox">
+                            <span>Booking confirmed email</span>
+                        </label>
+                        <label class="pref-row">
+                            <input v-model="notificationPreferences.session_reminder_email" type="checkbox">
+                            <span>Session reminder email</span>
+                        </label>
+                        <label class="pref-row">
+                            <input v-model="notificationPreferences.booking_cancelled_email" type="checkbox">
+                            <span>Booking cancelled email</span>
+                        </label>
+                        <label class="pref-row">
+                            <input v-model="notificationPreferences.review_received_email" type="checkbox">
+                            <span>Review-related emails</span>
+                        </label>
+                        <div class="action-row">
+                            <PrimaryButton :disabled="savingPreferences">{{ savingPreferences ? 'Saving...' : 'Save Notifications' }}</PrimaryButton>
+                            <p v-if="preferencesStatus" class="status-text">{{ preferencesStatus }}</p>
                         </div>
                     </form>
                 </section>
@@ -286,6 +345,14 @@ h2 {
 .delete-modal p {
     margin: 8px 0 0;
     color: #6b7280;
+}
+
+.pref-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    font-weight: 600;
+    color: #5f514a;
 }
 
 .delete-modal {

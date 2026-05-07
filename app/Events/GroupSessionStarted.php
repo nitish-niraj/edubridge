@@ -2,7 +2,6 @@
 
 namespace App\Events;
 
-use App\Models\Conversation;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
@@ -16,7 +15,7 @@ class GroupSessionStarted implements ShouldBroadcast
     public function __construct(
         public int    $conversationId,
         public string $teacherName,
-        public int    $bookingId,
+        public int    $videoSessionId,
         public string $roomName
     ) {}
 
@@ -32,7 +31,8 @@ class GroupSessionStarted implements ShouldBroadcast
         return [
             'conversation_id' => $this->conversationId,
             'teacher_name'    => $this->teacherName,
-            'booking_id'      => $this->bookingId,
+            'video_session_id' => $this->videoSessionId,
+            'booking_id'      => $this->videoSessionId,
             'room_name'       => $this->roomName,
         ];
     }

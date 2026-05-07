@@ -65,6 +65,7 @@ class ProfileController extends Controller
             'bio'              => $request->bio,
             'experience_years' => $request->experience_years,
             'previous_school'  => $request->previous_school,
+            'onboarding_step'  => max(auth()->user()->teacherProfile->onboarding_step, 1),
         ]);
 
         return redirect()->route('teacher.profile.step', ['step' => 2]);
@@ -75,6 +76,7 @@ class ProfileController extends Controller
         auth()->user()->teacherProfile->update([
             'subjects'  => $request->subjects,
             'languages' => $request->languages,
+            'onboarding_step' => max(auth()->user()->teacherProfile->onboarding_step, 2),
         ]);
 
         return redirect()->route('teacher.profile.step', ['step' => 3]);
@@ -85,6 +87,7 @@ class ProfileController extends Controller
         auth()->user()->teacherProfile->update([
             'is_free'     => $request->is_free,
             'hourly_rate' => $request->is_free ? null : $request->hourly_rate,
+            'onboarding_step' => max(auth()->user()->teacherProfile->onboarding_step, 3),
         ]);
 
         return redirect()->route('teacher.profile.step', ['step' => 4]);
@@ -96,6 +99,7 @@ class ProfileController extends Controller
         // availability format: { "mon": {"on": true, "start": "09:00", "end": "17:00"}, ... }
         auth()->user()->teacherProfile->update([
             'availability' => $request->availability,
+            'onboarding_step' => max(auth()->user()->teacherProfile->onboarding_step, 4),
         ]);
 
         return redirect()->route('teacher.profile.step', ['step' => 5]);
@@ -121,7 +125,8 @@ class ProfileController extends Controller
                     $documentDisk,
                     'teacher-documents/' . $profile->id,
                     $type,
-                    ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
+                    ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'],
+                    10 * 1024 * 1024
                 );
 
                 TeacherDocument::updateOrCreate(
@@ -138,6 +143,8 @@ class ProfileController extends Controller
                 );
             }
         }
+
+        $profile->update(['onboarding_step' => 5]);
 
         return redirect()->route('teacher.dashboard')
             ->with('status', 'Profile submitted for verification.');

@@ -36,6 +36,7 @@ class BookingController extends Controller
         $start = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
         $end   = $start->copy()->endOfMonth();
         $teacherProfile = TeacherProfile::where('user_id', $id)->first();
+        $commissionRate = (float) config('edubridge.commission_rate', 0.12);
 
         $this->refreshBookableSlotsForMonth($id, $start, $end);
 
@@ -54,16 +55,24 @@ class BookingController extends Controller
 
         return response()->json([
             'available_dates' => $grouped->keys()->values(),
-            'slots'           => $grouped->map(fn ($group) => $group->map(fn ($s) => [
-                'id'               => $s->id,
-                'start_time'       => substr($s->start_time, 0, 5),
-                'end_time'         => substr($s->end_time, 0, 5),
-                'duration_minutes' => $s->duration_minutes,
-                'hourly_rate'      => $isFree ? 0 : $hourlyRate,
-                'price'            => $isFree ? 0 : round($hourlyRate * ((int) $s->duration_minutes / 60), 2),
-                'platform_fee'     => $isFree ? 0 : round(($hourlyRate * ((int) $s->duration_minutes / 60)) * 0.12, 2),
-                'is_free'          => $isFree,
-            ])->values()),
+            'slots'           => $grouped->map(function ($group) use ($hourlyRate, $isFree, $commissionRate) {
+                return $group->map(function ($s) use ($hourlyRate, $isFree, $commissionRate) {
+                    $durationHours = (int) $s->duration_minutes / 60;
+                    $price = $isFree ? 0 : round($hourlyRate * $durationHours, 2);
+                    $platformFee = $isFree ? 0 : round($price * $commissionRate, 2);
+
+                    return [
+                        'id'               => $s->id,
+                        'start_time'       => substr($s->start_time, 0, 5),
+                        'end_time'         => substr($s->end_time, 0, 5),
+                        'duration_minutes' => $s->duration_minutes,
+                        'hourly_rate'      => $isFree ? 0 : $hourlyRate,
+                        'price'            => $price,
+                        'platform_fee'     => $platformFee,
+                        'is_free'          => $isFree,
+                    ];
+                })->values();
+            }),
         ]);
     }
 
@@ -117,21 +126,23 @@ class BookingController extends Controller
                 }
 
                 // Check for duplicate booking at the same time
+                $slotStart = $slot->slot_date->format('Y-m-d') . ' ' . $slot->start_time;
                 $duplicateExists = Booking::where('student_id', $student->id)
-                    ->where('start_at', '<', $slot->slot_date->format('Y-m-d') . ' ' . $slot->end_time)
-                    ->where('end_at', '>', $slot->slot_date->format('Y-m-d') . ' ' . $slot->start_time)
-                    ->whereNotIn('status', ['cancelled', 'no_show'])
+                    ->where('teacher_id', $slot->teacher_id)
+                    ->where('start_at', $slotStart)
+                    ->where('status', Booking::STATUS_CONFIRMED)
                     ->exists();
 
                 if ($duplicateExists) {
                     abort(422, 'You already have a booking overlapping with this time.');
                 }
 
-                $isFree = $teacherProfile->is_free;
+                $commissionRate = (float) config('edubridge.commission_rate', 0.12);
+                $isFree = (bool) $teacherProfile->is_free;
                 $durationHours = max(1, (int) $slot->duration_minutes) / 60;
                 $price  = $isFree ? 0 : round((float) $teacherProfile->hourly_rate * $durationHours, 2);
-                $platformFee   = round($price * 0.12, 2);
-                $teacherPayout = round($price * 0.88, 2);
+                $platformFee   = $isFree ? 0 : round($price * $commissionRate, 2);
+                $teacherPayout = $isFree ? 0 : round($price - $platformFee, 2);
 
                 $booking = Booking::create([
                     'student_id'     => $student->id,
@@ -227,12 +238,12 @@ class BookingController extends Controller
             $payload['earnings_summary'] = [
                 'this_month' => (float) TeacherEarning::query()
                     ->where('teacher_id', $user->id)
-                    ->where('status', 'released')
-                    ->whereBetween('payout_date', [now()->startOfMonth(), now()->endOfMonth()])
+                    ->whereIn('status', ['released', 'pending'])
+                    ->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()])
                     ->sum('net_amount'),
                 'total' => (float) TeacherEarning::query()
                     ->where('teacher_id', $user->id)
-                    ->where('status', 'released')
+                    ->whereIn('status', ['released', 'pending'])
                     ->sum('net_amount'),
                 'pending' => (float) TeacherEarning::query()
                     ->where('teacher_id', $user->id)

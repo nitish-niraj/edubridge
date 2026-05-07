@@ -1,8 +1,12 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import SButton from './UI/SButton.vue';
 import SubjectTag from './UI/SubjectTag.vue';
 import StarRating from '../Shared/StarRating.vue';
+import { HeartIcon } from '@heroicons/vue/24/outline';
+import { HeartIcon as HeartSolidIcon } from '@heroicons/vue/24/solid';
+import axios from 'axios';
+import { usePage, Link } from '@inertiajs/vue3';
 
 const props = defineProps({
     teacher: {
@@ -19,7 +23,13 @@ const props = defineProps({
     },
 });
 
-const emit = defineEmits(['view']);
+const emit = defineEmits(['view', 'toggle-bookmark']);
+
+const page = usePage();
+const currentUser = computed(() => page.props.auth?.user ?? null);
+
+const bookmarkBusy = ref(false);
+const heartFx = ref('');
 
 const subjects = computed(() => {
     if (Array.isArray(props.teacher.subjects) && props.teacher.subjects.length) {
@@ -110,11 +120,61 @@ const handleView = () => {
     emit('view', props.teacher.teacher_id ?? props.teacher.id);
 };
 
+const toggleBookmark = async () => {
+    if (!currentUser.value) {
+        window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`;
+        return;
+    }
+
+    if (bookmarkBusy.value) {
+        return;
+    }
+
+    const teacherId = props.teacher.teacher_id ?? props.teacher.id;
+    const isSaved = props.teacher.is_saved;
+    const nextMode = isSaved ? 'unsave' : 'save';
+
+    bookmarkBusy.value = true;
+    heartFx.value = nextMode;
+
+    const endpoint = `/api/students/saved-teachers/${teacherId}`;
+    try {
+        if (isSaved) {
+            await axios.delete(endpoint);
+            props.teacher.is_saved = false;
+        } else {
+            await axios.post(endpoint);
+            props.teacher.is_saved = true;
+        }
+        emit('toggle-bookmark', props.teacher);
+    } catch (error) {
+        console.error('Failed to toggle bookmark:', error);
+    } finally {
+        setTimeout(() => {
+            heartFx.value = '';
+        }, 460);
+        bookmarkBusy.value = false;
+    }
+};
+
 </script>
 
 <template>
     <article class="teacher-card" :style="{ animationDelay: `${index * 80}ms` }">
         <div class="top-strip" :style="topStripStyle"></div>
+
+        <button
+            class="bookmark-btn"
+            type="button"
+            :class="{ saved: teacher.is_saved }"
+            :disabled="bookmarkBusy"
+            @click.stop="toggleBookmark"
+        >
+            <span class="heart-shell" :class="[teacher.is_saved ? 'is-saved' : '', heartFx ? `fx-${heartFx}` : '']">
+                <HeartIcon class="bookmark-icon outline" aria-hidden="true" />
+                <HeartSolidIcon class="bookmark-icon fill" aria-hidden="true" />
+            </span>
+        </button>
 
         <div class="card-body">
             <div class="avatar-section">
@@ -143,13 +203,19 @@ const handleView = () => {
                     </span>
                 </div>
 
-                <p class="bio-snippet">{{ teacher.bio_snippet || 'Experienced educator focused on student outcomes.' }}</p>
+                <div v-if="teacher.languages && teacher.languages.length" class="language-tags">
+                    <span v-for="lang in teacher.languages" :key="lang" class="lang-tag">{{ lang }}</span>
+                </div>
+
+                <p class="bio-snippet">{{ teacher.bio_preview || teacher.bio || 'Experienced educator focused on student outcomes.' }}</p>
             </div>
 
             <div class="card-footer">
-                <SButton variant="primary" class="view-btn" @click="handleView">
-                    View Profile
-                </SButton>
+                <Link :href="route('teachers.show', { teacher: teacher.teacher_id ?? teacher.id })" class="view-link">
+                    <SButton variant="primary" class="view-btn">
+                        View Profile
+                    </SButton>
+                </Link>
             </div>
 
             <span class="price-badge" :class="{ 'price-free': isFree, 'price-paid': !isFree }">
@@ -190,6 +256,102 @@ const handleView = () => {
     height: 4px;
     width: 100%;
     background: linear-gradient(90deg, var(--subject-color-1), var(--subject-color-2));
+}
+
+.bookmark-btn {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    border: none;
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(4px);
+    color: #e8553e;
+    cursor: pointer;
+    padding: 0;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.bookmark-btn:hover {
+    background: #fff;
+    transform: scale(1.1);
+}
+
+.bookmark-btn.saved {
+    background: #fff;
+}
+
+.bookmark-btn:disabled {
+    cursor: wait;
+    opacity: 0.7;
+}
+
+.heart-shell {
+    position: relative;
+    width: 20px;
+    height: 20px;
+    display: grid;
+    place-items: center;
+}
+
+.bookmark-icon {
+    position: absolute;
+    inset: 0;
+    width: 20px;
+    height: 20px;
+}
+
+.bookmark-icon.outline {
+    color: #e8553e;
+}
+
+.bookmark-icon.fill {
+    color: #ff7b67;
+    fill: currentColor;
+    clip-path: circle(0% at 50% 50%);
+}
+
+.heart-shell.is-saved .bookmark-icon.fill {
+    clip-path: circle(50% at 50% 50%);
+}
+
+.heart-shell.fx-save {
+    animation: heart-pump 420ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.heart-shell.fx-save .bookmark-icon.fill {
+    animation: heart-fill-in 420ms ease-out forwards;
+}
+
+.heart-shell.fx-unsave {
+    animation: heart-pump 420ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.heart-shell.fx-unsave .bookmark-icon.fill {
+    animation: heart-fill-out 350ms ease-in forwards;
+}
+
+@keyframes heart-pump {
+    0% { transform: scale(1); }
+    25% { transform: scale(0.6); }
+    60% { transform: scale(1.3); }
+    100% { transform: scale(1); }
+}
+
+@keyframes heart-fill-in {
+    from { clip-path: circle(0% at 50% 50%); }
+    to { clip-path: circle(50% at 50% 50%); }
+}
+
+@keyframes heart-fill-out {
+    from { clip-path: circle(50% at 50% 50%); }
+    to { clip-path: circle(0% at 50% 50%); }
 }
 
 .card-body {
@@ -280,6 +442,24 @@ const handleView = () => {
     border-radius: 100px;
 }
 
+.language-tags {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px;
+    margin-bottom: 12px;
+}
+
+.lang-tag {
+    background: #f3f4f6;
+    color: #6b7280;
+    font-family: var(--s-font-body, 'Nunito', sans-serif);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 100px;
+}
+
 .bio-snippet {
     margin: 0 0 18px;
     font-family: var(--s-font-body, 'Nunito', sans-serif);
@@ -294,6 +474,11 @@ const handleView = () => {
 
 .card-footer {
     margin-top: auto;
+    width: 100%;
+}
+
+.view-link {
+    text-decoration: none;
     width: 100%;
 }
 

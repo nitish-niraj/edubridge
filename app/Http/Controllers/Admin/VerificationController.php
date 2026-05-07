@@ -111,22 +111,26 @@ class VerificationController extends Controller
 
     public function approve(int $id): JsonResponse
     {
-        $profile = TeacherProfile::with('user')->findOrFail($id);
+        $profile = TeacherProfile::with(['user', 'documents'])->findOrFail($id);
 
-        if (! $profile->isFullyVerifiable()) {
-            return response()->json([
-                'message' => 'Required verification documents are missing or rejected for this teacher profile.',
-            ], 422);
-        }
-
-        $profile->update(['is_verified' => true]);
-        $profile->user?->update(['status' => 'active']);
+        // First, approve all pending/rejected documents to satisfy requirements
         $profile->documents()->whereIn('status', ['pending', 'rejected'])->update([
             'status' => 'approved',
             'reviewed_by' => auth()->id(),
             'reviewed_at' => now(),
             'rejection_reason' => null,
         ]);
+
+        $profile->refresh();
+
+        if (! $profile->isFullyVerifiable()) {
+            return response()->json([
+                'message' => 'Required verification documents (Degree and Service Record) are still missing for this teacher profile.',
+            ], 422);
+        }
+
+        $profile->update(['is_verified' => true]);
+        $profile->user?->update(['status' => 'active']);
 
         AuditLogger::log('teacher_verification.approved', 'TeacherProfile', $profile->id, [
             'teacher_user_id' => $profile->user_id,
@@ -179,6 +183,92 @@ class VerificationController extends Controller
 
             return response()->json(['message' => 'Teacher application rejected, but rejection email could not be sent right now.']);
         }
+    }
+
+    public function approveDocument(int $document): JsonResponse
+    {
+        $doc = TeacherDocument::with('teacherProfile.user')->findOrFail($document);
+        $doc->update([
+            'status' => 'approved',
+            'reviewed_by' => auth()->id(),
+            'reviewed_at' => now(),
+            'rejection_reason' => null,
+        ]);
+
+        AuditLogger::log('teacher_document.approved', 'TeacherDocument', $doc->id, [
+            'teacher_profile_id' => $doc->teacher_id,
+            'document_type' => $doc->type,
+        ]);
+
+        // Spec §3.5: Teacher is fully verified ONLY when: at least 1 degree approved AND at least 1 service_record approved
+        $profile = $doc->teacherProfile;
+        if (! $profile->is_verified && $profile->isFullyVerifiable()) {
+            $profile->update(['is_verified' => true]);
+            $profile->user?->update(['status' => 'active']);
+
+            try {
+                Mail::to($profile->user->email)->send(new TeacherApprovedMail($profile->user));
+            } catch (\Throwable $e) {
+                Log::warning("Auto-approval mail failed for teacher {$profile->user_id}: " . $e->getMessage());
+            }
+        }
+
+        return response()->json([
+            'message' => 'Document approved.',
+            'is_verified' => $profile->is_verified,
+        ]);
+    }
+
+    public function rejectDocument(RejectTeacherRequest $request, int $document): JsonResponse
+    {
+        $doc = TeacherDocument::with('teacherProfile.user')->findOrFail($document);
+        $doc->update([
+            'status' => 'rejected',
+            'rejection_reason' => $request->reason,
+            'reviewed_by' => auth()->id(),
+            'reviewed_at' => now(),
+        ]);
+
+        AuditLogger::log('teacher_document.rejected', 'TeacherDocument', $doc->id, [
+            'teacher_profile_id' => $doc->teacher_id,
+            'document_type' => $doc->type,
+            'reason' => $request->reason,
+        ]);
+
+        // If it was verified, we might need to un-verify if requirements are no longer met
+        $profile = $doc->teacherProfile;
+        if ($profile->is_verified && ! $profile->isFullyVerifiable()) {
+            $profile->update(['is_verified' => false]);
+
+            try {
+                Mail::to($profile->user->email)->send(new TeacherRejectedMail($profile->user, $request->reason));
+            } catch (\Throwable $e) {
+                Log::warning("Rejection mail failed for teacher {$profile->user_id}: " . $e->getMessage());
+            }
+        }
+
+        return response()->json([
+            'message' => 'Document rejected.',
+            'is_verified' => $profile->is_verified,
+        ]);
+    }
+
+    public function revoke(int $id): JsonResponse
+    {
+        $profile = TeacherProfile::with('user')->findOrFail($id);
+        $profile->update(['is_verified' => false]);
+
+        if ($profile->user?->email) {
+            Mail::to($profile->user->email)->send(
+                new TeacherRejectedMail($profile->user, 'Your verification has been revoked by admin after compliance review.')
+            );
+        }
+
+        AuditLogger::log('teacher_verification.revoked', 'TeacherProfile', $profile->id, [
+            'teacher_user_id' => $profile->user_id,
+        ]);
+
+        return response()->json(['message' => 'Teacher verification revoked.']);
     }
 
     public function showDocument(int $document): StreamedResponse

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Events\GroupSessionStarted;
+use App\Events\GroupSessionEnded;
 use App\Events\RecordingConsentRequest;
 use App\Events\WhiteboardUpdate;
 use App\Http\Controllers\Controller;
@@ -11,20 +12,20 @@ use App\Http\Requests\Api\WhiteboardSyncRequest;
 use App\Models\Booking;
 use App\Models\ClassMember;
 use App\Models\Conversation;
+use App\Models\User;
 use App\Models\VideoSession;
-use App\Services\DailyService;
+use App\Services\NotificationService;
+use Firebase\JWT\JWT;
+use Firebase\JWT\Key;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Sentry\Breadcrumb;
 
 class VideoSessionController extends Controller
 {
-    public function __construct(
-        protected DailyService $dailyService
-    ) {}
-
     /**
      * POST /api/video-sessions/{bookingId}/token
      * Works for both 1:1 bookings and group sessions.
@@ -62,6 +63,7 @@ class VideoSessionController extends Controller
 
         // Build a URL-safe Jitsi room name unique to this booking.
         $jitsiRoom = 'EduBridge-' . $bookingId . '-' . $videoSession->jitsi_room_token;
+        $legacyRoom = $this->roomName($bookingId);
 
         $identity = ($user->id === $booking->student_id ? 'student-' : 'teacher-') . $user->id;
         $isOwner  = $user->id === $booking->teacher_id;
@@ -77,13 +79,15 @@ class VideoSessionController extends Controller
 
         return response()->json([
             'provider'        => 'jitsi',
-            'room_name'       => $jitsiRoom,
+            'room_name'       => $legacyRoom,
+            'jaas_room_name'  => $jitsiRoom,
             'identity'        => $identity,
             'display_name'    => $user->name,
             'is_owner'        => $isOwner,
             'too_early'       => false,
             'session_expired' => false,
             'jwt'             => $jwt,
+            'token'           => $jwt,
         ]);
     }
 
@@ -100,18 +104,24 @@ class VideoSessionController extends Controller
             return response()->json(['message' => 'Only the class teacher can start a group session.'], 403);
         }
 
-        if ($conversation->activeClassMembers()->count() > 50) {
+        if (! (bool) $user->teacherProfile?->is_verified) {
+            return response()->json(['message' => 'Only verified teachers can start group sessions.'], 403);
+        }
+
+        if ($conversation->activeClassMembers()->where('role', 'student')->count() > 50) {
             return response()->json(['message' => 'Group sessions support a maximum of 50 participants.'], 422);
         }
 
-        $roomName = 'edubridge-group-' . $conversationId . '-' . now()->format('Ymd');
+        // Close stale sessions before starting/joining
+        VideoSession::where('is_group', true)
+            ->whereNull('ended_at')
+            ->where('updated_at', '<', now()->subMinutes(10))
+            ->update([
+                'ended_at' => now(),
+                'duration_minutes' => \Illuminate\Support\Facades\DB::raw('TIMESTAMPDIFF(MINUTE, started_at, updated_at)')
+            ]);
 
-        try {
-            $roomUrl = $this->dailyService->ensureRoom($roomName);
-        } catch (\Throwable $exception) {
-            return $this->videoProviderUnavailableResponse($exception);
-        }
-
+        // Find or create video session
         $videoSession = VideoSession::query()
             ->where('conversation_id', $conversation->id)
             ->where('is_group', true)
@@ -125,18 +135,25 @@ class VideoSessionController extends Controller
                 'conversation_id' => $conversation->id,
                 'is_group'       => true,
                 'host_id'        => $user->id,
-                'room_name'      => $roomName,
+                'room_name'      => $this->groupRoomName($conversationId),
                 'room_type'      => 'group',
                 'started_at'     => now(),
+                'jitsi_room_token' => \Illuminate\Support\Str::random(12),
             ]);
         }
 
         $identity = 'teacher-' . $user->id;
-        try {
-            $token = $this->dailyService->generateMeetingToken($videoSession->room_name, $identity, true);
-        } catch (\Throwable $exception) {
-            return $this->videoProviderUnavailableResponse($exception);
-        }
+        $isOwner = true;
+
+        $this->addSentryBreadcrumb('video.group.session.started', [
+            'conversation_id' => $conversationId,
+            'user_id'         => $user->id,
+            'session_id'      => $videoSession->id,
+            'provider'        => 'jitsi',
+        ]);
+
+        $jwt = $this->generateJitsiJwt($user, $isOwner, $videoSession->room_name);
+        $videoSession->touch();
 
         // Broadcast to all group members
         broadcast(new GroupSessionStarted(
@@ -146,11 +163,28 @@ class VideoSessionController extends Controller
             $videoSession->room_name
         ));
 
+        $memberIds = ClassMember::query()
+            ->where('conversation_id', $conversationId)
+            ->whereNull('left_at')
+            ->where('user_id', '!=', $user->id)
+            ->pluck('user_id');
+
+        if ($memberIds->isNotEmpty()) {
+            $recipients = User::query()->whereIn('id', $memberIds)->get();
+            $notifications = app(NotificationService::class);
+            foreach ($recipients as $recipient) {
+                $notifications->sendGroupSessionStarted($recipient, $user->name, $conversationId);
+            }
+        }
+
         return response()->json([
-            'token'            => $token,
-            'room_url'         => $roomUrl,
+            'provider'         => 'jitsi',
+            'jwt'              => $jwt,
+            'token'            => $jwt,
             'room_name'        => $videoSession->room_name,
             'identity'         => $identity,
+            'display_name'     => $user->name,
+            'is_owner'         => $isOwner,
             'video_session_id' => $videoSession->id,
         ]);
     }
@@ -169,14 +203,34 @@ class VideoSessionController extends Controller
         $user = $request->user();
 
         // Check membership
-        $isMember = ClassMember::where('conversation_id', $conversationId)
+        $member = ClassMember::where('conversation_id', $conversationId)
             ->where('user_id', $user->id)
             ->whereNull('left_at')
-            ->exists();
+            ->first();
 
-        if (! $isMember) {
+        if (! $member) {
             return response()->json(['message' => 'You are not a member of this class.'], 403);
         }
+
+        if ($member->role === 'student' && ! $user->isStudent()) {
+            return response()->json(['message' => 'Only student members can join as students.'], 403);
+        }
+
+        if ($member->role === 'teacher' && ! (bool) $user->teacherProfile?->is_verified) {
+            return response()->json(['message' => 'Only verified teacher members can join as teachers.'], 403);
+        }
+
+        // Close stale sessions
+        VideoSession::where('is_group', true)
+            ->whereNull('ended_at')
+            ->where('updated_at', '<', now()->subMinutes(10))
+            ->get()
+            ->each(function ($session) {
+                $session->update([
+                    'ended_at' => now(),
+                    'duration_minutes' => $session->started_at ? $session->started_at->diffInMinutes($session->updated_at) : 0
+                ]);
+            });
 
         // Find the active group session
         $videoSession = VideoSession::where('conversation_id', $conversationId)
@@ -187,28 +241,46 @@ class VideoSessionController extends Controller
             ->first();
 
         if (! $videoSession) {
+            $endedSessionExists = VideoSession::where('conversation_id', $conversationId)
+                ->where('is_group', true)
+                ->whereNotNull('ended_at')
+                ->exists();
+
+            if ($endedSessionExists) {
+                return response()->json(['message' => 'Session has ended.'], 410);
+            }
+
             return response()->json(['message' => 'No active session right now.'], 404);
         }
 
-        try {
-            $roomUrl = $this->dailyService->ensureRoom($videoSession->room_name);
-        } catch (\Throwable $exception) {
-            return $this->videoProviderUnavailableResponse($exception);
+        $activeCount = ClassMember::where('conversation_id', $conversationId)
+            ->whereNull('left_at')
+            ->count();
+        if ($activeCount > 50) {
+            return response()->json(['message' => 'Session is full. Please contact your teacher.'], 422);
         }
 
-        $identity = 'student-' . $user->id;
+        $isOwner = (int) $videoSession->host_id === (int) $user->id;
+        $identity = ($isOwner ? 'teacher-' : 'student-') . $user->id;
 
-        try {
-            $token = $this->dailyService->generateMeetingToken($videoSession->room_name, $identity, false);
-        } catch (\Throwable $exception) {
-            return $this->videoProviderUnavailableResponse($exception);
-        }
+        $this->addSentryBreadcrumb('video.group.session.joined', [
+            'conversation_id' => $conversationId,
+            'user_id'         => $user->id,
+            'session_id'      => $videoSession->id,
+            'provider'        => 'jitsi',
+        ]);
+
+        $jwt = $this->generateJitsiJwt($user, $isOwner, $videoSession->room_name);
+        $videoSession->touch();
 
         return response()->json([
-            'token'            => $token,
-            'room_url'         => $roomUrl,
+            'provider'         => 'jitsi',
+            'jwt'              => $jwt,
+            'token'            => $jwt,
             'room_name'        => $videoSession->room_name,
             'identity'         => $identity,
+            'display_name'     => $user->name,
+            'is_owner'         => $isOwner,
             'video_session_id' => $videoSession->id,
         ]);
     }
@@ -296,9 +368,7 @@ class VideoSessionController extends Controller
             'duration_minutes' => $duration,
         ]);
 
-        $booking->update([
-            'status' => $duration >= 5 ? 'completed' : 'no_show',
-        ]);
+        $booking->transitionTo($duration >= 5 ? Booking::STATUS_COMPLETED : Booking::STATUS_NO_SHOW);
 
         $videoSession->refresh();
         $booking->refresh();
@@ -336,6 +406,8 @@ class VideoSessionController extends Controller
                 ? (int) $videoSession->started_at->diffInMinutes(now())
                 : 0,
         ]);
+
+        broadcast(new GroupSessionEnded($conversation->id, $videoSession->id));
 
         return response()->json([
             'message'          => 'Group session ended.',
@@ -496,7 +568,11 @@ class VideoSessionController extends Controller
             return response()->json(['message' => 'No recording available.'], 404);
         }
 
-        $signedUrl = Storage::disk('s3')->temporaryUrl($videoSession->recording_url, now()->addHours(2));
+        $signedUrl = Storage::disk('s3')->temporaryUrl(
+            $videoSession->recording_url,
+            now()->addHours(2),
+            ['ResponseContentDisposition' => 'attachment; filename="session.mp4"']
+        );
 
         return response()->json(['url' => $signedUrl, 'expires_in' => 7200]);
     }
@@ -564,6 +640,11 @@ class VideoSessionController extends Controller
         return 'edubridge-' . $bookingId;
     }
 
+    private function groupRoomName(int $groupId): string
+    {
+        return 'edubridge-group-' . $groupId . '-' . now()->format('Ymd');
+    }
+
     private function generateJitsiJwt($user, bool $isOwner, string $roomName): ?string
     {
         $appId = env('VITE_JITSI_APP_ID');
@@ -581,20 +662,20 @@ class VideoSessionController extends Controller
             'aud' => 'jitsi',
             'iss' => 'chat',
             'iat' => time(),
-            'exp' => time() + 7200,
+            'exp' => time() + 3600,
             'nbf' => time(),
             'sub' => $appId,
-            'room' => '*',
+            'room' => $roomName, // Specifying the room name for security
             'context' => [
                 'user' => [
                     'name' => $user->name,
                     'email' => $user->email,
                     'id' => (string) $user->id,
-                    'moderator' => $isOwner ? 'true' : 'false',
+                    'moderator' => $isOwner ? true : false,
                 ],
                 'features' => [
                     'livestreaming' => false,
-                    'recording' => false,
+                    'recording' => true,
                     'transcription' => false,
                     'outbound-call' => false,
                 ],
@@ -602,7 +683,8 @@ class VideoSessionController extends Controller
         ];
 
         try {
-            return \Firebase\JWT\JWT::encode($payload, $privateKey, 'RS256', $apiKeyId);
+            // Using RS256 with the private key string directly for JaaS
+            return JWT::encode($payload, $privateKey, 'RS256', $apiKeyId);
         } catch (\Throwable $e) {
             report($e);
             return null;
@@ -623,17 +705,13 @@ class VideoSessionController extends Controller
 
     private function joinWindowErrorResponse(Booking $booking): ?JsonResponse
     {
-        if (app()->environment('local', 'testing')) {
-            return null;
-        }
-
         $now = now();
 
         // The join window opens 15 minutes before the slot starts …
         $opensAt = $booking->start_at->copy()->subMinutes(15);
 
-        // … and closes exactly when the booked slot ends.
-        $expiresAt = $booking->end_at;
+        // Late join support remains available up to 30 minutes after start_at.
+        $expiresAt = $booking->start_at->copy()->addMinutes(30);
 
         if ($now->lt($opensAt)) {
             return response()->json([

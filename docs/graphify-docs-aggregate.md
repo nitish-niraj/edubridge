@@ -86,6 +86,14 @@ Golden rule: validate both on frontend (UX) and backend (security).
 
 ---
 
+## 08_Frontend_Pages_and_UI_SYSTEM.md (excerpt)
+
+The project uses Vue 3 + Inertia for authenticated portals.
+- **Announcement Dismissal**: Users can close admin announcements on their dashboards. This is implemented using a "close" button and `localStorage` persistence.
+- **Analytics Visuals**: Admin analytics graphs use Chart.js with custom gradients and smoother lines for better visibility and aesthetics.
+
+---
+
 If you want the entire docs to be indexed as first-class nodes in the Graphify graph, we can:
 
 1. Host the `docs/` folder at a public HTTP(S) URL and run `graphify add <public-url> --dir docs` (recommended for full fidelity).

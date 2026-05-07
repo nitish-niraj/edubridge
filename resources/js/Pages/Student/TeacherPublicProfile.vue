@@ -7,6 +7,7 @@ import { HeartIcon } from '@heroicons/vue/24/outline';
 import { HeartIcon as HeartSolidIcon } from '@heroicons/vue/24/solid';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
+import StarRating from '@/Components/Shared/StarRating.vue';
 
 const props = defineProps({
     teacherId: {
@@ -302,12 +303,22 @@ onBeforeUnmount(() => {
                         <span v-for="subject in teacher.subjects" :key="subject" class="subject-chip">{{ subject }}</span>
                     </div>
 
-                    <p class="rating">⭐ {{ teacher.rating_avg.toFixed(1) }} out of 5 ({{ teacher.total_reviews }} reviews)</p>
+                    <div class="rating">
+                        <StarRating
+                            :rating="Number(teacher.rating_avg || 0)"
+                            :count="Number(teacher.total_reviews || 0)"
+                            size="md"
+                        />
+                    </div>
                 </div>
 
                 <div class="profile-content">
                     <section class="bio-card">
                         <h2>About</h2>
+                        <div class="meta-stats">
+                            <span class="meta-item">🎓 {{ teacher.experience_years }} years experience</span>
+                            <span v-if="teacher.gender" class="meta-item">👤 {{ teacher.gender }}</span>
+                        </div>
                         <p>{{ teacher.bio || 'No bio shared yet.' }}</p>
                     </section>
 
@@ -318,10 +329,16 @@ onBeforeUnmount(() => {
                         </div>
                     </section>
 
-                    <section class="availability-card">
+                    <div class="availability-card">
                         <h3>📅 Availability</h3>
                         <p>{{ teacher.availability_summary }}</p>
-                    </section>
+                    </div>
+
+                    <div class="rate-card">
+                        <h3>💰 Rate</h3>
+                        <p v-if="teacher.is_free" class="free-badge">FREE (Volunteer)</p>
+                        <p v-else class="paid-rate">₹{{ teacher.hourly_rate }} / hour</p>
+                    </div>
 
                     <section class="reviews">
                         <h3>Reviews</h3>
@@ -647,10 +664,27 @@ h1 {
 
 .bio-card p,
 .availability-card p,
+.rate-card p,
 .review-comment,
 .review-date {
     font-family: Nunito, sans-serif;
     color: #374151;
+}
+
+.meta-stats {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 12px;
+    font-family: Nunito, sans-serif;
+    font-size: 14px;
+    color: #667085;
+}
+
+.meta-item {
+    background: #f9fafb;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid #f3f4f6;
 }
 
 .neutral-chip {
@@ -661,7 +695,8 @@ h1 {
     font-family: Nunito, sans-serif;
 }
 
-.availability-card {
+.availability-card,
+.rate-card {
     margin: 0;
     border-radius: 20px;
     padding: 18px;
@@ -669,10 +704,21 @@ h1 {
     border: 1px solid #f3ddd4;
 }
 
-.availability-card h3 {
+.availability-card h3,
+.rate-card h3 {
     margin: 0 0 8px;
     font-family: Nunito, sans-serif;
     font-weight: 700;
+}
+
+.free-badge {
+    color: #4cb87e !important;
+    font-weight: 800;
+}
+
+.paid-rate {
+    font-weight: 700;
+    font-size: 18px;
 }
 
 .review-card {

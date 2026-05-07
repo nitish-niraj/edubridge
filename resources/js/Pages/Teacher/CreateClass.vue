@@ -12,7 +12,13 @@ const form = ref({
     max_students: 30,
 });
 
-const subjects = ['Mathematics', 'Science', 'English', 'Hindi', 'Social Studies', 'Computer Science', 'Physics', 'Chemistry', 'Biology', 'Economics', 'Accounting', 'History', 'Geography', 'Art', 'Music', 'Other'];
+const subjects = [
+    'Math', 'Science', 'Physics', 'Chemistry', 'Biology',
+    'English', 'Hindi', 'Punjabi', 'Urdu', 'Sanskrit',
+    'History', 'Geography', 'Social Studies', 'Political Science', 'Economics', 'Commerce',
+    'Computer Science', 'Information Technology',
+    'Physical Education', 'Fine Arts', 'Music', 'Other'
+];
 
 const saving  = ref(false);
 const success  = ref(null);

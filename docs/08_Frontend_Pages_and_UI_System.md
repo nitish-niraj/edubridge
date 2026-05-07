@@ -91,6 +91,7 @@ This file is the first stop when debugging:
 - API-driven list/detail pages with loading and empty states
 - toast/alert feedback for create/update actions
 - pagination and filters for high-cardinality resources
+- **Announcement Dismissal**: Admin announcements on student and teacher dashboards can be dismissed by users. The dismissed state is persisted locally in `localStorage`.
 
 ## Error and Fallback UX
 

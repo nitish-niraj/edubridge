@@ -22,9 +22,9 @@ class SavedTeacherController extends Controller
 
         $savedTeacherIds = SavedTeacher::query()
             ->where('student_id', $studentId)
-            ->select('teacher_id');
+            ->pluck('teacher_id');
 
-        $teachers = TeacherProfile::query()
+        $query = TeacherProfile::query()
             ->with('user:id,name,avatar,status')
             ->whereIn('user_id', $savedTeacherIds)
             ->where('is_verified', true)
@@ -44,11 +44,12 @@ class SavedTeacherController extends Controller
                 ->whereColumn('saved_teachers.teacher_id', 'teacher_profiles.user_id')
                 ->where('saved_teachers.student_id', $studentId)
                 ->limit(1),
-            ])
-            ->paginate($perPage)
-            ->withQueryString();
+            ]);
 
-        return TeacherCardResource::collection($teachers);
+        $totalCount = $query->count();
+        $teachers = $query->cursorPaginate($perPage)->withQueryString();
+        
+        return TeacherCardResource::collection($teachers)->additional(['meta' => ['total' => $totalCount]]);
     }
 
     public function store(SavedTeacherToggleRequest $request, int $teacher_id): JsonResponse

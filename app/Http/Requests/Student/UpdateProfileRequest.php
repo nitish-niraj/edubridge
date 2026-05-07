@@ -14,7 +14,7 @@ class UpdateProfileRequest extends FormRequest
 
     public function rules(): array
     {
-        $gradeOptions = [
+        $gradeOptions = config('edubridge.student_grades', [
             'Class 1',
             'Class 2',
             'Class 3',
@@ -29,9 +29,9 @@ class UpdateProfileRequest extends FormRequest
             'Class 12',
             'Undergraduate',
             'Postgraduate',
-        ];
+        ]);
 
-        $subjectOptions = [
+        $subjectOptions = config('edubridge.subjects', [
             'Math',
             'Science',
             'English',
@@ -46,9 +46,9 @@ class UpdateProfileRequest extends FormRequest
             'Economics',
             'Commerce',
             'Other',
-        ];
+        ]);
 
-        $languageOptions = [
+        $languageOptions = config('edubridge.languages', [
             'English',
             'Hindi',
             'Punjabi',
@@ -57,7 +57,7 @@ class UpdateProfileRequest extends FormRequest
             'Telugu',
             'Marathi',
             'Gujarati',
-        ];
+        ]);
 
         return [
             'name'               => ['required', 'string', 'max:255'],

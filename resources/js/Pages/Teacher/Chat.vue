@@ -27,7 +27,58 @@ const loadingConversations = ref(false);
 const loadingMessages = ref(false);
 const conversationError = ref('');
 const messagesError = ref('');
-const sending = ref(false);
+const isSending = ref(false);
+const attachmentFile = ref(null);
+const attachmentPreviewUrl = ref('');
+const isDraggingAttachment = ref(false);
+const lastTypingAt = ref(0);
+const typingUsers = ref([]);
+const presenceChannel = ref(null);
+
+const revokeAttachmentPreview = () => {
+    if (attachmentPreviewUrl.value && !attachmentPreviewUrl.value.startsWith('/')) {
+        URL.revokeObjectURL(attachmentPreviewUrl.value);
+        attachmentPreviewUrl.value = '';
+    }
+};
+
+const assignAttachment = (file) => {
+    if (!file) return;
+
+    const isImage = /^image\/(png|jpe?g|webp)$/i.test(file.type);
+    const isPDF = file.type === 'application/pdf';
+
+    if (!isImage && !isPDF) {
+        window.alert('Only PNG, JPG, WEBP images and PDF files are supported.');
+        return;
+    }
+
+    const maxSize = isImage ? 5 * 1024 * 1024 : 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+        window.alert(`File is too large. Max size for ${isImage ? 'images' : 'PDFs'} is ${maxSize / (1024 * 1024)}MB.`);
+        return;
+    }
+
+    revokeAttachmentPreview();
+    attachmentFile.value = file;
+    if (isImage) {
+        attachmentPreviewUrl.value = URL.createObjectURL(file);
+    } else {
+        attachmentPreviewUrl.value = '/images/pdf-icon.png';
+    }
+};
+
+const clearAttachment = () => {
+    attachmentFile.value = null;
+    revokeAttachmentPreview();
+};
+
+const onAttachmentChange = (event) => {
+    const file = event.target.files?.[0] ?? null;
+    if (!file) return;
+    assignAttachment(file);
+};
+
 const messagesNextCursor = ref(null);
 const loadingMoreMessages = ref(false);
 let refreshConversationsTimer = null;
@@ -142,6 +193,27 @@ const subscribe = (conversationId) => {
         scrollToBottom();
         scheduleConversationsRefresh();
     });
+
+    presenceChannel.value = window.Echo.join(`conversation.${conversationId}`)
+        .listenForWhisper('typing', (payload) => {
+            if (!payload?.name) return;
+            typingUsers.value = [payload.name];
+            setTimeout(() => {
+                typingUsers.value = [];
+            }, 1600);
+        });
+};
+
+const emitTyping = () => {
+    if (!presenceChannel.value) return;
+
+    const now = Date.now();
+    if (now - lastTypingAt.value < 2000) return;
+
+    lastTypingAt.value = now;
+    presenceChannel.value.whisper('typing', {
+        name: 'Teacher',
+    });
 };
 
 const scheduleConversationsRefresh = () => {
@@ -163,25 +235,40 @@ const openConversation = async (conversation) => {
 };
 
 const sendMessage = async () => {
-    if (!activeConversationId.value || sending.value) {
+    if (!activeConversationId.value || isSending.value) {
         return;
     }
 
-    const body = messageText.value.trim();
-    if (!body) {
+    if (!messageText.value.trim() && !attachmentFile.value) {
         return;
     }
 
-    sending.value = true;
+    isSending.value = true;
 
     try {
-        const response = await axios.post(`/api/conversations/${activeConversationId.value}/messages`, {
-            type: 'text',
-            body,
-        });
+        const formData = new FormData();
+        if (attachmentFile.value) {
+            const isImage = /^image\/(png|jpe?g|webp)$/i.test(attachmentFile.value.type);
+            formData.append('type', isImage ? 'image' : 'file');
+            formData.append('attachment', attachmentFile.value);
+            if (messageText.value.trim()) {
+                formData.append('body', messageText.value.trim());
+            }
+        } else {
+            formData.append('type', 'text');
+            formData.append('body', messageText.value.trim());
+        }
+
+        const response = await axios.post(
+            `/api/conversations/${activeConversationId.value}/messages`,
+            formData,
+            { headers: { 'Content-Type': 'multipart/form-data' } },
+        );
 
         messages.value.push(response.data.data ?? response.data);
         messageText.value = '';
+        attachmentFile.value = null;
+        revokeAttachmentPreview();
         await nextTick();
         scrollToBottom();
         scheduleConversationsRefresh();
@@ -189,7 +276,7 @@ const sendMessage = async () => {
     } catch (error) {
         showBanner(error?.response?.data?.message || 'Message could not be sent.');
     } finally {
-        sending.value = false;
+        isSending.value = false;
     }
 };
 
@@ -293,23 +380,51 @@ onBeforeUnmount(() => {
                                 <span v-if="message.type === 'announcement'" class="message-badge announcement">Announcement</span>
                                 <span v-if="message.muted_label" class="message-badge muted">{{ message.muted_label }}</span>
                             </div>
-                            <p class="bubble-body">{{ message.body || 'Unsupported message type.' }}</p>
-                            <p class="bubble-time">{{ formatTime(message.created_at) }}</p>
+                            <p v-if="message.body" class="bubble-body">{{ message.body }}</p>
+
+                            <div v-if="message.file_url" class="bubble-attachment">
+                                <a v-if="message.type === 'image'" :href="message.file_url" target="_blank" rel="noreferrer">
+                                    <img :src="message.file_url" alt="Image attachment" class="attachment-image" />
+                                </a>
+                                <a v-else :href="message.file_url" target="_blank" rel="noreferrer" class="attachment-file">
+                                    <span class="file-icon">📄</span>
+                                    <span>View Document</span>
+                                </a>
+                            </div>
+
+                            <p class="bubble-time">
+                                {{ formatTime(message.created_at) }}
+                                <span v-if="isOwnMessage(message)" class="read-receipt" :class="{ read: message.read_at }">
+                                    ✓✓
+                                </span>
+                            </p>
                         </article>
                     </template>
                 </div>
 
-                <div class="input-row">
+                <div v-if="activeConversationId" class="input-row">
+                    <div v-if="attachmentPreviewUrl" class="attachment-preview">
+                        <img v-if="attachmentFile && /^image\//.test(attachmentFile.type)" :src="attachmentPreviewUrl" class="p-preview" />
+                        <span v-else class="p-preview-file">📄 PDF Ready</span>
+                        <button type="button" class="clear-attach" @click="clearAttachment">×</button>
+                    </div>
+
+                    <label class="attach-trigger">
+                        📎
+                        <input type="file" accept="image/png,image/jpeg,image/webp,application/pdf" hidden @change="onAttachmentChange" />
+                    </label>
+
                     <input
                         v-model="messageText"
                         type="text"
                         class="teacher-input"
                         placeholder="Type your reply..."
-                        :disabled="sending"
+                        :disabled="isSending"
                         @keydown.enter.prevent="sendMessage"
+                        @input="emitTyping"
                     />
-                    <button class="send-button" type="button" :disabled="sending" @click="sendMessage">
-                        {{ sending ? 'Sending...' : 'Send' }}
+                    <button class="send-button" type="button" :disabled="isSending" @click="sendMessage">
+                        {{ isSending ? 'Sending...' : 'Send' }}
                     </button>
                 </div>
             </section>
@@ -561,6 +676,93 @@ onBeforeUnmount(() => {
     font-weight: 700;
     padding: 6px 10px;
     cursor: pointer;
+}
+
+.read-receipt {
+    color: #4CB87E;
+    font-weight: 800;
+    margin-left: 4px;
+}
+
+.bubble-attachment {
+    margin-top: 8px;
+}
+
+.attachment-image {
+    max-width: 100%;
+    max-height: 200px;
+    border-radius: 8px;
+    display: block;
+}
+
+.attachment-file {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 8px;
+    text-decoration: none;
+    color: inherit;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.file-icon {
+    font-size: 18px;
+}
+
+.input-row {
+    position: relative;
+}
+
+.attachment-preview {
+    position: absolute;
+    bottom: 100%;
+    left: 10px;
+    background: #fff;
+    padding: 8px;
+    border: 1px solid #f0e8e0;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 -4px 12px rgba(0,0,0,0.05);
+    margin-bottom: 8px;
+}
+
+.p-preview {
+    width: 40px;
+    height: 40px;
+    border-radius: 4px;
+    object-fit: cover;
+}
+
+.p-preview-file {
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.clear-attach {
+    background: #E8553E;
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.attach-trigger {
+    font-size: 20px;
+    cursor: pointer;
+    padding: 0 10px;
+    display: flex;
+    align-items: center;
 }
 
 .send-button {

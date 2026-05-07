@@ -16,7 +16,7 @@ class PaymentGatewayService
 
     public function createOrder(Booking $booking, string $gateway): array
     {
-        $orderId = 'EDUB-' . $booking->id . '-' . now()->timestamp;
+        $orderId = $this->buildMerchantOrderId($booking->id);
         $amountPaise = (int) round((float) $booking->price * 100);
 
         if ($gateway === 'phonepe') {
@@ -117,7 +117,7 @@ class PaymentGatewayService
 
         if ($payment->gateway === 'phonepe') {
             return $this->phonePeService->initiateRefund(
-                'REFUND-' . $payment->booking_id . '-' . now()->timestamp,
+                $this->buildRefundOrderId((int) $payment->booking_id),
                 $payment->gateway_order_id,
                 (int) $payment->amount_paise
             );
@@ -147,5 +147,19 @@ class PaymentGatewayService
         }
 
         return $secret;
+    }
+
+    private function buildMerchantOrderId(int $bookingId): string
+    {
+        $raw = 'EDUB-' . $bookingId . '-' . now()->timestamp;
+
+        return substr(preg_replace('/[^A-Za-z0-9_-]/', '', $raw) ?: $raw, 0, 63);
+    }
+
+    private function buildRefundOrderId(int $bookingId): string
+    {
+        $raw = 'REFUND-' . $bookingId . '-' . now()->timestamp;
+
+        return substr(preg_replace('/[^A-Za-z0-9_-]/', '', $raw) ?: $raw, 0, 63);
     }
 }

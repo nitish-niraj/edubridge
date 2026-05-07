@@ -1,7 +1,7 @@
 <script setup>
 import TeacherLayout from '@/Layouts/TeacherLayout.vue';
 import { Head, Link } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 
 const props = defineProps({
     user: {
@@ -15,6 +15,10 @@ const props = defineProps({
     is_verified: {
         type: Boolean,
         default: false,
+    },
+    completeness_score: {
+        type: Number,
+        default: 0,
     },
     stats: {
         type: Object,
@@ -30,6 +34,37 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    announcements: {
+        type: Array,
+        default: () => [],
+    },
+});
+
+const closedAnnouncements = ref([]);
+
+const filteredAnnouncements = computed(() => {
+    return props.announcements.filter(a => !closedAnnouncements.value.includes(a.id));
+});
+
+const closeAnnouncement = (id) => {
+    closedAnnouncements.value.push(id);
+    try {
+        const saved = JSON.parse(localStorage.getItem('closed_announcements') || '[]');
+        if (!saved.includes(id)) {
+            saved.push(id);
+            localStorage.setItem('closed_announcements', JSON.stringify(saved));
+        }
+    } catch (e) {
+        console.error('Failed to save closed announcement', e);
+    }
+};
+
+onMounted(() => {
+    try {
+        closedAnnouncements.value = JSON.parse(localStorage.getItem('closed_announcements') || '[]');
+    } catch (e) {
+        closedAnnouncements.value = [];
+    }
 });
 
 const firstName = computed(() => {
@@ -81,8 +116,32 @@ const sessionStatusClass = (status) => {
                 </div>
             </section>
 
+            <!-- Admin Announcements -->
+            <section v-if="filteredAnnouncements.length" class="announcements-section">
+                <div v-for="announcement in filteredAnnouncements" :key="announcement.id" class="announcement-card">
+                    <div class="announcement-content">
+                        <span class="announcement-tag">ANNOUNCEMENT</span>
+                        <button type="button" class="close-announcement" @click="closeAnnouncement(announcement.id)" aria-label="Close">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                        <h3>{{ announcement.title }}</h3>
+                        <p>{{ announcement.message }}</p>
+                    </div>
+                </div>
+            </section>
+
             <section v-if="!props.is_verified" class="notice-banner notice-pending">
-                Your profile is still under verification. You can continue updating your profile and availability while the review is in progress.
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span>Your profile is still under verification. You can continue updating your profile and availability while the review is in progress.</span>
+                    <div style="text-align:right;">
+                        <div style="font-size:12px; font-weight:700; margin-bottom:4px;">PROFILE COMPLETENESS: {{ props.completeness_score }}%</div>
+                        <div style="width:140px; height:8px; background:#E5E7EB; border-radius:4px; overflow:hidden;">
+                            <div :style="`width:${props.completeness_score}%; height:100%; background:#E8553E; transition:width 0.3s;`" />
+                        </div>
+                    </div>
+                </div>
             </section>
 
             <section class="stats-grid">
@@ -213,6 +272,81 @@ h1 {
     color: #92400e;
     font-size: 14px;
     padding: 10px 12px;
+}
+
+.announcements-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.announcement-card {
+    background: linear-gradient(135deg, #2D2D2D 0%, #1A1A1A 100%);
+    color: #fff;
+    border-radius: 16px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+}
+
+.close-announcement {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: rgba(255, 255, 255, 0.8);
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    z-index: 10;
+}
+
+.close-announcement:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+}
+
+.announcement-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 150px;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(232, 85, 62, 0.1));
+    pointer-events: none;
+}
+
+.announcement-tag {
+    background: #E8553E;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 800;
+    padding: 4px 8px;
+    border-radius: 6px;
+    display: inline-block;
+    margin-bottom: 12px;
+    letter-spacing: 0.05em;
+}
+
+.announcement-content h3 {
+    margin: 10px 0 6px;
+    font-size: 18px;
+    color: #fff;
+}
+
+.announcement-content p {
+    margin: 0;
+    font-size: 14px;
+    color: #E2E8F0;
+    line-height: 1.5;
 }
 
 .stats-grid {

@@ -6,10 +6,14 @@ use App\Http\Controllers\Api\ChatController;
 use App\Http\Controllers\Api\GroupController;
 use App\Http\Controllers\Api\HealthCheckController;
 use App\Http\Controllers\Api\PaymentController;
+use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\NotificationPreferenceController;
 use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\SavedTeacherController;
 use App\Http\Controllers\Api\TeacherController;
 use App\Http\Controllers\Api\TeacherSettingsController;
+use App\Http\Controllers\Api\StudentProfileController;
+use App\Http\Controllers\Api\TeacherEarningsController;
 use App\Http\Controllers\Api\VideoSessionController;
 use App\Http\Controllers\Admin\VerificationController;
 use App\Http\Controllers\Api\TeacherAvailabilityController;
@@ -67,6 +71,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/groups/{groupId}/add-member', [GroupController::class, 'addMember']);
     Route::post('/groups/{groupId}/start-session', [VideoSessionController::class, 'startGroupSessionFromGroup']);
     Route::get('/groups/{id}', [GroupController::class, 'show']);
+    Route::patch('/groups/{id}', [GroupController::class, 'update']);
     Route::post('/groups/{groupId}/members', [GroupController::class, 'addMember']);
     Route::delete('/groups/{groupId}/members/{userId}', [GroupController::class, 'removeMember']);
     Route::patch('/groups/{groupId}/members/{userId}/mute', [GroupController::class, 'toggleMute']);
@@ -80,6 +85,15 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::patch('/teacher/availability/{availability}', [TeacherAvailabilityController::class, 'update']);
         Route::delete('/teacher/availability/{availability}', [TeacherAvailabilityController::class, 'destroy']);
         Route::get('/teacher/slots', [TeacherAvailabilityController::class, 'slots']);
+
+        // Section 15 aliases
+        Route::get('/teacher/sessions', [BookingController::class, 'index']);
+        Route::get('/teacher/earnings', [TeacherEarningsController::class, 'index']);
+    });
+
+    // Student profile endpoint (Section 15)
+    Route::middleware('role:student')->group(function (): void {
+        Route::patch('/student/profile', [StudentProfileController::class, 'update']);
     });
 
     // ─── Bookings ────────────────────────────────────────────────────────
@@ -91,6 +105,14 @@ Route::middleware('auth:sanctum')->group(function (): void {
     // ─── Payments ────────────────────────────────────────────────────────
     Route::post('/payments/initiate', [PaymentController::class, 'initiate']);
     Route::post('/payments/verify', [PaymentController::class, 'verify']);
+
+    // ─── Notifications ───────────────────────────────────────────────────
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::patch('/notifications/read-all', [NotificationController::class, 'markAllRead']);
+    Route::patch('/notifications/{id}/read', [NotificationController::class, 'markRead']);
+    Route::patch('/notifications/{id}/dismiss', [NotificationController::class, 'dismiss']);
+    Route::get('/notification-preferences', [NotificationPreferenceController::class, 'show']);
+    Route::patch('/notification-preferences', [NotificationPreferenceController::class, 'update']);
 
     // ─── Video Sessions ──────────────────────────────────────────────────
     Route::post('/video-sessions/{bookingId}/token', [VideoSessionController::class, 'token']);
@@ -112,7 +134,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/reviews', [ReviewController::class, 'store']);
 
     // ─── Reports (user-facing) ───────────────────────────────────────────
-    Route::post('/reports', [\App\Http\Controllers\Api\ReportController::class, 'store']);
+    Route::post('/reports', [\App\Http\Controllers\Api\ReportController::class, 'store'])->middleware('throttle:reports');
 
     // ─── Active Announcements (user-facing) ──────────────────────────────
     Route::get('/announcements/active', [\App\Http\Controllers\Admin\AdminAnnouncementController::class, 'active']);
@@ -127,6 +149,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
 Route::post('/feedback', [FeedbackController::class, 'store'])->middleware('throttle:10,1');
 
 Route::post('/webhooks/payment', [PaymentController::class, 'webhook']);
+Route::post('/webhooks/phonepe', [PaymentController::class, 'phonepeWebhook']);
 
 // ─── Admin API Routes ────────────────────────────────────────────────────────
 Route::middleware(['auth:sanctum', 'role:admin', 'admin.2fa'])->prefix('admin')->group(function () {
@@ -138,6 +161,8 @@ Route::middleware(['auth:sanctum', 'role:admin', 'admin.2fa'])->prefix('admin')-
     Route::get('/users/{id}', [\App\Http\Controllers\Admin\AdminUserController::class, 'show']);
     Route::post('/users/{id}/suspend', [\App\Http\Controllers\Admin\AdminUserController::class, 'suspend']);
     Route::post('/users/{id}/activate', [\App\Http\Controllers\Admin\AdminUserController::class, 'activate']);
+    Route::patch('/users/{id}/suspend', [\App\Http\Controllers\Admin\AdminUserController::class, 'suspend']);
+    Route::patch('/users/{id}/activate', [\App\Http\Controllers\Admin\AdminUserController::class, 'activate']);
     Route::delete('/users/{id}', [\App\Http\Controllers\Admin\AdminUserController::class, 'destroy']);
     Route::post('/users/bulk-suspend', [\App\Http\Controllers\Admin\AdminUserController::class, 'bulkSuspend']);
     Route::post('/users/export', [\App\Http\Controllers\Admin\AdminUserController::class, 'export']);
@@ -172,6 +197,11 @@ Route::middleware(['auth:sanctum', 'role:admin', 'admin.2fa'])->prefix('admin')-
     Route::post('/disputes/{id}/partial-refund', [\App\Http\Controllers\Admin\AdminDisputeController::class, 'partialRefund']);
     Route::post('/disputes/{id}/release', [\App\Http\Controllers\Admin\AdminDisputeController::class, 'releaseToTeacher']);
     Route::post('/disputes/{id}/close', [\App\Http\Controllers\Admin\AdminDisputeController::class, 'close']);
+
+    // Verifications (Section 15)
+    Route::get('/verifications', [\App\Http\Controllers\Admin\AdminVerificationApiController::class, 'index']);
+    Route::patch('/verifications/{id}/approve', [\App\Http\Controllers\Admin\VerificationController::class, 'approve']);
+    Route::patch('/verifications/{id}/reject', [\App\Http\Controllers\Admin\VerificationController::class, 'reject']);
 
     // Verification documents
     Route::get('/documents/{id}/view', [VerificationController::class, 'viewDocument']);

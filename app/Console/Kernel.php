@@ -13,8 +13,11 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        $schedule->command('bookings:mark-no-show')->everyFifteenMinutes();
+        $schedule->command('slots:generate')->dailyAt('00:05');
+        $schedule->command('check_no_shows')->everyFifteenMinutes();
         $schedule->job(new SendSessionReminders())->hourly();
+        $schedule->command('sessions:close-inactive')->everyMinute();
+        $schedule->command('users:purge-deleted')->dailyAt('02:10');
     }
 
     /**

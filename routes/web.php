@@ -20,6 +20,7 @@ use App\Http\Controllers\Teacher\AvailabilityController;
 use App\Http\Controllers\Teacher\DashboardController as TeacherDashboardController;
 use App\Http\Controllers\Teacher\ProfileController as TeacherProfileController;
 use App\Http\Middleware\VerifyCsrfToken;
+use App\Models\UserNotificationPreference;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -37,7 +38,7 @@ Route::get('/privacy-policy', [PageController::class, 'privacy'])->name('privacy
 Route::get('/terms-and-conditions', [PageController::class, 'terms'])->name('terms');
 Route::get('/contact', [PageController::class, 'contact'])->name('contact');
 Route::post('/contact', [PageController::class, 'submitContact'])
-    ->middleware('throttle:10,1')
+    ->middleware('throttle:contact')
     ->name('contact.submit');
 
 Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap');
@@ -80,11 +81,11 @@ Route::middleware('auth')->get('/chat/{conversation?}', function (?int $conversa
 
 // ─── Student Registration ────────────────────────────────────────────────────
 Route::get('/register/student',  [StudentAuthController::class, 'showRegisterForm'])->name('student.register')->middleware('guest');
-Route::post('/register/student', [StudentAuthController::class, 'register'])->name('student.register.submit')->middleware('guest');
+Route::post('/register/student', [StudentAuthController::class, 'register'])->name('student.register.submit')->middleware(['guest', 'throttle:register']);
 
 // ─── Teacher Registration ────────────────────────────────────────────────────
 Route::get('/register/teacher',  [TeacherAuthController::class, 'showRegisterForm'])->name('teacher.register')->middleware('guest');
-Route::post('/register/teacher', [TeacherAuthController::class, 'register'])->name('teacher.register.submit')->middleware('guest');
+Route::post('/register/teacher', [TeacherAuthController::class, 'register'])->name('teacher.register.submit')->middleware(['guest', 'throttle:register']);
 
 // ─── OTP Verification ────────────────────────────────────────────────────────
 Route::get('/verify-otp',    [VerifyOtpController::class, 'showForm'])->name('verify.otp.form');
@@ -144,11 +145,25 @@ Route::get('/design/admin-verifications', function () {
 // ─── Student Portal ──────────────────────────────────────────────────────────
 Route::middleware(['auth', 'role:student'])->prefix('student')->name('student.')->group(function () {
     Route::get('/dashboard',   [StudentDashboardController::class, 'index'])->name('dashboard');
+    Route::get('/teachers', fn () => Inertia::render('Student/TeacherSearch'))->name('teachers');
     Route::get('/onboarding',  [OnboardingController::class, 'show'])->name('onboarding');
     Route::post('/onboarding', [OnboardingController::class, 'complete'])->name('onboarding.complete');
     Route::get('/profile',     [StudentProfileController::class, 'show'])->name('profile');
     Route::patch('/profile',   [StudentProfileController::class, 'update'])->name('profile.update');
-    Route::get('/settings', fn () => Inertia::render('Student/Settings'))->name('settings');
+    Route::get('/settings', function () {
+        $preference = auth()->user()?->notificationPreferences
+            ?? UserNotificationPreference::firstOrCreate(['user_id' => auth()->id()]);
+
+        return Inertia::render('Student/Settings', [
+            'notificationPreferences' => $preference->only([
+                'new_message_email',
+                'booking_confirmed_email',
+                'session_reminder_email',
+                'booking_cancelled_email',
+                'review_received_email',
+            ]),
+        ]);
+    })->name('settings');
     Route::get('/saved-teachers', fn () => Inertia::render('Student/SavedTeachers'))->name('saved-teachers');
     Route::get('/chat', fn (Request $request) => Inertia::render('Student/Chat', [
         'initialConversationId' => $request->integer('conversation') ?: null,
@@ -212,11 +227,17 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
     ]))->name('chat');
 
     Route::get('/settings', function () {
-        $preference = auth()->user()?->notificationPreferences;
+        $preference = auth()->user()?->notificationPreferences
+            ?? UserNotificationPreference::firstOrCreate(['user_id' => auth()->id()]);
 
         return Inertia::render('Teacher/Settings', [
             'preferences' => [
                 'high_contrast' => (bool) ($preference?->high_contrast ?? false),
+                'new_message_email' => (bool) ($preference?->new_message_email ?? true),
+                'booking_confirmed_email' => (bool) ($preference?->booking_confirmed_email ?? true),
+                'session_reminder_email' => (bool) ($preference?->session_reminder_email ?? true),
+                'booking_cancelled_email' => (bool) ($preference?->booking_cancelled_email ?? true),
+                'review_received_email' => (bool) ($preference?->review_received_email ?? true),
             ],
         ]);
     })->name('settings');
@@ -251,10 +272,14 @@ Route::middleware(['auth', 'role:admin', 'admin.2fa'])->prefix('admin')->name('a
     // User Management
     Route::get('/users', fn () => Inertia::render('Admin/Users'))->name('users');
     Route::get('/bookings', fn () => Inertia::render('Admin/Disputes'))->name('bookings');
-    Route::get('/settings/platform', fn () => Inertia::render('Admin/SettingsPlatform'))->name('settings.platform');
+    Route::get('/settings/platform', [\App\Http\Controllers\Admin\PlatformSettingsController::class, 'index'])->name('settings.platform');
+    Route::post('/settings/platform', [\App\Http\Controllers\Admin\PlatformSettingsController::class, 'update'])->name('settings.platform.update');
     Route::get('/settings/account', [AdminTwoFactorController::class, 'settings'])->name('settings.account');
     Route::post('/settings/account/2fa/enable', [AdminTwoFactorController::class, 'enable'])->name('settings.account.2fa.enable');
     Route::delete('/settings/account/2fa', [AdminTwoFactorController::class, 'disable'])->name('settings.account.2fa.disable');
+    Route::post('/verifications/{id}/revoke', [VerificationController::class, 'revoke'])->name('verifications.revoke');
+    Route::post('/documents/{document}/approve', [VerificationController::class, 'approveDocument'])->name('documents.approve');
+    Route::post('/documents/{document}/reject', [VerificationController::class, 'rejectDocument'])->name('documents.reject');
     Route::get('/exports/download', [\App\Http\Controllers\Admin\AdminUserController::class, 'downloadExport'])
         ->middleware('signed')
         ->name('exports.download');

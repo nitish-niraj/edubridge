@@ -159,6 +159,58 @@ const rejectTeacher = async () => {
     }
 };
 
+const revokeTeacher = async () => {
+    if (!selectedTeacher.value) return;
+    actionLoading.value = true;
+    pageError.value = '';
+    pageNotice.value = '';
+    try {
+        const { data } = await axios.post(route('admin.verifications.revoke', selectedTeacher.value.id));
+        pageNotice.value = data?.message || 'Verification revoked.';
+        refreshList();
+        closeDrawer();
+    } catch (error) {
+        pageError.value = error?.response?.data?.message || 'Failed to revoke verification.';
+    } finally {
+        actionLoading.value = false;
+    }
+};
+
+const approveDocument = async (docId) => {
+    actionLoading.value = true;
+    pageError.value = '';
+    try {
+        const { data } = await axios.post(route('admin.documents.approve', docId));
+        pageNotice.value = data.message || 'Document approved.';
+        if (data.is_verified && selectedTeacher.value) {
+            selectedTeacher.value.verification_status = 'approved';
+        }
+        refreshList();
+    } catch (error) {
+        pageError.value = error?.response?.data?.message || 'Unable to approve document.';
+    } finally {
+        actionLoading.value = false;
+    }
+};
+
+const rejectDocument = async (docId) => {
+    const reason = reviewNote.value.trim() || 'This document was rejected. Please upload a clear and valid document.';
+    actionLoading.value = true;
+    pageError.value = '';
+    try {
+        const { data } = await axios.post(route('admin.documents.reject', docId), { reason });
+        pageNotice.value = data.message || 'Document rejected.';
+        if (!data.is_verified && selectedTeacher.value) {
+            selectedTeacher.value.verification_status = 'pending';
+        }
+        refreshList();
+    } catch (error) {
+        pageError.value = error?.response?.data?.message || 'Unable to reject document.';
+    } finally {
+        actionLoading.value = false;
+    }
+};
+
 const formatDate = (value) => {
     if (!value) {
         return '-';
@@ -330,7 +382,11 @@ const viewDocument = (document) => {
                                 <strong>{{ doc.original_filename || doc.type }}</strong>
                                 <p>{{ doc.type }} · {{ formatBytes(doc.file_size) }} · {{ doc.status }}</p>
                             </div>
-                            <button type="button" class="admin-btn admin-btn-secondary" @click="viewDocument(doc)">View</button>
+                            <div style="display:flex;gap:8px;">
+                                <button type="button" class="admin-btn admin-btn-secondary" @click="viewDocument(doc)">View</button>
+                                <button v-if="doc.status !== 'approved'" type="button" class="admin-btn admin-btn-primary" @click="approveDocument(doc.id)">Approve Doc</button>
+                                <button v-if="doc.status !== 'rejected'" type="button" class="admin-btn admin-btn-danger" @click="rejectDocument(doc.id)">Reject Doc</button>
+                            </div>
                         </li>
                         <li v-if="!selectedTeacher.documents?.length" class="empty-docs">No documents uploaded.</li>
                     </ul>
@@ -349,6 +405,7 @@ const viewDocument = (document) => {
 
             <template #footer>
                 <button type="button" class="admin-btn admin-btn-secondary" @click="closeDrawer">Close</button>
+                <button type="button" class="admin-btn admin-btn-secondary" @click="revokeTeacher" :disabled="actionLoading">Revoke</button>
                 <button type="button" class="admin-btn admin-btn-danger" @click="rejectTeacher" :disabled="actionLoading">Reject</button>
                 <button type="button" class="admin-btn admin-btn-primary" @click="approveTeacher" :disabled="actionLoading">Approve</button>
             </template>

@@ -14,6 +14,11 @@ const tab = ref('upcoming');
 const urlParams = new URLSearchParams(window.location.search);
 const paymentStatus = ref(urlParams.get('payment'));
 const paymentBookingId = ref(urlParams.get('booking'));
+
+if (urlParams.get('session') === 'completed') {
+    tab.value = 'completed';
+}
+
 const showBanner = ref(!!paymentStatus.value);
 const showSkeleton = computed(() => loading.value && bookings.value.length === 0);
 const loadError = ref('');
@@ -74,7 +79,7 @@ onMounted(() => {
 
 const filtered = computed(() => {
     if (tab.value === 'upcoming') return bookings.value.filter(b => ['confirmed', 'pending'].includes(b.status));
-    if (tab.value === 'completed') return bookings.value.filter(b => b.status === 'completed');
+    if (tab.value === 'completed') return bookings.value.filter(b => ['completed', 'no_show'].includes(b.status));
     if (tab.value === 'cancelled') return bookings.value.filter(b => b.status === 'cancelled');
     return bookings.value;
 });
@@ -83,27 +88,42 @@ const statusColor = (s) => ({
     pending: '#FFA726', confirmed: '#66BB6A', completed: '#42A5F5', cancelled: '#EF5350', no_show: '#BDBDBD'
 }[s] || '#999');
 
-const formatDate = (d) => new Date(d.replace('Z', '')).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-const formatTime = (d) => new Date(d.replace('Z', '')).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+const formatDate = (d) => {
+    if (!d) return '—';
+    const date = d.includes('Z') || d.includes('+') ? new Date(d) : new Date(d + 'Z');
+    return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+};
+
+const formatTime = (d) => {
+    if (!d) return '—';
+    const date = d.includes('Z') || d.includes('+') ? new Date(d) : new Date(d + 'Z');
+    return date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+};
 
 const canJoin = (b) => {
     if (b.status !== 'confirmed') return false;
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        return true;
-    }
-    const mins = (new Date(b.start_at.replace('Z', '')) - new Date()) / 60000;
-    return mins <= 15;
+    const start = b.start_at.includes('Z') || b.start_at.includes('+') ? new Date(b.start_at) : new Date(b.start_at + 'Z');
+    const now = new Date();
+    const earlyWindowMins = (start - now) / 60000;
+    const lateWindowMins = (now - start) / 60000;
+    if (earlyWindowMins > 15 || lateWindowMins > 30) return false;
+
+    const session = b.video_session;
+    if (!session) return true;
+    if (session.ended_at) return false;
+    return !session.started_at || (session.started_at && !session.ended_at);
 };
 
 const minutesUntil = (b) => {
-    const mins = Math.round((new Date(b.start_at.replace('Z', '')) - new Date()) / 60000);
+    const start = b.start_at.includes('Z') || b.start_at.includes('+') ? new Date(b.start_at) : new Date(b.start_at + 'Z');
+    const mins = Math.round((start - new Date()) / 60000);
     if (mins <= 0) return 'Now';
     if (mins < 60) return `in ${mins} min`;
     return `in ${Math.round(mins / 60)}h`;
 };
 
 const cancelBooking = async (b) => {
-    if (!confirm('Are you sure you want to cancel this booking?')) return;
+    if (!confirm('Cancel this booking? Student cancellation is only allowed more than 2 hours before start time, and refund policy will apply.')) return;
     try {
         await axios.patch(`/api/bookings/${b.id}/cancel`);
         fetchBookings();
@@ -119,6 +139,19 @@ const retryPayment = async (b) => {
     } catch (e) {
         alert(e.response?.data?.message || e.message || 'Payment initiation failed');
     }
+};
+const isReviewable = (b) => {
+    if (b.review) return false;
+    if (['completed', 'no_show'].includes(b.status)) return true;
+    
+    // If status is confirmed but time has passed by 10 mins
+    if (b.status === 'confirmed' && b.end_at) {
+        const end = b.end_at.includes('Z') || b.end_at.includes('+') ? new Date(b.end_at) : new Date(b.end_at + 'Z');
+        const now = new Date();
+        return now > new Date(end.getTime() + 10 * 60000);
+    }
+    
+    return false;
 };
 </script>
 
@@ -140,7 +173,7 @@ const retryPayment = async (b) => {
             </div>
             <div v-if="showBanner && paymentStatus === 'pending'"
                 style="background: #FFF8E1; color: #F57F17; padding: 14px 20px; border-radius: 12px; margin-bottom: 20px; font-family: Nunito, sans-serif;">
-                ⏳ Payment is being processed... this page will update automatically.
+                ⏳ Payment is being processed. If not completed, the payment link expires in about 20 minutes and you can retry from this page.
             </div>
 
             <!-- Tab pills -->
@@ -216,7 +249,7 @@ const retryPayment = async (b) => {
                             Complete Payment
                         </button>
 
-                        <a v-if="b.status === 'completed' && !b.review" :href="'/reviews/' + b.id"
+                        <a v-if="isReviewable(b)" :href="'/reviews/' + b.id"
                             style="padding: 10px 20px; background: #FFC107; color: #333; border-radius: 20px; text-decoration: none; font-weight: bold; font-size: 14px;">
                             ⭐ Leave Review
                         </a>
@@ -239,7 +272,7 @@ const retryPayment = async (b) => {
                     title="No upcoming sessions"
                     body="Browse teachers and book your first session."
                     cta-text="Browse teachers"
-                    :cta-route="route('teachers.index')"
+                    :cta-route="route('student.teachers')"
                 />
                 <span v-else>No {{ tab }} bookings yet.</span>
             </div>

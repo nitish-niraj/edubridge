@@ -233,7 +233,7 @@ const fetchToken = async () => {
             return;
         }
 
-        roomName.value    = data.room_name;
+        roomName.value    = data.jaas_room_name || data.room_name;
         identity.value    = data.identity;
         displayName.value = data.display_name;
         jwt.value         = data.jwt || null;
@@ -372,7 +372,7 @@ const performEndCall = async () => {
 
     window.location.href = isTeacher.value
         ? '/teacher/sessions'
-        : '/student/bookings?session=completed';
+        : '/reviews/' + props.bookingId;
 };
 
 const requestEndCall = () => {

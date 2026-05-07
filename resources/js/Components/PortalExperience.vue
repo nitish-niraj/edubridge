@@ -28,6 +28,7 @@ const incrementVisits = () => {
 };
 
 const onBeforeInstallPrompt = (event) => {
+    // Prevent the mini-infobar from appearing on mobile
     event.preventDefault();
     installEvent.value = event;
 
@@ -38,16 +39,29 @@ const onBeforeInstallPrompt = (event) => {
 };
 
 const acceptInstall = async () => {
-    if (!installEvent.value) return;
+    if (!installEvent.value) {
+        console.warn('Install event is not available');
+        return;
+    }
 
     installBannerVisible.value = false;
     const prompt = installEvent.value;
     installEvent.value = null;
 
-    await prompt.prompt();
-    const choice = await prompt.userChoice;
-    if (choice?.outcome === 'accepted') {
-        localStorage.setItem(dismissKey, '1');
+    try {
+        // Check if prompt method exists
+        if (typeof prompt.prompt !== 'function') {
+            console.warn('Prompt method is not available on install event');
+            return;
+        }
+
+        await prompt.prompt();
+        const choice = await prompt.userChoice;
+        if (choice?.outcome === 'accepted') {
+            localStorage.setItem(dismissKey, '1');
+        }
+    } catch (error) {
+        console.error('Error during install prompt:', error);
     }
 };
 

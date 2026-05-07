@@ -1,5 +1,7 @@
 <script setup>
 import { Link, usePage } from '@inertiajs/vue3';
+import axios from 'axios';
+import TeacherBannerStack from '@/Components/Teacher/TeacherBannerStack.vue';
 import {
     BellIcon,
     CalendarDaysIcon,
@@ -24,6 +26,8 @@ const user = computed(() => page.props.auth?.user ?? null);
 const teacherUi = computed(() => page.props.teacher_ui ?? null);
 const menuRef = ref(null);
 const menuOpen = ref(false);
+const notificationBanners = ref([]);
+let notificationPollTimer = null;
 const TEACHER_CONTRAST_STORAGE_KEY = 'edubridge.teacher.high_contrast';
 
 const navItems = [
@@ -123,6 +127,53 @@ const handleDocumentClick = (event) => {
     }
 };
 
+const fetchTeacherNotifications = async () => {
+    try {
+        const response = await axios.get('/api/notifications', {
+            params: { limit: 6, active_only: true },
+        });
+        const notifications = response.data?.data || [];
+        notificationBanners.value = notifications
+            .filter((item) => item.audience === 'teacher')
+            .map((item) => ({
+                id: item.id,
+                type: item.is_critical ? 'warning' : 'info',
+                message: item.message,
+            }));
+    } catch {
+        notificationBanners.value = [];
+    }
+};
+
+const dismissBanner = async (notificationId) => {
+    try {
+        await axios.patch(`/api/notifications/${notificationId}/dismiss`);
+        notificationBanners.value = notificationBanners.value.filter((item) => Number(item.id) !== Number(notificationId));
+    } catch {
+        // Keep banner if request fails.
+    }
+};
+
+const listenForRealtimeNotifications = () => {
+    if (!window.Echo || !user.value?.id) return;
+
+    window.Echo.private(`App.Models.User.${user.value.id}`)
+        .listen('.notification.created', (payload) => {
+            if (payload?.audience !== 'teacher') {
+                return;
+            }
+
+            notificationBanners.value = [
+                {
+                    id: payload.id,
+                    type: payload.is_critical ? 'warning' : 'info',
+                    message: payload.message,
+                },
+                ...notificationBanners.value.filter((item) => Number(item.id) !== Number(payload.id)),
+            ].slice(0, 6);
+        });
+};
+
 const applyTeacherContrastClass = (enabled) => {
     document.body.classList.toggle('high-contrast', Boolean(enabled));
 };
@@ -178,10 +229,16 @@ onMounted(() => {
     document.body.setAttribute('data-portal', 'teacher');
     applyTeacherContrastClass(resolveTeacherContrastPreference());
     document.addEventListener('click', handleDocumentClick);
+    fetchTeacherNotifications();
+    listenForRealtimeNotifications();
+    notificationPollTimer = window.setInterval(fetchTeacherNotifications, 30000);
 });
 
 onBeforeUnmount(() => {
     document.removeEventListener('click', handleDocumentClick);
+    if (notificationPollTimer) {
+        window.clearInterval(notificationPollTimer);
+    }
 });
 </script>
 
@@ -247,6 +304,7 @@ onBeforeUnmount(() => {
         <main class="teacher-main">
             <Transition name="teacher-page-fade" mode="out-in">
                 <div :key="fadeKey" class="teacher-page-frame">
+                    <TeacherBannerStack :banners="notificationBanners" @dismiss="dismissBanner" />
                     <slot />
                 </div>
             </Transition>

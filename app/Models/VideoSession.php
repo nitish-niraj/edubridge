@@ -16,6 +16,7 @@ class VideoSession extends Model
         'is_group',
         'host_id',
         'room_name',
+        'jitsi_room_token',
         'room_type',
         'twilio_room_sid',
         'started_at',

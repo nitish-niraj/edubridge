@@ -1,13 +1,18 @@
-# Graph Report - D:\xampp\htdocs\PHP\project  (2026-04-18)
+# Graph Report - project  (2026-05-08)
 
 ## Corpus Check
-- 440 files · ~171,358 words
+- 571 files · ~214,077 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1615 nodes · 2051 edges · 303 communities detected
-- Extraction: 68% EXTRACTED · 32% INFERRED · 0% AMBIGUOUS · INFERRED: 656 edges (avg confidence: 0.8)
+- 4437 nodes · 5125 edges · 752 communities (452 shown, 300 thin omitted)
+- Extraction: 83% EXTRACTED · 17% INFERRED · 0% AMBIGUOUS · INFERRED: 853 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
+
+## Graph Freshness
+- Built from commit: `c5fab389`
+- Run `git rev-parse HEAD` and compare to check if the graph is stale.
+- Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
 - [[_COMMUNITY_Community 0|Community 0]]
@@ -294,7 +299,6 @@
 - [[_COMMUNITY_Community 281|Community 281]]
 - [[_COMMUNITY_Community 282|Community 282]]
 - [[_COMMUNITY_Community 283|Community 283]]
-- [[_COMMUNITY_Community 284|Community 284]]
 - [[_COMMUNITY_Community 285|Community 285]]
 - [[_COMMUNITY_Community 286|Community 286]]
 - [[_COMMUNITY_Community 287|Community 287]]
@@ -313,1551 +317,810 @@
 - [[_COMMUNITY_Community 300|Community 300]]
 - [[_COMMUNITY_Community 301|Community 301]]
 - [[_COMMUNITY_Community 302|Community 302]]
+- [[_COMMUNITY_Community 303|Community 303]]
+- [[_COMMUNITY_Community 304|Community 304]]
+- [[_COMMUNITY_Community 305|Community 305]]
+- [[_COMMUNITY_Community 306|Community 306]]
+- [[_COMMUNITY_Community 307|Community 307]]
+- [[_COMMUNITY_Community 308|Community 308]]
+- [[_COMMUNITY_Community 309|Community 309]]
+- [[_COMMUNITY_Community 310|Community 310]]
+- [[_COMMUNITY_Community 311|Community 311]]
+- [[_COMMUNITY_Community 312|Community 312]]
+- [[_COMMUNITY_Community 313|Community 313]]
+- [[_COMMUNITY_Community 314|Community 314]]
+- [[_COMMUNITY_Community 315|Community 315]]
+- [[_COMMUNITY_Community 316|Community 316]]
+- [[_COMMUNITY_Community 317|Community 317]]
+- [[_COMMUNITY_Community 318|Community 318]]
+- [[_COMMUNITY_Community 319|Community 319]]
+- [[_COMMUNITY_Community 320|Community 320]]
+- [[_COMMUNITY_Community 321|Community 321]]
+- [[_COMMUNITY_Community 322|Community 322]]
+- [[_COMMUNITY_Community 323|Community 323]]
+- [[_COMMUNITY_Community 324|Community 324]]
+- [[_COMMUNITY_Community 325|Community 325]]
+- [[_COMMUNITY_Community 326|Community 326]]
+- [[_COMMUNITY_Community 327|Community 327]]
+- [[_COMMUNITY_Community 328|Community 328]]
+- [[_COMMUNITY_Community 329|Community 329]]
+- [[_COMMUNITY_Community 330|Community 330]]
+- [[_COMMUNITY_Community 331|Community 331]]
+- [[_COMMUNITY_Community 332|Community 332]]
+- [[_COMMUNITY_Community 333|Community 333]]
+- [[_COMMUNITY_Community 334|Community 334]]
+- [[_COMMUNITY_Community 335|Community 335]]
+- [[_COMMUNITY_Community 336|Community 336]]
+- [[_COMMUNITY_Community 337|Community 337]]
+- [[_COMMUNITY_Community 338|Community 338]]
+- [[_COMMUNITY_Community 339|Community 339]]
+- [[_COMMUNITY_Community 340|Community 340]]
+- [[_COMMUNITY_Community 341|Community 341]]
+- [[_COMMUNITY_Community 342|Community 342]]
+- [[_COMMUNITY_Community 343|Community 343]]
+- [[_COMMUNITY_Community 344|Community 344]]
+- [[_COMMUNITY_Community 345|Community 345]]
+- [[_COMMUNITY_Community 346|Community 346]]
+- [[_COMMUNITY_Community 347|Community 347]]
+- [[_COMMUNITY_Community 348|Community 348]]
+- [[_COMMUNITY_Community 349|Community 349]]
+- [[_COMMUNITY_Community 350|Community 350]]
+- [[_COMMUNITY_Community 351|Community 351]]
+- [[_COMMUNITY_Community 352|Community 352]]
+- [[_COMMUNITY_Community 353|Community 353]]
+- [[_COMMUNITY_Community 354|Community 354]]
+- [[_COMMUNITY_Community 355|Community 355]]
+- [[_COMMUNITY_Community 356|Community 356]]
+- [[_COMMUNITY_Community 357|Community 357]]
+- [[_COMMUNITY_Community 358|Community 358]]
+- [[_COMMUNITY_Community 359|Community 359]]
+- [[_COMMUNITY_Community 360|Community 360]]
+- [[_COMMUNITY_Community 361|Community 361]]
+- [[_COMMUNITY_Community 362|Community 362]]
+- [[_COMMUNITY_Community 363|Community 363]]
+- [[_COMMUNITY_Community 364|Community 364]]
+- [[_COMMUNITY_Community 365|Community 365]]
+- [[_COMMUNITY_Community 366|Community 366]]
+- [[_COMMUNITY_Community 367|Community 367]]
+- [[_COMMUNITY_Community 368|Community 368]]
+- [[_COMMUNITY_Community 369|Community 369]]
+- [[_COMMUNITY_Community 370|Community 370]]
+- [[_COMMUNITY_Community 371|Community 371]]
+- [[_COMMUNITY_Community 372|Community 372]]
+- [[_COMMUNITY_Community 373|Community 373]]
+- [[_COMMUNITY_Community 374|Community 374]]
+- [[_COMMUNITY_Community 375|Community 375]]
+- [[_COMMUNITY_Community 377|Community 377]]
+- [[_COMMUNITY_Community 378|Community 378]]
+- [[_COMMUNITY_Community 379|Community 379]]
+- [[_COMMUNITY_Community 380|Community 380]]
+- [[_COMMUNITY_Community 381|Community 381]]
+- [[_COMMUNITY_Community 382|Community 382]]
+- [[_COMMUNITY_Community 383|Community 383]]
+- [[_COMMUNITY_Community 384|Community 384]]
+- [[_COMMUNITY_Community 385|Community 385]]
+- [[_COMMUNITY_Community 386|Community 386]]
+- [[_COMMUNITY_Community 387|Community 387]]
+- [[_COMMUNITY_Community 388|Community 388]]
+- [[_COMMUNITY_Community 389|Community 389]]
+- [[_COMMUNITY_Community 390|Community 390]]
+- [[_COMMUNITY_Community 391|Community 391]]
+- [[_COMMUNITY_Community 392|Community 392]]
+- [[_COMMUNITY_Community 393|Community 393]]
+- [[_COMMUNITY_Community 394|Community 394]]
+- [[_COMMUNITY_Community 395|Community 395]]
+- [[_COMMUNITY_Community 396|Community 396]]
+- [[_COMMUNITY_Community 397|Community 397]]
+- [[_COMMUNITY_Community 398|Community 398]]
+- [[_COMMUNITY_Community 399|Community 399]]
+- [[_COMMUNITY_Community 400|Community 400]]
+- [[_COMMUNITY_Community 401|Community 401]]
+- [[_COMMUNITY_Community 402|Community 402]]
+- [[_COMMUNITY_Community 403|Community 403]]
+- [[_COMMUNITY_Community 404|Community 404]]
+- [[_COMMUNITY_Community 405|Community 405]]
+- [[_COMMUNITY_Community 406|Community 406]]
+- [[_COMMUNITY_Community 407|Community 407]]
+- [[_COMMUNITY_Community 408|Community 408]]
+- [[_COMMUNITY_Community 409|Community 409]]
+- [[_COMMUNITY_Community 410|Community 410]]
+- [[_COMMUNITY_Community 411|Community 411]]
+- [[_COMMUNITY_Community 412|Community 412]]
+- [[_COMMUNITY_Community 413|Community 413]]
+- [[_COMMUNITY_Community 414|Community 414]]
+- [[_COMMUNITY_Community 415|Community 415]]
+- [[_COMMUNITY_Community 416|Community 416]]
+- [[_COMMUNITY_Community 417|Community 417]]
+- [[_COMMUNITY_Community 418|Community 418]]
+- [[_COMMUNITY_Community 419|Community 419]]
+- [[_COMMUNITY_Community 420|Community 420]]
+- [[_COMMUNITY_Community 421|Community 421]]
+- [[_COMMUNITY_Community 422|Community 422]]
+- [[_COMMUNITY_Community 423|Community 423]]
+- [[_COMMUNITY_Community 424|Community 424]]
+- [[_COMMUNITY_Community 425|Community 425]]
+- [[_COMMUNITY_Community 426|Community 426]]
+- [[_COMMUNITY_Community 427|Community 427]]
+- [[_COMMUNITY_Community 428|Community 428]]
+- [[_COMMUNITY_Community 441|Community 441]]
+- [[_COMMUNITY_Community 443|Community 443]]
+- [[_COMMUNITY_Community 444|Community 444]]
+- [[_COMMUNITY_Community 445|Community 445]]
+- [[_COMMUNITY_Community 447|Community 447]]
+- [[_COMMUNITY_Community 448|Community 448]]
+- [[_COMMUNITY_Community 449|Community 449]]
+- [[_COMMUNITY_Community 450|Community 450]]
+- [[_COMMUNITY_Community 451|Community 451]]
+- [[_COMMUNITY_Community 452|Community 452]]
+- [[_COMMUNITY_Community 453|Community 453]]
+- [[_COMMUNITY_Community 454|Community 454]]
+- [[_COMMUNITY_Community 455|Community 455]]
+- [[_COMMUNITY_Community 456|Community 456]]
+- [[_COMMUNITY_Community 460|Community 460]]
+- [[_COMMUNITY_Community 461|Community 461]]
+- [[_COMMUNITY_Community 466|Community 466]]
+- [[_COMMUNITY_Community 467|Community 467]]
+- [[_COMMUNITY_Community 468|Community 468]]
+- [[_COMMUNITY_Community 469|Community 469]]
+- [[_COMMUNITY_Community 470|Community 470]]
+- [[_COMMUNITY_Community 471|Community 471]]
+- [[_COMMUNITY_Community 472|Community 472]]
+- [[_COMMUNITY_Community 473|Community 473]]
+- [[_COMMUNITY_Community 474|Community 474]]
 
 ## God Nodes (most connected - your core abstractions)
-1. `ClassMember` - 19 edges
-2. `User` - 18 edges
-3. `BookingSlot` - 17 edges
-4. `Report` - 17 edges
-5. `LoginTest` - 17 edges
-6. `AuditLogger` - 15 edges
-7. `ProfileController` - 15 edges
-8. `VideoSessionController` - 13 edges
-9. `Review` - 13 edges
-10. `Conversation` - 12 edges
+1. `ClassMember` - 38 edges
+2. `AuditLogger` - 37 edges
+3. `BookingSlot` - 37 edges
+4. `Form Validation — Complete Rulebook` - 33 edges
+5. `Report` - 28 edges
+6. `VideoSessionController` - 23 edges
+7. `User` - 20 edges
+8. `TeacherDocument` - 19 edges
+9. `LoginTest` - 18 edges
+10. `User` - 18 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `enforceMinimumDelay()` --calls--> `fetchConversations()`  [INFERRED]
-  D:\xampp\htdocs\PHP\project\resources\js\composables\useMinimumDelay.js → D:\xampp\htdocs\PHP\project\resources\js\Pages\Teacher\Chat.vue
+  resources/js/composables/useMinimumDelay.js → resources/js/Pages/Teacher/Chat.vue
 - `validateEmail()` --calls--> `blurEmail()`  [INFERRED]
-  D:\xampp\htdocs\PHP\project\resources\js\composables\useFormValidation.js → D:\xampp\htdocs\PHP\project\resources\js\Pages\Auth\StudentRegister.vue
+  resources/js/composables/useFormValidation.js → resources/js/Pages/Auth/StudentRegister.vue
+- `blurConfirm()` --calls--> `validatePasswordMatch()`  [INFERRED]
+  resources/js/Pages/Auth/ResetPassword.vue → resources/js/composables/useFormValidation.js
 - `validatePasswordMatch()` --calls--> `blurConfirm()`  [INFERRED]
-  D:\xampp\htdocs\PHP\project\resources\js\composables\useFormValidation.js → D:\xampp\htdocs\PHP\project\resources\js\Pages\Auth\StudentRegister.vue
+  resources/js/composables/useFormValidation.js → resources/js/Pages/Auth/StudentRegister.vue
 - `validateName()` --calls--> `blurName()`  [INFERRED]
-  D:\xampp\htdocs\PHP\project\resources\js\composables\useFormValidation.js → D:\xampp\htdocs\PHP\project\resources\js\Pages\Auth\StudentRegister.vue
-- `validatePhone()` --calls--> `blurPhone()`  [INFERRED]
-  D:\xampp\htdocs\PHP\project\resources\js\composables\useFormValidation.js → D:\xampp\htdocs\PHP\project\resources\js\Pages\Auth\StudentRegister.vue
+  resources/js/composables/useFormValidation.js → resources/js/Pages/Auth/StudentRegister.vue
 
-## Communities
+## Communities (752 total, 300 thin omitted)
 
 ### Community 0 - "Community 0"
-Cohesion: 0.02
-Nodes (33): AdminSeeder, AdminUserController, AnalyticsController, BookingController, BookingService, EmailVerificationNotificationController, EmailVerificationPromptController, ExportUsersJob (+25 more)
+Cohesion: 0.05
+Nodes (9): AdminUserController, ExportUsersJob, OnboardingController, ProfileController, RouteServiceProvider, StudentRegistrationTest, StudentSeeder, Verification (+1 more)
 
 ### Community 1 - "Community 1"
-Cohesion: 0.03
-Nodes (21): AdminSuspendTest, AdminUsersVisibilityTest, AuthenticationTest, BookingFlowTest, BookingSlot, BookingTest, CancellationTest, DatabaseSeederTest (+13 more)
+Cohesion: 0.05
+Nodes (40): assignAttachment(), clearAttachment(), closeReportModal(), extractNextCursor(), fetchConversations(), fetchMessages(), handleDrop(), handleEscape() (+32 more)
 
 ### Community 2 - "Community 2"
-Cohesion: 0.04
-Nodes (15): AuditLog, ContactSubmission, Feedback, FeedbackController, LandingController, OtpMailSender, PageController, SendBookingConfirmationNotification (+7 more)
+Cohesion: 0.06
+Nodes (10): down(), getConnection(), up(), SavedTeacherController, TeacherController, TeacherSearchTest, SavedTeacher, SavedTeacherController (+2 more)
 
 ### Community 3 - "Community 3"
-Cohesion: 0.04
-Nodes (12): AdminTwoFactorController, AuthenticatedSessionController, save(), setStatus(), validateLocally(), AvailabilityController, EnsureAdminTwoFactorVerified, GenerateBookingSlots (+4 more)
+Cohesion: 0.05
+Nodes (9): ChatController, FeedbackController, StudentProfileController, ProfileController, Feedback, UploadSecurity, SendChatNotification, MessageResource (+1 more)
 
 ### Community 4 - "Community 4"
-Cohesion: 0.05
-Nodes (11): AdminDisputeController, AdminReportController, AuditLogger, BookingEvent, BookingEventResource, BookingResource, PhonePeService, Report (+3 more)
+Cohesion: 0.06
+Nodes (6): VerificationController, AdminVerificationTest, AdminVerificationTest, TeacherDocument, TeacherDocumentViewResource, VerificationController
 
 ### Community 5 - "Community 5"
-Cohesion: 0.06
-Nodes (7): ChatTest, ClassMember, Conversation, GroupController, GroupTest, Message, verifyOtp()
+Cohesion: 0.04
+Nodes (46): ✅ 4.1 Search Eligibility Rules - **MOSTLY IMPLEMENTED**, ✅ 4.2 Search Parameters - **FULLY IMPLEMENTED**, ✅ 4.3 Sort Options - **FULLY IMPLEMENTED**, ⚠️ 4.4 Pagination - **PARTIALLY IMPLEMENTED**, ✅ 4.5 Saved Teachers - **FULLY IMPLEMENTED**, 📋 Action Items Summary, API Endpoints ✅, Available Sort Options: (+38 more)
 
 ### Community 6 - "Community 6"
 Cohesion: 0.05
-Nodes (15): up(), up(), up(), up(), up(), up(), up(), up() (+7 more)
+Nodes (7): AdminUsersVisibilityTest, BookingTest, CancellationTest, DatabaseSeederTest, PerformanceTest, TeacherSearchTest, TeacherSeeder
 
 ### Community 7 - "Community 7"
+Cohesion: 0.06
+Nodes (10): GroupController, LandingController, OtpMailSender, PageController, SeoService, handleInput(), handleKeydown(), launchConfetti() (+2 more)
+
+### Community 8 - "Community 8"
+Cohesion: 0.05
+Nodes (8): AuthenticationTest, ChatTest, ContactSubmission, EmailVerificationTest, LandingTest, PhonePePaymentTest, RegisteredUserController, VideoSessionTest
+
+### Community 9 - "Community 9"
+Cohesion: 0.04
+Nodes (44): 1. **Added Missing Subjects to Config** (HIGH PRIORITY), 1. Test Profile Completeness Score, 2. **Fixed Hourly Rate Limits** (HIGH PRIORITY), 2. Test Hourly Rate Validation, 3. **Fixed Avatar Max Size** (MEDIUM PRIORITY), 3. Test Teacher Self-View Block, 4. **Fixed Experience Years Range** (LOW PRIORITY), 4. Test New Subjects (+36 more)
+
+### Community 10 - "Community 10"
+Cohesion: 0.04
+Nodes (44): ✅ 5.1 Conversation Types - **FULLY IMPLEMENTED**, ✅ 5.2 1:1 Conversation Rules - **FULLY IMPLEMENTED**, ✅ 5.3 Message Types - **FULLY IMPLEMENTED**, ✅ 5.4 Real-Time Architecture - **FULLY IMPLEMENTED**, ✅ 5.5 Read Receipts - **FULLY IMPLEMENTED**, ✅ 5.6 Message Notifications - **FULLY IMPLEMENTED**, ✅ 5.7 Group Chat Additional Rules - **FULLY IMPLEMENTED**, 📋 Action Items Summary (+36 more)
+
+### Community 11 - "Community 11"
+Cohesion: 0.04
+Nodes (44): 1. Conversation Management, 1. Smart Notification System, 2. Muted Students Feature, 2. Real-Time Features, 3. Message Types, 3. No Duplicate Conversations, 4. Read Receipts, 4. Real-Time Architecture (+36 more)
+
+### Community 12 - "Community 12"
+Cohesion: 0.04
+Nodes (44): 1. Group Management Pages, 2. Group Video Session UI, 3. Whiteboard Component, 4. Participants Panel, 5. Group Chat UI, 6.1 Group Creation, 6.2 Student Joining Rules, 6.3 Group Video Session Logic (+36 more)
+
+### Community 13 - "Community 13"
+Cohesion: 0.05
+Nodes (43): 1. Group Update Endpoint, 1. Group Update Functionality, 2. Auto-Close Inactive Sessions, 2. Auto-Close Inactive Sessions, 3. Documentation, 🎉 Achievements, Backend ✅, Backend (95% Complete) (+35 more)
+
+### Community 14 - "Community 14"
+Cohesion: 0.08
+Nodes (7): AnalyticsController, PaymentController, ReleasePayment, ReviewController, TwilioService, VideoSession, VideoSessionController
+
+### Community 15 - "Community 15"
+Cohesion: 0.05
+Nodes (8): AdminAnnouncementController, AdminAnnouncementController, Announcement, AnnouncementResource, AnnouncementTest, BulkAnnouncementEmailJob, BulkAnnouncementEmailJob, SendAnnouncementEmailChunkJob
+
+### Community 16 - "Community 16"
+Cohesion: 0.05
+Nodes (40): 1. OTP Max Attempts Lockout ⭐ HIGH PRIORITY, 1. `SECTION_2_AUTHENTICATION_ANALYSIS.md`, 1. Test OTP Lockout, 2. Login Temporary Lockout ⭐ HIGH PRIORITY, 2. `SECTION_2_IMPLEMENTATION_COMPLETE.md`, 2. Test Login Lockout, 3. `AUTHENTICATION_QUICK_REFERENCE.md`, 3. Block Teacher Google OAuth ⭐ HIGH PRIORITY (+32 more)
+
+### Community 17 - "Community 17"
+Cohesion: 0.05
+Nodes (39): 1. Add Excalidraw Whiteboard (Optional), 1. Fixed GroupVideoSession.vue to Use Jitsi, 2. Add Recording Feature (Optional), 2. Backend: Jitsi Integration for Group Sessions, 3. Add Screen Sharing (Optional), 3. Fixed TeacherSearch Navigation Bug, 4. Added Missing Backend Features, 6.1 Group Creation ✅ 100% (+31 more)
+
+### Community 18 - "Community 18"
+Cohesion: 0.05
+Nodes (38): 1. CreateClass.vue (Basic Structure), 2. Whiteboard.vue (Excalidraw Integration), 3. GroupVideoSession.vue (Daily.co Integration), 4. JoinSessionBanner.vue (Real-time Notification), 📚 Additional Resources, API Endpoints Reference, code:bash (# Install required packages), code:vue (<script setup>) (+30 more)
+
+### Community 19 - "Community 19"
+Cohesion: 0.05
+Nodes (37): ✅ 2.1 User Roles - **FULLY IMPLEMENTED**, ⚠️ 2.2 Registration Rules - **MOSTLY IMPLEMENTED**, ✅ 2.3 OTP Verification Logic - **FULLY IMPLEMENTED**, ✅ 2.4 Google OAuth (Students Only) - **FULLY IMPLEMENTED**, ✅ 2.5 Login Logic - **MOSTLY IMPLEMENTED**, ✅ 2.6 Password Reset - **FULLY IMPLEMENTED**, ✅ 2.7 Account Status States - **FULLY IMPLEMENTED**, 📋 Action Items Summary (+29 more)
+
+### Community 20 - "Community 20"
+Cohesion: 0.1
+Nodes (4): ClassMember, GroupTest, GroupController, GroupTest
+
+### Community 21 - "Community 21"
+Cohesion: 0.06
+Nodes (7): AdminReviewController, AdminReviewController, AppServiceProvider, ReportController, Review, ReviewResource, ReviewTest
+
+### Community 22 - "Community 22"
+Cohesion: 0.06
+Nodes (7): BookingController, BookingFlowTest, BookingService, BookingSlot, TeacherAvailabilityTest, BookingService, AvailabilityController
+
+### Community 23 - "Community 23"
+Cohesion: 0.06
+Nodes (33): ✅ 3.1 Profile Setup (5 Steps) - **FULLY IMPLEMENTED**, ✅ 3.2 Teacher Profile Fields - **FULLY IMPLEMENTED**, ⚠️ 3.3 Subjects List - **PARTIALLY IMPLEMENTED**, ❌ 3.4 Profile Completeness Score - **NOT IMPLEMENTED**, ✅ 3.5 Teacher Verification Workflow - **FULLY IMPLEMENTED**, ✅ 3.6 Public Teacher Profile - **FULLY IMPLEMENTED**, 📋 Action Items Summary, code:block1 (Math, Science, Physics, Chemistry, Biology) (+25 more)
+
+### Community 24 - "Community 24"
+Cohesion: 0.09
+Nodes (5): ChatController, ConversationResource, MessageResource, SendChatNotification, UserResource
+
+### Community 25 - "Community 25"
+Cohesion: 0.06
+Nodes (4): NotificationPreferenceController, User, TeacherSettingsController, UserNotificationPreference
+
+### Community 26 - "Community 26"
+Cohesion: 0.06
+Nodes (32): 1. **OTP Max Attempts Lockout** (HIGH PRIORITY), 1. Test OTP Lockout, 2. **Login Temporary Lockout** (HIGH PRIORITY), 2. Test Login Lockout, 3. **Block Teacher Google OAuth Registration** (HIGH PRIORITY), 3. Test Teacher Google OAuth Block, 4. **Google OAuth User Password Reset Detection** (MEDIUM PRIORITY), 4. Test Google User Password Reset (+24 more)
+
+### Community 27 - "Community 27"
 Cohesion: 0.11
 Nodes (19): assignAttachment(), clearAttachment(), closeReportModal(), fetchConversations(), fetchMessages(), handleDrop(), handleEscape(), markAsRead() (+11 more)
 
-### Community 8 - "Community 8"
-Cohesion: 0.11
-Nodes (5): ChatController, ConversationResource, MessageResource, SendChatNotification, UserResource
+### Community 28 - "Community 28"
+Cohesion: 0.07
+Nodes (29): 1. ✅ Backend: Switched from Daily.co to Jitsi for Group Sessions, 2. ✅ Frontend: Fixed TeacherSearch.vue Navigation Error, 3. ✅ Backend: Added Missing Features, 6.1 Group Creation, 6.2 Student Joining Rules, 6.3 Group Video Session Logic, 6.4 Whiteboard Logic, API Endpoints Summary (+21 more)
 
-### Community 9 - "Community 9"
-Cohesion: 0.11
-Nodes (3): LoginTest, SocialiteController, StudentSeeder
-
-### Community 10 - "Community 10"
+### Community 29 - "Community 29"
 Cohesion: 0.12
-Nodes (7): down(), getConnection(), up(), SavedTeacher, SavedTeacherController, TeacherCardResource, TeacherController
+Nodes (4): NotificationController, HandleInertiaRequests, AppNotification, NotificationService
 
-### Community 11 - "Community 11"
-Cohesion: 0.13
-Nodes (4): AdminVerificationTest, TeacherDocument, TeacherDocumentViewResource, VerificationController
+### Community 30 - "Community 30"
+Cohesion: 0.15
+Nodes (23): blurConfirm(), submit(), blurConfirm(), blurEmail(), blurGrade(), blurName(), blurPhone(), goToTeacher() (+15 more)
 
-### Community 12 - "Community 12"
+### Community 31 - "Community 31"
 Cohesion: 0.1
-Nodes (5): AdminReviewController, AppServiceProvider, DemoDataSeeder, Review, ReviewResource
+Nodes (4): AdminReportController, AdminReportController, Report, ReportResource
 
-### Community 13 - "Community 13"
-Cohesion: 0.11
-Nodes (5): AdminAnnouncementController, Announcement, AnnouncementResource, AnnouncementTest, BulkAnnouncementEmailJob
+### Community 33 - "Community 33"
+Cohesion: 0.08
+Nodes (23): 1) Local Prerequisites, 2) Install and Boot, 3) Required Environment Variables, 4) Queue and Background Work, 5) Frontend Build/Serve Modes, 6) Useful Operational Commands, 7) Seed Data, 8) Health and Smoke Checks (+15 more)
 
-### Community 14 - "Community 14"
+### Community 34 - "Community 34"
+Cohesion: 0.08
+Nodes (23): Admin Portal, API Routes, Application Layers, Auth Routes, Backend Modules Explained, Broadcast Channels, Chat and Collaboration, Controllers by Domain (+15 more)
+
+### Community 35 - "Community 35"
+Cohesion: 0.09
+Nodes (21): Admin API (`auth:sanctum + role:admin + admin.2fa`), Admin Web Portal, API Routes (`routes/api.php`), Auth Routes (`routes/auth.php`), Authenticated API (`auth:sanctum`), Availability, Booking, Payment, Session, Broadcast Channels (`routes/channels.php`), Chat (+13 more)
+
+### Community 36 - "Community 36"
+Cohesion: 0.09
+Nodes (21): Common Feature Expansion Ideas, Definition of Done for New Features, Developer Experience Roadmap, Extensibility and Future Roadmap, Extension Principles, Learning Experience, Milestone A: Stability First, Milestone B: Feature Depth (+13 more)
+
+### Community 37 - "Community 37"
+Cohesion: 0.09
+Nodes (21): 10. Number Fields, 12. Radio Buttons, 13. Checkboxes, 15. Address Fields, 16. OTP / Verification Code, 17. Search Field, 1. General Rules for Every Field, 21. Validation Timing (+13 more)
+
+### Community 38 - "Community 38"
+Cohesion: 0.1
+Nodes (20): 1. ✅ TeacherSearch.vue heartFxTimers Error, 2. ✅ API 500 Error - GET /api/teachers?per_page=12&sort=rating_desc, 3. ✅ Dashboard.vue Missing Axios Import, 4. ✅ PWA Install Banner Issue, 5. ✅ DOM Null parentNode Error (Resolved by #1), 6. ✅ GroupVideoSession.vue Jitsi Configuration, 7. ✅ Student Navigation Sidebar, 8. ✅ Code Scanning for Similar Patterns (+12 more)
+
+### Community 39 - "Community 39"
+Cohesion: 0.16
+Nodes (13): assignAttachment(), clearAttachment(), fetchConversations(), fetchMessages(), onAttachmentChange(), openConversation(), revokeAttachmentPreview(), scheduleConversationsRefresh() (+5 more)
+
+### Community 40 - "Community 40"
+Cohesion: 0.1
+Nodes (19): Admin Portal, Blade Public Pages, Error and Fallback UX, Frontend Architecture, Frontend Build and Dev Workflow, Frontend Folder Guide, Frontend Pages and UI System, Frontend Testing Guidance (+11 more)
+
+### Community 41 - "Community 41"
+Cohesion: 0.1
+Nodes (19): 1. Student Registration Flow, 2. Teacher Registration Flow, 3. OTP Verification Flow (With Lockout), 4. Login Flow (With Lockout), 5. Google OAuth Flow (Students Only), 6. Password Reset Flow, 7. Account Status State Machine, 8. Redis Keys & TTL (+11 more)
+
+### Community 42 - "Community 42"
 Cohesion: 0.13
-Nodes (13): blurConfirm(), blurEmail(), blurGrade(), blurName(), blurPhone(), submit(), validateAll(), validateEmail() (+5 more)
+Nodes (5): down(), up(), AvailabilityController, DashboardController, GenerateBookingSlots
 
-### Community 15 - "Community 15"
-Cohesion: 0.17
-Nodes (12): applyFilters(), buildParams(), clearFilters(), fetchTeachers(), isBookmarkBusy(), removeChip(), setBookmarkBusy(), setHeartFx() (+4 more)
+### Community 44 - "Community 44"
+Cohesion: 0.18
+Nodes (3): VerifyOtpController, StudentAuthController, TeacherAuthController
 
-### Community 16 - "Community 16"
+### Community 46 - "Community 46"
+Cohesion: 0.12
+Nodes (3): DrawPermissionGranted, WhiteboardTest, WhiteboardUpdate
+
+### Community 48 - "Community 48"
+Cohesion: 0.12
+Nodes (15): app/ Breakdown, Blade Views, Codebase Map, Controllers, Database Layer, Events, Jobs, Middleware (+7 more)
+
+### Community 50 - "Community 50"
 Cohesion: 0.16
 Nodes (6): confirmEndCall(), connectToRoom(), handleUserActivity(), performEndCall(), requestEndCall(), resetControlsHideTimer()
 
-### Community 17 - "Community 17"
-Cohesion: 0.21
-Nodes (8): applyErrorMessageMotion(), applyPortalBodyAttribute(), clearAutoValidationError(), resolvePathname(), resolveValidationGroup(), setup(), setupValidationFeedback(), upsertAutoValidationError()
+### Community 54 - "Community 54"
+Cohesion: 0.3
+Nodes (13): applyErrorMessageMotion(), applyPortalBodyAttribute(), clearAllAutoValidationErrors(), clearAutoValidationError(), collectErroredFields(), fieldShouldValidateOnBlur(), hasVisibleFormErrors(), resolvePathname() (+5 more)
 
-### Community 18 - "Community 18"
+### Community 55 - "Community 55"
+Cohesion: 0.18
+Nodes (8): connectToRoom(), destroyJitsi(), endSession(), handleUserActivity(), loadJitsiScript(), playDing(), raiseHand(), resetControlsHideTimer()
+
+### Community 57 - "Community 57"
+Cohesion: 0.13
+Nodes (14): Additional Support Tables, Booking and Session Lifecycle, Core Database Design, Data Integrity Notes, Database, Models, and Data Guide, Discovery and Reputation, Identity and Profiles, Important Eloquent Models (Non-Exhaustive) (+6 more)
+
+### Community 58 - "Community 58"
+Cohesion: 0.13
+Nodes (14): Backend, Daily Development Workflow, Deployment Notes, Environment Configuration Checklist, Frontend, Incident Response Baseline, Local Runbook, Monitoring and Logs (+6 more)
+
+### Community 59 - "Community 59"
+Cohesion: 0.13
+Nodes (15): 1. Test 1:1 Conversation Creation, 2. Test Real-Time Broadcasting, 3. Test Typing Indicator, 4. Test Read Receipts, 5. Test Message Deletion (10-minute rule), 6. Test Muted Students, 7. Test Notification Logic, code:javascript (// Frontend: Subscribe to conversation channel) (+7 more)
+
+### Community 60 - "Community 60"
+Cohesion: 0.13
+Nodes (15): code:block10 (████████████████████████████████████████ 100% ✅), code:block11 (████████████████████████████████████████ 100% ✅), code:block12 (████████████████████████████████████████ 100% ✅), code:block13 (████████████████████████████████████████ 100% ✅), code:block14 (░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░   0% ❌), code:block8 (████████████████████████████████████████ 100% ✅), code:block9 (████████████████████████████████████████ 100% ✅), Console Commands (+7 more)
+
+### Community 62 - "Community 62"
 Cohesion: 0.21
 Nodes (9): bookSession(), closeReport(), loadTeacher(), openReport(), redirectToLogin(), setupReviewObserver(), startConversation(), submitReport() (+1 more)
 
-### Community 19 - "Community 19"
+### Community 63 - "Community 63"
 Cohesion: 0.14
-Nodes (3): DrawPermissionGranted, WhiteboardTest, WhiteboardUpdate
+Nodes (14): 1. Conversation Types ✅, 2. 1:1 Conversation Rules ✅, 3. Message Types ✅, 4. Real-Time Architecture ✅, 5. Read Receipts ✅, 6. Message Notifications ✅, 7. Group Chat Additional Rules ✅, code:php (// Message sent) (+6 more)
 
-### Community 20 - "Community 20"
+### Community 64 - "Community 64"
+Cohesion: 0.14
+Nodes (14): 📝 5-Step Profile Setup, code:php ('bio' => ['nullable', 'string', 'min:50', 'max:2000']), code:block2 (Math, Science, Physics, Chemistry, Biology), code:block3 (English, Hindi, Punjabi, Bengali), code:php ('subjects' => ['required', 'array', 'min:1']), code:php ('is_free' => ['required', 'boolean']), code:json ({), code:php ('availability' => ['required', 'array']) (+6 more)
+
+### Community 66 - "Community 66"
+Cohesion: 0.21
+Nodes (9): bookSession(), closeReport(), loadTeacher(), openReport(), redirectToLogin(), setupReviewObserver(), startConversation(), submitReport() (+1 more)
+
+### Community 70 - "Community 70"
+Cohesion: 0.18
+Nodes (4): closeMenu(), handleDocumentClick(), persistTeacherContrastPreference(), resolveTeacherContrastPreference()
+
+### Community 72 - "Community 72"
+Cohesion: 0.31
+Nodes (11): closeDrawer(), formatDate(), getRoleTone(), getUrgencyTone(), initials(), joinedAgo(), markNewActions(), markNewSignups() (+3 more)
+
+### Community 73 - "Community 73"
+Cohesion: 0.15
+Nodes (12): 1) Public Page Flow, 2) Inertia SPA Flow, 3) API Data Flow, 4) Realtime Event Flow, 5) Queue Flow, Application Entry and Bootstrapping, Architecture and Request Flow, Data Ownership Model (Core) (+4 more)
+
+### Community 74 - "Community 74"
+Cohesion: 0.15
+Nodes (12): 1) Database Availability/Integrity Issues, 2) Missing Frontend Asset Manifest Entries, 3) Optional SDK Missing at Runtime (Payment Integration), 4) Contact Mail Not Delivering to Inbox, 5) Realtime Chat/Presence Not Updating, 6) Queue-Dependent Features Delayed/Not Executing, Auth and Role Access Issues, Debugging Commands Reference (+4 more)
+
+### Community 75 - "Community 75"
+Cohesion: 0.15
+Nodes (13): code:bash (POST /api/conversations), code:bash (POST /api/conversations/{id}/messages), code:bash (POST /api/conversations/{id}/announcement), code:bash (PATCH /api/conversations/{id}/read), code:bash (DELETE /api/conversations/{id}/messages/{messageId}), code:bash (POST /api/conversations/{id}/typing), Delete Message, Mark Conversation as Read (+5 more)
+
+### Community 76 - "Community 76"
+Cohesion: 0.15
+Nodes (12): After Implementation, Before Analysis, code:bash (# Check PHP syntax), 🎯 Compliance Checklist, 📁 Files Modified, 🔍 How to Verify, Key Achievements:, 📞 Questions? (+4 more)
+
+### Community 77 - "Community 77"
+Cohesion: 0.15
+Nodes (13): Check Completeness, Check if Fully Verifiable, Check Verification Status, code:php ($teacher = auth()->user()->teacherProfile;), code:php ($score = $teacher->getCompletenessScore();), code:php (if ($teacher->is_verified) {), code:php (if ($teacher->isFullyVerifiable()) {), code:php ($degree = $teacher->documents()->where('type', 'degree')->fi) (+5 more)
+
+### Community 82 - "Community 82"
 Cohesion: 0.17
-Nodes (2): playDing(), raiseHand()
+Nodes (11): Admin-Facing Demo Signals, code:bash (php artisan migrate), code:bash (php artisan db:seed --class=Database\\Seeders\\DemoDataSeede), Default Login Accounts, Demo Booking Scenarios, Demo Chat Scenarios, Demo Data Reference, How To Seed (+3 more)
 
-### Community 21 - "Community 21"
+### Community 83 - "Community 83"
+Cohesion: 0.17
+Nodes (11): Backend ✅, code:block1 (████████████████████░░░░░░░░░░░░░░░░░░░░ 48% Complete), ✅ Conclusion, Documentation ✅, Documentation Files, Frontend ❌, 📞 Need Help?, 🎯 Overall Progress (+3 more)
+
+### Community 87 - "Community 87"
+Cohesion: 0.18
+Nodes (3): TeacherEarningsController, DashboardController, TeacherEarning
+
+### Community 90 - "Community 90"
+Cohesion: 0.18
+Nodes (11): code:bash (# Student sends first message to teacher), code:bash (# Student sends message), code:bash (# Teacher mutes student), code:javascript (// User A subscribes to conversation), code:bash (# Scenario 1: Recipient is online), Test 1: No Duplicate Conversations, Test 2: Message Deletion (10-minute rule), Test 3: Muted Students (+3 more)
+
+### Community 91 - "Community 91"
+Cohesion: 0.18
+Nodes (11): 1. Update Frontend Dashboard, 2. Update API Response, 3. Notify Existing Teachers, 4. Clear Cache, 5. Update Frontend Subjects List, code:javascript (// Fetch from API or update hardcoded list), code:javascript (// Display completeness score), code:php (// In TeacherDashboardController) (+3 more)
+
+### Community 96 - "Community 96"
 Cohesion: 0.2
-Nodes (4): initials(), markNewActions(), markNewSignups(), refreshDashboard()
+Nodes (9): 📊 Account Status States, Authentication System - Quick Reference Guide, Flow, Google OAuth Users, 🔧 Middleware, 🎯 Overview, 🔄 Password Reset, 📞 Support (+1 more)
 
-### Community 22 - "Community 22"
+### Community 97 - "Community 97"
 Cohesion: 0.2
-Nodes (1): Booking
+Nodes (9): 1. Local Development (Zero Cost), 2. Deploying LIVE to Production for $0, EduBridge Platform - Zero-Cost Manual Setup Guide, Image & Document Storage, Live Chat & WebSockets, Real Emails (Like Password Resets), The Database, The Domain Name (+1 more)
 
-### Community 23 - "Community 23"
+### Community 98 - "Community 98"
+Cohesion: 0.2
+Nodes (9): 1:1 Conversations, 🔒 Access Rules, ✅ Checklist, Email Content, Group Conversations, 📊 Message Types, 📬 Notification Logic, Real-Time Messaging System - Quick Reference (+1 more)
+
+### Community 99 - "Community 99"
+Cohesion: 0.2
+Nodes (10): 1. **Added Missing Subjects** ⭐ HIGH PRIORITY, 2. **Fixed Hourly Rate Limits** ⭐ HIGH PRIORITY, 3. **Implemented Profile Completeness Score** ⭐ HIGH PRIORITY, 4. **Fixed Avatar Max Size** ⭐ MEDIUM PRIORITY, 5. **Block Teachers from Viewing Own Public Profile** ⭐ MEDIUM PRIORITY, 6. **Fixed Experience Years Range** ⭐ LOW PRIORITY, 7. **Fixed Recent Reviews Count** ⭐ LOW PRIORITY, code:php ($completeness = $teacher->getCompletenessScore(); // 0, 20, ) (+2 more)
+
+### Community 100 - "Community 100"
+Cohesion: 0.2
+Nodes (9): code:bash (# Check PHP syntax), 🎯 Compliance Checklist, 📁 Files Modified, 🔍 How to Verify, Key Achievements:, 📞 Questions?, Section 4 - Teacher Search & Discovery ✅, ✅ Summary (+1 more)
+
+### Community 101 - "Community 101"
+Cohesion: 0.2
+Nodes (9): 🎯 Compliance Summary, ✅ Conclusion, ✨ Highlights, 📊 Implementation Status: **98% Complete**, 🐛 Known Issues, 🎓 Next Steps, 📖 Related Documentation, Section 5 - Real-Time Messaging System ✅ (+1 more)
+
+### Community 102 - "Community 102"
+Cohesion: 0.2
+Nodes (9): code:php ($query = TeacherProfile::query()), 📊 Compliance Status, ✨ Conclusion, 📚 Files Modified, Key Achievements:, 🔍 Search Eligibility Rules (Complete), Section 4 - Teacher Search & Discovery Implementation Complete ✅, 📊 Sort Options (All Implemented) (+1 more)
+
+### Community 104 - "Community 104"
 Cohesion: 0.24
 Nodes (4): closeMenu(), handleDocumentClick(), persistTeacherContrastPreference(), resolveTeacherContrastPreference()
 
-### Community 24 - "Community 24"
-Cohesion: 0.42
-Nodes (1): AnalyticsTest
-
-### Community 25 - "Community 25"
+### Community 107 - "Community 107"
 Cohesion: 0.33
 Nodes (7): applyDefaults(), cloneValue(), deepMerge(), ensureTooltipElement(), isObject(), renderSpringTooltip(), useAdminChart()
 
-### Community 26 - "Community 26"
+### Community 110 - "Community 110"
+Cohesion: 0.22
+Nodes (8): About Laravel, Code of Conduct, Contributing, Laravel Sponsors, Learning Laravel, License, Premium Partners, Security Vulnerabilities
+
+### Community 111 - "Community 111"
+Cohesion: 0.22
+Nodes (9): code:env (MAIL_MAILER=smtp), code:bash (# Check Redis status), code:env (GOOGLE_CLIENT_ID=your_client_id), code:bash (# Clear specific user lockout), 🚨 Common Issues & Solutions, Issue: Account locked permanently, Issue: Google OAuth not working, Issue: OTP not received (+1 more)
+
+### Community 112 - "Community 112"
+Cohesion: 0.22
+Nodes (9): code:sql (- id), code:sql (- id), code:sql (- id), code:sql (- id), 📝 Database Tables, student_profiles, teacher_profiles, users (+1 more)
+
+### Community 113 - "Community 113"
+Cohesion: 0.22
+Nodes (9): class_members (group only), code:sql (id                  BIGINT), code:sql (id                  BIGINT), code:sql (conversation_id     BIGINT), code:sql (id                  BIGINT), conversation_participants (1:1 only), conversations, 🗂️ Database Schema (+1 more)
+
+### Community 114 - "Community 114"
+Cohesion: 0.22
+Nodes (9): code:env (BROADCAST_DRIVER=pusher), code:bash (php artisan queue:work), code:ini ([program:edubridge-worker]), code:javascript (// resources/js/bootstrap.js), code:env (VITE_PUSHER_APP_KEY="${PUSHER_APP_KEY}"), 🚀 Configuration, Frontend Setup, Pusher Setup (+1 more)
+
+### Community 115 - "Community 115"
+Cohesion: 0.22
+Nodes (9): API Response Format, Before vs After, code:sql (SELECT * FROM teachers LIMIT 12 OFFSET 24;  -- Page 3), code:sql (SELECT * FROM teachers WHERE id > 'last_cursor' LIMIT 12;), code:json ({), code:json ({), code:javascript (// Load more button), How Cursor Pagination Works (+1 more)
+
+### Community 116 - "Community 116"
+Cohesion: 0.22
+Nodes (9): 1. Test Avatar Check in Search, 2. Test Cursor Pagination, 3. Test Saved Teachers, 4. Test Search Filters, code:bash (# Create teacher without avatar), code:bash (# Get first page), code:bash (# Save a teacher), code:bash (# Test subject filter) (+1 more)
+
+### Community 117 - "Community 117"
+Cohesion: 0.22
+Nodes (8): code:php ($allowedMimes = $validated['type'] === 'image'), code:php (// In app/Http/Controllers/Api/ChatController.php), 📊 Compliance Status, ✨ Conclusion, File Type Restriction, ⚠️ Minor Issue Found, Section 5 - Real-Time Messaging System Implementation Complete ✅, Summary
+
+### Community 118 - "Community 118"
+Cohesion: 0.22
+Nodes (9): 6.1 Group Creation, 6.2 Student Joining Rules, 6.3 Group Video Session Logic, 6.4 Whiteboard Logic, code:block2 (Backend:  ████████████████████████████████████████ 100% ✅), code:block3 (Backend:  ████████████████████████████████████████ 100% ✅), code:block4 (Backend:  ████████████████████████████████████████ 100% ✅), code:block5 (Backend:  ████████████████████████████████████████ 100% ✅) (+1 more)
+
+### Community 119 - "Community 119"
+Cohesion: 0.22
+Nodes (9): code:block15 (Priority: 🔴 CRITICAL), code:block16 (Priority: 🟡 HIGH), code:block17 (Priority: 🟢 MEDIUM), code:block18 (Priority: 🔵 LOW), Must Have (MVP) - 6-8 hours, Nice to Have - 6-8 hours, Polish - 4-6 hours, 🎯 Priority Matrix (+1 more)
+
+### Community 120 - "Community 120"
+Cohesion: 0.22
+Nodes (9): code:php (if (mb_strlen($teacher->bio) < 50) {), code:php (// Step 1: Bio must be filled to proceed), code:php (if (!$teacher->is_verified) {), code:php (// Avatar: max 2MB, JPEG/PNG/WebP), 🚨 Common Issues & Solutions, Issue: Document upload fails, Issue: Profile completeness shows 0% but profile is filled, Issue: Teacher can't proceed to next step (+1 more)
+
+### Community 121 - "Community 121"
+Cohesion: 0.33
+Nodes (7): applyDefaults(), cloneValue(), deepMerge(), ensureTooltipElement(), isObject(), renderSpringTooltip(), useAdminChart()
+
+### Community 124 - "Community 124"
 Cohesion: 0.32
 Nodes (3): canRunRefundActions(), canRunReleaseAction(), currentPaymentStatus()
 
-### Community 27 - "Community 27"
-Cohesion: 0.29
-Nodes (0): 
-
-### Community 28 - "Community 28"
-Cohesion: 0.33
-Nodes (1): ContactSubmissionRequest
-
-### Community 29 - "Community 29"
-Cohesion: 0.47
-Nodes (4): canUseMagnet(), handleMouseLeave(), handleMouseMove(), resetMagnet()
-
-### Community 30 - "Community 30"
-Cohesion: 0.33
-Nodes (1): ErrorPageTest
-
-### Community 31 - "Community 31"
-Cohesion: 0.4
-Nodes (1): Kernel
-
-### Community 32 - "Community 32"
-Cohesion: 0.4
-Nodes (1): GroupSessionStarted
-
-### Community 33 - "Community 33"
-Cohesion: 0.4
-Nodes (1): MessageSent
-
-### Community 34 - "Community 34"
-Cohesion: 0.4
-Nodes (1): RecordingConsentRequest
-
-### Community 35 - "Community 35"
-Cohesion: 0.4
-Nodes (1): UserTyping
-
-### Community 36 - "Community 36"
-Cohesion: 0.4
-Nodes (1): ReportStoreRequest
-
-### Community 37 - "Community 37"
-Cohesion: 0.4
-Nodes (1): TeacherShowRequest
-
-### Community 38 - "Community 38"
-Cohesion: 0.4
-Nodes (1): StudentRegisterRequest
-
-### Community 39 - "Community 39"
-Cohesion: 0.4
-Nodes (1): TeacherRegisterRequest
-
-### Community 40 - "Community 40"
-Cohesion: 0.4
-Nodes (1): ProfileStep1Request
-
-### Community 41 - "Community 41"
-Cohesion: 0.4
-Nodes (1): ProfileStep2Request
-
-### Community 42 - "Community 42"
-Cohesion: 0.4
-Nodes (1): ProfileStep3Request
-
-### Community 43 - "Community 43"
-Cohesion: 0.4
-Nodes (1): ProfileStep5Request
-
-### Community 44 - "Community 44"
-Cohesion: 0.4
-Nodes (1): AccountSuspendedMail
-
-### Community 45 - "Community 45"
-Cohesion: 0.4
-Nodes (1): AnnouncementMail
-
-### Community 46 - "Community 46"
-Cohesion: 0.4
-Nodes (1): BookingCancelledMail
-
-### Community 47 - "Community 47"
-Cohesion: 0.4
-Nodes (1): BookingConfirmedMail
-
-### Community 48 - "Community 48"
-Cohesion: 0.4
-Nodes (1): ContactSubmissionMail
-
-### Community 49 - "Community 49"
-Cohesion: 0.4
-Nodes (1): FeedbackMail
-
-### Community 50 - "Community 50"
-Cohesion: 0.4
-Nodes (1): NewMessageMail
-
-### Community 51 - "Community 51"
-Cohesion: 0.4
-Nodes (1): OtpMail
-
-### Community 52 - "Community 52"
-Cohesion: 0.4
-Nodes (1): ReviewPromptMail
-
-### Community 53 - "Community 53"
-Cohesion: 0.4
-Nodes (1): SessionReminderMail
-
-### Community 54 - "Community 54"
-Cohesion: 0.4
-Nodes (1): SessionReminderOneHourMail
-
-### Community 55 - "Community 55"
-Cohesion: 0.4
-Nodes (1): TeacherApprovedMail
-
-### Community 56 - "Community 56"
-Cohesion: 0.4
-Nodes (1): TeacherRejectedMail
-
-### Community 57 - "Community 57"
-Cohesion: 0.4
-Nodes (1): UserWarningMail
-
-### Community 58 - "Community 58"
-Cohesion: 0.6
-Nodes (1): TeacherProfileObserver
-
-### Community 59 - "Community 59"
-Cohesion: 0.5
-Nodes (1): TelescopeServiceProvider
-
-### Community 60 - "Community 60"
-Cohesion: 0.4
-Nodes (0): 
-
-### Community 61 - "Community 61"
-Cohesion: 0.4
-Nodes (1): ExampleTest
-
-### Community 62 - "Community 62"
-Cohesion: 0.67
-Nodes (1): Handler
-
-### Community 63 - "Community 63"
-Cohesion: 0.5
-Nodes (1): AnalyticsRangeRequest
-
-### Community 64 - "Community 64"
-Cohesion: 0.5
-Nodes (1): AnnouncementStoreRequest
-
-### Community 65 - "Community 65"
-Cohesion: 0.5
-Nodes (1): BulkSuspendUsersRequest
-
-### Community 66 - "Community 66"
-Cohesion: 0.5
-Nodes (1): DestroyUserRequest
-
-### Community 67 - "Community 67"
-Cohesion: 0.5
-Nodes (1): DisputeActionRequest
-
-### Community 68 - "Community 68"
-Cohesion: 0.5
-Nodes (1): DisputeIndexRequest
-
-### Community 69 - "Community 69"
-Cohesion: 0.5
-Nodes (1): DisputePartialRefundRequest
-
-### Community 70 - "Community 70"
-Cohesion: 0.5
-Nodes (1): EnableAdminTwoFactorRequest
-
-### Community 71 - "Community 71"
-Cohesion: 0.5
-Nodes (1): ExportUsersRequest
-
-### Community 72 - "Community 72"
-Cohesion: 0.5
-Nodes (1): RejectTeacherRequest
-
-### Community 73 - "Community 73"
-Cohesion: 0.5
-Nodes (1): ReportActionRequest
-
-### Community 74 - "Community 74"
-Cohesion: 0.5
-Nodes (1): ReportIndexRequest
-
-### Community 75 - "Community 75"
-Cohesion: 0.5
-Nodes (1): ReviewIndexRequest
-
-### Community 76 - "Community 76"
-Cohesion: 0.5
-Nodes (1): SuspendUserRequest
-
-### Community 77 - "Community 77"
-Cohesion: 0.5
-Nodes (1): UserIndexRequest
-
-### Community 78 - "Community 78"
-Cohesion: 0.5
-Nodes (1): VerificationIndexRequest
-
-### Community 79 - "Community 79"
-Cohesion: 0.5
-Nodes (1): ConversationIndexRequest
-
-### Community 80 - "Community 80"
-Cohesion: 0.5
-Nodes (1): ConversationMessagesRequest
-
-### Community 81 - "Community 81"
-Cohesion: 0.5
-Nodes (1): FeedbackStoreRequest
-
-### Community 82 - "Community 82"
-Cohesion: 0.5
-Nodes (1): MarkConversationReadRequest
-
-### Community 83 - "Community 83"
-Cohesion: 0.5
-Nodes (1): SendMessageRequest
-
-### Community 84 - "Community 84"
-Cohesion: 0.5
-Nodes (1): StartConversationRequest
-
-### Community 85 - "Community 85"
-Cohesion: 0.5
-Nodes (1): TeacherIndexRequest
-
-### Community 86 - "Community 86"
-Cohesion: 0.5
-Nodes (1): TeacherSearchRequest
-
-### Community 87 - "Community 87"
-Cohesion: 0.5
-Nodes (1): ResendOtpRequest
-
-### Community 88 - "Community 88"
-Cohesion: 0.5
-Nodes (1): ShowOtpFormRequest
-
-### Community 89 - "Community 89"
-Cohesion: 0.5
-Nodes (1): VerifyOtpRequest
-
-### Community 90 - "Community 90"
-Cohesion: 0.5
-Nodes (1): UpdateProfileRequest
-
-### Community 91 - "Community 91"
-Cohesion: 0.5
-Nodes (1): ProfileStep4Request
-
-### Community 92 - "Community 92"
-Cohesion: 0.67
-Nodes (1): TeacherPublicProfileResource
-
-### Community 93 - "Community 93"
-Cohesion: 0.5
-Nodes (1): ConversationParticipant
-
-### Community 94 - "Community 94"
-Cohesion: 0.5
-Nodes (1): Payment
-
-### Community 95 - "Community 95"
-Cohesion: 0.5
-Nodes (1): EventServiceProvider
-
-### Community 96 - "Community 96"
-Cohesion: 0.5
-Nodes (1): UserFactory
-
-### Community 97 - "Community 97"
-Cohesion: 0.5
-Nodes (0): 
-
-### Community 98 - "Community 98"
-Cohesion: 0.67
-Nodes (2): createRevealObserver(), refreshScrollReveal()
-
-### Community 99 - "Community 99"
-Cohesion: 0.5
-Nodes (0): 
-
-### Community 100 - "Community 100"
-Cohesion: 0.5
-Nodes (1): DuskTestCase
-
-### Community 101 - "Community 101"
-Cohesion: 0.5
-Nodes (1): ContactTest
-
-### Community 102 - "Community 102"
-Cohesion: 0.5
-Nodes (1): PWATest
-
-### Community 103 - "Community 103"
-Cohesion: 0.5
-Nodes (1): SeoTest
-
-### Community 104 - "Community 104"
-Cohesion: 0.5
-Nodes (1): RegistrationTest
-
-### Community 105 - "Community 105"
-Cohesion: 0.67
-Nodes (1): SitemapController
-
-### Community 106 - "Community 106"
-Cohesion: 0.67
-Nodes (1): HealthCheckController
-
-### Community 107 - "Community 107"
-Cohesion: 0.67
-Nodes (1): Authenticate
-
-### Community 108 - "Community 108"
-Cohesion: 0.67
-Nodes (1): ForceHttps
-
-### Community 109 - "Community 109"
-Cohesion: 0.67
-Nodes (1): SecurityHeaders
-
-### Community 110 - "Community 110"
-Cohesion: 0.67
-Nodes (1): TrustHosts
-
-### Community 111 - "Community 111"
-Cohesion: 0.67
-Nodes (1): FeedbackResource
-
-### Community 112 - "Community 112"
-Cohesion: 0.67
-Nodes (1): StudentProfileResource
-
-### Community 113 - "Community 113"
-Cohesion: 0.67
-Nodes (1): TeacherPreferencesResource
-
-### Community 114 - "Community 114"
-Cohesion: 0.67
-Nodes (1): TeacherProfileFlagsResource
-
-### Community 115 - "Community 115"
-Cohesion: 0.67
-Nodes (1): TeacherProfileResource
-
-### Community 116 - "Community 116"
-Cohesion: 0.67
-Nodes (1): StudentProfile
-
-### Community 117 - "Community 117"
-Cohesion: 0.67
-Nodes (1): TeacherAvailability
-
-### Community 118 - "Community 118"
-Cohesion: 0.67
-Nodes (1): ReviewObserver
-
-### Community 119 - "Community 119"
-Cohesion: 0.67
-Nodes (1): AuthServiceProvider
-
-### Community 120 - "Community 120"
-Cohesion: 0.67
-Nodes (1): BroadcastServiceProvider
-
-### Community 121 - "Community 121"
-Cohesion: 0.67
-Nodes (0): 
-
-### Community 122 - "Community 122"
-Cohesion: 0.67
-Nodes (0): 
-
-### Community 123 - "Community 123"
-Cohesion: 0.67
-Nodes (0): 
-
-### Community 124 - "Community 124"
-Cohesion: 0.67
-Nodes (0): 
-
 ### Community 125 - "Community 125"
-Cohesion: 0.67
-Nodes (0): 
-
-### Community 126 - "Community 126"
-Cohesion: 0.67
-Nodes (0): 
-
-### Community 127 - "Community 127"
-Cohesion: 0.67
-Nodes (0): 
+Cohesion: 0.43
+Nodes (6): addStudent(), copyLink(), removeMember(), startGroupSession(), toggleDraw(), toggleMute()
 
 ### Community 128 - "Community 128"
-Cohesion: 0.67
-Nodes (0): 
+Cohesion: 0.25
+Nodes (7): Core Tech Stack, Current Runtime Considerations, EduBridge Project Overview, High-Level Product Areas, Important Characteristics of This Codebase, What EduBridge Is, What Is Production-Critical
 
 ### Community 129 - "Community 129"
-Cohesion: 0.67
-Nodes (0): 
+Cohesion: 0.25
+Nodes (7): 00_Documentation_Index.md, 01_Project_Overview.md, 08_Frontend_Pages_and_UI_SYSTEM.md (excerpt), 10_Troubleshooting_and_Known_Issues.md (excerpt), Aggregated EduBridge Documentation (for Graphify indexing), Form Validation Rulebook (excerpt), Manual Setup (zero-cost) — key points (excerpt)
 
 ### Community 130 - "Community 130"
-Cohesion: 0.67
-Nodes (0): 
+Cohesion: 0.25
+Nodes (8): 1. Update Frontend for Cursor Pagination, 2. Clear Cache After Deployment, 3. Test All Search Filters, code:javascript (const loadPage = (pageNumber) => {), code:javascript (const [teachers, setTeachers] = useState([]);), code:bash (# Clear teacher cache), code:bash (# Run search tests), 🚀 Next Steps
 
 ### Community 131 - "Community 131"
-Cohesion: 0.67
-Nodes (0): 
+Cohesion: 0.25
+Nodes (8): 1:1 Conversations, Group Chat, Message Deletion, Message Types, Notifications, Read Receipts, Real-Time Features, 🧪 Testing Checklist
 
 ### Community 132 - "Community 132"
-Cohesion: 0.67
-Nodes (0): 
+Cohesion: 0.25
+Nodes (8): 1. Conversation Types ✅, 2. 1:1 Conversation Rules ✅, 3. Message Types ✅, 4. Real-Time Architecture ✅, 5. Read Receipts ✅, 6. Message Notifications ✅, 7. Group Chat Rules ✅, ✅ What's Implemented
 
 ### Community 133 - "Community 133"
-Cohesion: 0.67
-Nodes (0): 
+Cohesion: 0.25
+Nodes (8): ✅ Day Filter, ✅ Gender Filter, ✅ Language Filter, ✅ Price Filter, ✅ Rating Filter, 🔎 Search Parameters (All Implemented), ✅ Subject Filter, ✅ Text Search (q)
 
 ### Community 134 - "Community 134"
-Cohesion: 0.67
-Nodes (0): 
-
-### Community 135 - "Community 135"
-Cohesion: 0.67
-Nodes (0): 
-
-### Community 136 - "Community 136"
-Cohesion: 0.67
-Nodes (0): 
+Cohesion: 0.25
+Nodes (7): Admin Actions, code:php (POST /admin/verifications/{id}/approve), code:php (POST /admin/verifications/{id}/reject), Document Status States, Document URLs, Verification Requirements, 🔐 Verification Workflow
 
 ### Community 137 - "Community 137"
-Cohesion: 0.67
-Nodes (0): 
-
-### Community 138 - "Community 138"
-Cohesion: 0.67
-Nodes (0): 
-
-### Community 139 - "Community 139"
-Cohesion: 0.67
-Nodes (0): 
-
-### Community 140 - "Community 140"
-Cohesion: 0.67
-Nodes (0): 
-
-### Community 141 - "Community 141"
-Cohesion: 0.67
-Nodes (0): 
-
-### Community 142 - "Community 142"
-Cohesion: 0.67
-Nodes (0): 
-
-### Community 143 - "Community 143"
-Cohesion: 0.67
-Nodes (0): 
-
-### Community 144 - "Community 144"
-Cohesion: 0.67
-Nodes (0): 
-
-### Community 145 - "Community 145"
-Cohesion: 0.67
-Nodes (0): 
+Cohesion: 0.32
+Nodes (3): canRunRefundActions(), canRunReleaseAction(), currentPaymentStatus()
 
 ### Community 146 - "Community 146"
-Cohesion: 0.67
-Nodes (0): 
-
-### Community 147 - "Community 147"
-Cohesion: 0.67
-Nodes (0): 
-
-### Community 148 - "Community 148"
-Cohesion: 0.67
-Nodes (0): 
-
-### Community 149 - "Community 149"
-Cohesion: 0.67
-Nodes (1): DatabaseSeeder
-
-### Community 150 - "Community 150"
-Cohesion: 0.67
-Nodes (1): RoleSeeder
+Cohesion: 0.57
+Nodes (5): canUseMagnet(), handleMouseLeave(), handleMouseMove(), onClick(), resetMagnet()
 
 ### Community 151 - "Community 151"
-Cohesion: 0.67
-Nodes (0): 
+Cohesion: 0.29
+Nodes (7): 26. Specific Form Types — Quick Reference, code:block11 (✓ Email (unique, verified)), code:block12 (✓ Email or username), code:block13 (✓ Name (required)), code:block14 (✓ Date (future only, minimum advance notice)), code:block15 (✓ Card number (Luhn valid, type detected)), code:block16 (✓ Minimum 2–3 characters)
 
 ### Community 152 - "Community 152"
-Cohesion: 0.67
-Nodes (0): 
+Cohesion: 0.29
+Nodes (7): Cache Online Users, code:php (// Use cursor pagination (better than offset)), code:php (// Cache Pusher presence API response for 30 seconds), code:php (// Load sender and conversation in one query), Eager Load Relationships, Optimize Message Loading, 📈 Performance Tips
 
 ### Community 153 - "Community 153"
-Cohesion: 0.67
-Nodes (0): 
+Cohesion: 0.29
+Nodes (7): code:javascript (Echo.private(`conversation.${conversationId}`)), code:javascript (Echo.join(`conversation.${conversationId}`)), code:javascript (// Throttle on client-side (1 per 2 seconds)), 🔌 Real-Time WebSocket, Send Typing Event, Subscribe to Messages, Subscribe to Typing Indicators
 
 ### Community 154 - "Community 154"
-Cohesion: 1.0
-Nodes (2): normalizeExperience(), submit()
+Cohesion: 0.29
+Nodes (7): Controllers, Events, Jobs, Models, 📚 Related Files, Requests, Routes
 
 ### Community 155 - "Community 155"
-Cohesion: 0.67
-Nodes (1): TestCase
+Cohesion: 0.29
+Nodes (7): code:php (// In Tinker), code:bash (# Should fail (below minimum)), code:bash (# Login as teacher ID 123, try to view own profile), 🧪 Quick Testing Guide, Test Hourly Rate Validation, Test Profile Completeness Score, Test Teacher Self-View Block
 
 ### Community 156 - "Community 156"
-Cohesion: 0.67
-Nodes (1): StudentJourneyTest
+Cohesion: 0.29
+Nodes (7): code:bash (# Teacher without avatar should NOT appear), code:bash (# Get first page), code:bash (# Save teacher), 🧪 Quick Testing Guide, Test Avatar Check, Test Cursor Pagination, Test Saved Teachers
 
 ### Community 157 - "Community 157"
-Cohesion: 0.67
-Nodes (1): HealthCheckTest
+Cohesion: 0.29
+Nodes (7): Controllers, Events, Jobs, 🗂️ Key Files, Models, Requests, Routes
 
 ### Community 158 - "Community 158"
-Cohesion: 0.67
-Nodes (1): RouteReferenceIntegrityTest
+Cohesion: 0.29
+Nodes (7): 📚 API Endpoints, code:block10 (POST   /api/conversations/{id}/messages           - Send mes), code:block11 (private-conversation.{id}   - Message channel), code:block9 (GET    /api/conversations              - List user's convers), Conversations, Messages, WebSocket Channels
 
 ### Community 159 - "Community 159"
-Cohesion: 1.0
-Nodes (1): Controller
+Cohesion: 0.29
+Nodes (7): code:env (BROADCAST_DRIVER=pusher), code:bash (# Start queue worker), code:javascript (// resources/js/bootstrap.js), 📝 Configuration Requirements, Frontend Configuration, Pusher Configuration, Queue Configuration
 
 ### Community 160 - "Community 160"
-Cohesion: 1.0
-Nodes (1): EncryptCookies
+Cohesion: 0.29
+Nodes (7): Caching, code:php ($messages = $query->orderByDesc('id')->cursorPaginate(20);), code:php ($throttleKey = "typing:{$conversation->id}:{$user->id}";), code:php ($throttleKey = "chat-notification:{$conversation->id}:{$part), Database Optimization, Message Pagination, 🚀 Performance Considerations
 
 ### Community 161 - "Community 161"
-Cohesion: 1.0
-Nodes (1): PreventRequestsDuringMaintenance
+Cohesion: 0.29
+Nodes (7): code:block19 (✅ All done! Backend is production-ready.), code:block20 (1. Read SECTION_6_FRONTEND_IMPLEMENTATION_GUIDE.md), code:block21 (✅ Backend: 100% complete, production-ready), For Backend Developers ✅, For Frontend Developers ❌, For Project Managers 📊, 🚀 Next Action Items
 
 ### Community 162 - "Community 162"
-Cohesion: 1.0
-Nodes (1): TrimStrings
+Cohesion: 0.29
+Nodes (7): code:bash (php artisan tinker), code:bash (# Test hourly rate minimum), code:bash (# Login as teacher ID 123), Test Profile Completeness, Test Teacher Self-View Block, Test Validation, 🧪 Testing Commands
 
 ### Community 163 - "Community 163"
-Cohesion: 1.0
-Nodes (1): TrustProxies
-
-### Community 164 - "Community 164"
-Cohesion: 1.0
-Nodes (1): ValidateSignature
-
-### Community 165 - "Community 165"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 166 - "Community 166"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 167 - "Community 167"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 168 - "Community 168"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 169 - "Community 169"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 170 - "Community 170"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 171 - "Community 171"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 172 - "Community 172"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 173 - "Community 173"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 174 - "Community 174"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 175 - "Community 175"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 176 - "Community 176"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 177 - "Community 177"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 178 - "Community 178"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 179 - "Community 179"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 180 - "Community 180"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 181 - "Community 181"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 182 - "Community 182"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 183 - "Community 183"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 184 - "Community 184"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 185 - "Community 185"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 186 - "Community 186"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 187 - "Community 187"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 188 - "Community 188"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 189 - "Community 189"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 190 - "Community 190"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 191 - "Community 191"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 192 - "Community 192"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 193 - "Community 193"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 194 - "Community 194"
-Cohesion: 1.0
-Nodes (0): 
+Cohesion: 0.29
+Nodes (6): code:php (return [), Config File: `config/edubridge.php`, 🔧 Configuration, 🎯 Overview, 📞 Support, Teacher Profile System - Quick Reference Guide
 
 ### Community 195 - "Community 195"
-Cohesion: 1.0
-Nodes (0): 
+Cohesion: 0.33
+Nodes (5): Audience Guide, Documentation Conventions, EduBridge Documentation Index, Existing Legacy Notes, Maintenance Rule
 
 ### Community 196 - "Community 196"
-Cohesion: 1.0
-Nodes (0): 
+Cohesion: 0.33
+Nodes (6): 1. ✅ Full-Text Search, 2. ✅ All Search Filters, 3. ✅ All Sort Options, 4. ✅ Saved Teachers Feature, 5. ✅ Search Eligibility (4 out of 5), 🎯 What Was Already Working
 
 ### Community 197 - "Community 197"
-Cohesion: 1.0
-Nodes (0): 
+Cohesion: 0.33
+Nodes (5): API Endpoints, code:bash (# List saved teachers), Database Schema, Features ✅, 💾 Saved Teachers (Fully Implemented)
 
 ### Community 198 - "Community 198"
-Cohesion: 1.0
-Nodes (0): 
+Cohesion: 0.33
+Nodes (6): Access, code:php (// In TeacherController::show()), Content Shown, Login-Required Actions, 🌐 Public Teacher Profile, Teacher Self-View Block
 
 ### Community 199 - "Community 199"
-Cohesion: 1.0
-Nodes (0): 
+Cohesion: 0.33
+Nodes (6): Calculation Method, code:php ($teacher = auth()->user()->teacherProfile;), code:php ($teacher->getCompletenessScore(); // Returns 0-100), 📊 Profile Completeness Score, Scoring Breakdown, Usage Example
 
 ### Community 200 - "Community 200"
-Cohesion: 1.0
-Nodes (0): 
+Cohesion: 0.33
+Nodes (5): Audience Guide, Documentation Conventions, EduBridge Documentation Index, Existing Legacy Notes, Maintenance Rule
 
 ### Community 201 - "Community 201"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 202 - "Community 202"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 203 - "Community 203"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 204 - "Community 204"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 205 - "Community 205"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 206 - "Community 206"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 207 - "Community 207"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 208 - "Community 208"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 209 - "Community 209"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 210 - "Community 210"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 211 - "Community 211"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 212 - "Community 212"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 213 - "Community 213"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 214 - "Community 214"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 215 - "Community 215"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 216 - "Community 216"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 217 - "Community 217"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 218 - "Community 218"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 219 - "Community 219"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 220 - "Community 220"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 221 - "Community 221"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 222 - "Community 222"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 223 - "Community 223"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 224 - "Community 224"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 225 - "Community 225"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 226 - "Community 226"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 227 - "Community 227"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 228 - "Community 228"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 229 - "Community 229"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 230 - "Community 230"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 231 - "Community 231"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 232 - "Community 232"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 233 - "Community 233"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 234 - "Community 234"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 235 - "Community 235"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 236 - "Community 236"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 237 - "Community 237"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 238 - "Community 238"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 239 - "Community 239"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 240 - "Community 240"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 241 - "Community 241"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 242 - "Community 242"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 243 - "Community 243"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 244 - "Community 244"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 245 - "Community 245"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 246 - "Community 246"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 247 - "Community 247"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 248 - "Community 248"
-Cohesion: 1.0
-Nodes (0): 
+Cohesion: 0.47
+Nodes (3): save(), setStatus(), validateLocally()
 
 ### Community 249 - "Community 249"
-Cohesion: 1.0
-Nodes (0): 
+Cohesion: 0.7
+Nodes (3): down(), hasIndex(), up()
 
 ### Community 250 - "Community 250"
-Cohesion: 1.0
-Nodes (0): 
+Cohesion: 0.6
+Nodes (3): readConsent(), updateGoogleConsent(), useAnalytics()
 
 ### Community 251 - "Community 251"
-Cohesion: 1.0
-Nodes (0): 
+Cohesion: 0.7
+Nodes (3): createRevealObserver(), refreshScrollReveal(), useScrollReveal()
 
 ### Community 252 - "Community 252"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 253 - "Community 253"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 254 - "Community 254"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 255 - "Community 255"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 256 - "Community 256"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 257 - "Community 257"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 258 - "Community 258"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 259 - "Community 259"
-Cohesion: 1.0
-Nodes (0): 
+Cohesion: 0.6
+Nodes (3): onStarEnter(), onStarLeave(), submit()
 
 ### Community 260 - "Community 260"
-Cohesion: 1.0
-Nodes (0): 
+Cohesion: 0.4
+Nodes (5): 🛣️ Authentication Routes, code:php (GET  /login                    # Login form), code:php (# Student Portal (role:student)), Protected Routes, Public Routes
 
 ### Community 261 - "Community 261"
-Cohesion: 1.0
-Nodes (0): 
+Cohesion: 0.4
+Nodes (5): Automated Testing, code:bash (# Run authentication tests), code:bash (# Start Redis), Manual Testing, 🧪 Testing Commands
 
 ### Community 262 - "Community 262"
-Cohesion: 1.0
-Nodes (0): 
+Cohesion: 0.4
+Nodes (5): code:block2 (login_lock:{ip}          # Lockout flag (30 min TTL)), Flow, Lockout Logic, 🔑 Login System, Redis Keys
 
 ### Community 263 - "Community 263"
-Cohesion: 1.0
-Nodes (0): 
+Cohesion: 0.4
+Nodes (5): File Uploads Failing, Messages Not Broadcasting, Notifications Not Sending, 🔧 Troubleshooting, Typing Indicators Not Working
 
 ### Community 264 - "Community 264"
-Cohesion: 1.0
-Nodes (0): 
+Cohesion: 0.4
+Nodes (5): code:php (// Calculated per conversation), Double Tick (Seen), 🎯 Read Receipts, Single Tick (Sent), Unread Count
 
 ### Community 265 - "Community 265"
-Cohesion: 1.0
-Nodes (0): 
+Cohesion: 0.4
+Nodes (5): ⚙️ Configuration Notes, Experience Years, File Size Limits, Rate Limits, Subjects List
 
 ### Community 266 - "Community 266"
-Cohesion: 1.0
-Nodes (0): 
+Cohesion: 0.4
+Nodes (5): 1. ✅ 5-Step Profile Setup, 2. ✅ Complete Database Schema, 3. ✅ Verification Workflow, 4. ✅ Public Teacher Profile, 🎯 What Was Already Working
 
 ### Community 267 - "Community 267"
-Cohesion: 1.0
-Nodes (0): 
+Cohesion: 0.4
+Nodes (5): code:sql (SELECT * FROM teachers WHERE id > 'last_cursor' LIMIT 12;), code:sql (SELECT * FROM teachers LIMIT 12 OFFSET 1188;  -- Page 100), Pagination Performance, 📊 Performance Comparison, Why Cursor is Better
 
 ### Community 268 - "Community 268"
-Cohesion: 1.0
-Nodes (0): 
+Cohesion: 0.4
+Nodes (5): Caching, code:php ($messages = $query->orderByDesc('id')->cursorPaginate(20);), Cursor Pagination, Database Optimization, 📈 Performance Optimizations
 
 ### Community 269 - "Community 269"
-Cohesion: 1.0
-Nodes (0): 
+Cohesion: 0.4
+Nodes (5): 1. **Added Avatar Check to Search Eligibility** (HIGH PRIORITY), 2. **Changed to Cursor-Based Pagination** (HIGH PRIORITY), ✅ Changes Made, code:php (->whereHas('user', function (Builder $builder): void {), code:php (// OLD)
 
 ### Community 270 - "Community 270"
-Cohesion: 1.0
-Nodes (0): 
+Cohesion: 0.4
+Nodes (5): Caching Strategy, code:php (// Cache key includes all filters), code:php (// When teacher profile changes), Cursor Pagination Benefits, 🚀 Performance Improvements
 
 ### Community 271 - "Community 271"
-Cohesion: 1.0
-Nodes (0): 
+Cohesion: 0.4
+Nodes (5): Group Management, 📋 Quick Reference: API Endpoints, Recording, Video Sessions, Whiteboard
 
 ### Community 272 - "Community 272"
-Cohesion: 1.0
-Nodes (0): 
+Cohesion: 0.4
+Nodes (5): code:block6 (✅ app/Http/Requests/Api/GroupUpdateRequest.php), code:block7 (✅ app/Http/Controllers/Api/GroupController.php), 🗂️ Files Created/Modified in This Session, Modified Files 🔧, New Files ✨
 
 ### Community 273 - "Community 273"
-Cohesion: 1.0
-Nodes (0): 
+Cohesion: 0.4
+Nodes (3): 🗄️ Database Schema, teacher_documents Table, teacher_profiles Table
 
-### Community 274 - "Community 274"
-Cohesion: 1.0
-Nodes (0): 
+### Community 384 - "Community 384"
+Cohesion: 0.5
+Nodes (4): Allowed, Blocked, Error Messages, 🌐 Google OAuth (Students Only)
 
-### Community 275 - "Community 275"
-Cohesion: 1.0
-Nodes (0): 
+### Community 385 - "Community 385"
+Cohesion: 0.5
+Nodes (4): code:block1 (otp_lock:{user_id}       # Lockout flag (30 min TTL)), Flow, 📧 OTP Verification, Redis Keys
 
-### Community 276 - "Community 276"
-Cohesion: 1.0
-Nodes (0): 
+### Community 386 - "Community 386"
+Cohesion: 0.5
+Nodes (4): Backend, 🎯 Best Practices, Frontend, Security
 
-### Community 277 - "Community 277"
-Cohesion: 1.0
-Nodes (0): 
+### Community 387 - "Community 387"
+Cohesion: 0.5
+Nodes (4): Cache Settings, ⚙️ Configuration Notes, Pagination Settings, Search Eligibility (All 5 Checks)
 
-### Community 278 - "Community 278"
-Cohesion: 1.0
-Nodes (0): 
+### Community 388 - "Community 388"
+Cohesion: 0.5
+Nodes (4): 1. **Added Avatar Check to Search Eligibility** ⭐ HIGH PRIORITY, 2. **Changed to Cursor-Based Pagination** ⭐ HIGH PRIORITY, code:php (->whereHas('user', function (Builder $builder): void {), 🔧 What Was Added/Fixed
 
-### Community 279 - "Community 279"
-Cohesion: 1.0
-Nodes (0): 
+### Community 389 - "Community 389"
+Cohesion: 0.5
+Nodes (4): code:php (// app/Http/Controllers/Api/ChatController.php - send() meth), code:php (// In app/Http/Controllers/Api/ChatController.php - send() m), File Type Restriction, ⚠️ Minor Deviation from Spec
 
-### Community 280 - "Community 280"
-Cohesion: 1.0
-Nodes (0): 
+### Community 390 - "Community 390"
+Cohesion: 0.5
+Nodes (4): Channel Authentication, File Upload Security, Message Deletion, 🔒 Security Features
 
-### Community 281 - "Community 281"
-Cohesion: 1.0
-Nodes (0): 
+### Community 391 - "Community 391"
+Cohesion: 0.5
+Nodes (4): code:javascript (// React example), Cursor Pagination with "Load More", 📝 Frontend Integration Notes, Total Count Display
 
-### Community 282 - "Community 282"
-Cohesion: 1.0
-Nodes (0): 
+### Community 449 - "Community 449"
+Cohesion: 0.67
+Nodes (3): Password Requirements, Rate Limiting, 🔐 Security Features
 
-### Community 283 - "Community 283"
-Cohesion: 1.0
-Nodes (0): 
+### Community 450 - "Community 450"
+Cohesion: 0.67
+Nodes (3): 29. Implementation Reference, code:html (<input), code:javascript (// All validators return the same shape for consistency)
 
-### Community 284 - "Community 284"
-Cohesion: 1.0
-Nodes (0): 
+### Community 451 - "Community 451"
+Cohesion: 0.67
+Nodes (3): 3. Email, code:javascript (// Basic), code:javascript (function validateEmail(email) {)
 
-### Community 285 - "Community 285"
-Cohesion: 1.0
-Nodes (0): 
+### Community 452 - "Community 452"
+Cohesion: 0.67
+Nodes (3): 1. `SECTION_3_TEACHER_PROFILE_ANALYSIS.md`, 2. `SECTION_3_IMPLEMENTATION_COMPLETE.md`, 📚 Documentation Created
 
-### Community 286 - "Community 286"
-Cohesion: 1.0
-Nodes (0): 
+### Community 453 - "Community 453"
+Cohesion: 0.67
+Nodes (3): 1. `SECTION_4_TEACHER_SEARCH_ANALYSIS.md`, 2. `SECTION_4_IMPLEMENTATION_COMPLETE.md`, 📚 Documentation Created
 
-### Community 287 - "Community 287"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 288 - "Community 288"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 289 - "Community 289"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 290 - "Community 290"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 291 - "Community 291"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 292 - "Community 292"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 293 - "Community 293"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 294 - "Community 294"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 295 - "Community 295"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 296 - "Community 296"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 297 - "Community 297"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 298 - "Community 298"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 299 - "Community 299"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 300 - "Community 300"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 301 - "Community 301"
-Cohesion: 1.0
-Nodes (0): 
-
-### Community 302 - "Community 302"
-Cohesion: 1.0
-Nodes (0): 
+### Community 454 - "Community 454"
+Cohesion: 0.67
+Nodes (3): After Implementation, Before Analysis, 📊 Results
 
 ## Knowledge Gaps
-- **6 isolated node(s):** `Controller`, `EncryptCookies`, `PreventRequestsDuringMaintenance`, `TrimStrings`, `TrustProxies` (+1 more)
+- **882 isolated node(s):** `Kernel`, `VerifyCsrfToken`, `code:json ({)`, `code:javascript (const bookmarkBusyIds = ref(new Set());)`, `3. ✅ Backend: Added Missing Features` (+877 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **Thin community `Community 159`** (2 nodes): `Controller`, `Controller.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 160`** (2 nodes): `EncryptCookies.php`, `EncryptCookies`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 161`** (2 nodes): `PreventRequestsDuringMaintenance.php`, `PreventRequestsDuringMaintenance`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 162`** (2 nodes): `TrimStrings.php`, `TrimStrings`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 163`** (2 nodes): `TrustProxies.php`, `TrustProxies`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 164`** (2 nodes): `ValidateSignature.php`, `ValidateSignature`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 165`** (2 nodes): `if()`, `AdminDataTable.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 166`** (2 nodes): `TeacherCard.vue`, `handleView()`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 167`** (2 nodes): `PersistentBanner.vue`, `dismiss()`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 168`** (2 nodes): `JoinClass.vue`, `joinClass()`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 169`** (2 nodes): `if()`, `Analytics.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 170`** (2 nodes): `Users.vue`, `if()`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 171`** (2 nodes): `MyBookings.vue`, `formatTime()`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 172`** (2 nodes): `createApplication()`, `CreatesApplication.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 173`** (1 nodes): `postcss.config.js`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 174`** (1 nodes): `tailwind.config.js`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 175`** (1 nodes): `vite.config.js`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 176`** (1 nodes): `app.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 177`** (1 nodes): `app.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 178`** (1 nodes): `auth.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 179`** (1 nodes): `broadcasting.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 180`** (1 nodes): `cache.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 181`** (1 nodes): `cors.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 182`** (1 nodes): `database.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 183`** (1 nodes): `filesystems.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 184`** (1 nodes): `hashing.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 185`** (1 nodes): `logging.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 186`** (1 nodes): `mail.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 187`** (1 nodes): `permission.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 188`** (1 nodes): `queue.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 189`** (1 nodes): `sanctum.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 190`** (1 nodes): `scout.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 191`** (1 nodes): `sentry.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 192`** (1 nodes): `services.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 193`** (1 nodes): `session.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 194`** (1 nodes): `telescope.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 195`** (1 nodes): `view.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 196`** (1 nodes): `index.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 197`** (1 nodes): `sw.js`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 198`** (1 nodes): `bootstrap.js`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 199`** (1 nodes): `ApplicationLogo.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 200`** (1 nodes): `Checkbox.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 201`** (1 nodes): `DangerButton.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 202`** (1 nodes): `Dropdown.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 203`** (1 nodes): `DropdownLink.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 204`** (1 nodes): `InputError.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 205`** (1 nodes): `InputLabel.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 206`** (1 nodes): `InstallPrompt.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 207`** (1 nodes): `Modal.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 208`** (1 nodes): `NavLink.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 209`** (1 nodes): `PortalExperience.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 210`** (1 nodes): `PrimaryButton.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 211`** (1 nodes): `ResponsiveNavLink.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 212`** (1 nodes): `SecondaryButton.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 213`** (1 nodes): `TextInput.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 214`** (1 nodes): `AdminAnimatedValue.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 215`** (1 nodes): `AdminDateRangePicker.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 216`** (1 nodes): `AdminDrawer.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 217`** (1 nodes): `AdminLayout.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 218`** (1 nodes): `AdminSidebar.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 219`** (1 nodes): `AdminStatCard.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 220`** (1 nodes): `AdminStatusBadge.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 221`** (1 nodes): `DataTable.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 222`** (1 nodes): `DetailDrawer.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 223`** (1 nodes): `StatusBadge.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 224`** (1 nodes): `CookieConsent.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 225`** (1 nodes): `EmptyState.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 226`** (1 nodes): `ErrorState.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 227`** (1 nodes): `PageLoader.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 228`** (1 nodes): `StarRating.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 229`** (1 nodes): `Button.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 230`** (1 nodes): `Card.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 231`** (1 nodes): `Navigation.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 232`** (1 nodes): `index.js`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 233`** (1 nodes): `SInput.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 234`** (1 nodes): `SubjectTag.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 235`** (1 nodes): `ToastNotification.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 236`** (1 nodes): `FormElement.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 237`** (1 nodes): `TeacherBannerStack.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 238`** (1 nodes): `TeacherButton.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 239`** (1 nodes): `TeacherLayout.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 240`** (1 nodes): `TeacherNavigation.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 241`** (1 nodes): `GuestLayout.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 242`** (1 nodes): `Dashboard.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 243`** (1 nodes): `Welcome.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 244`** (1 nodes): `Announcements.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 245`** (1 nodes): `Reports.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 246`** (1 nodes): `Reviews.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 247`** (1 nodes): `SettingsAccount.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 248`** (1 nodes): `SettingsPlatform.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 249`** (1 nodes): `TwoFactorChallenge.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 250`** (1 nodes): `Login.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 251`** (1 nodes): `Register.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 252`** (1 nodes): `TeacherRegister.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 253`** (1 nodes): `VerifyEmail.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 254`** (1 nodes): `Edit.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 255`** (1 nodes): `DeleteUserForm.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 256`** (1 nodes): `UpdateProfileInformationForm.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 257`** (1 nodes): `BookingModal.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 258`** (1 nodes): `Dashboard.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 259`** (1 nodes): `Onboarding.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 260`** (1 nodes): `Profile.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 261`** (1 nodes): `SavedTeachers.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 262`** (1 nodes): `CreateClass.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 263`** (1 nodes): `Dashboard.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 264`** (1 nodes): `MySessions.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 265`** (1 nodes): `ProfileStep2.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 266`** (1 nodes): `ProfileStep3.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 267`** (1 nodes): `ProfileStep4.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 268`** (1 nodes): `ProfileStep5.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 269`** (1 nodes): `Settings.vue`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 270`** (1 nodes): `app.blade.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 271`** (1 nodes): `landing.blade.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 272`** (1 nodes): `sitemap.blade.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 273`** (1 nodes): `welcome.blade.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 274`** (1 nodes): `account-suspended.blade.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 275`** (1 nodes): `announcement.blade.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 276`** (1 nodes): `booking-cancelled.blade.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 277`** (1 nodes): `booking-confirmed.blade.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 278`** (1 nodes): `contact-submission.blade.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 279`** (1 nodes): `feedback.blade.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 280`** (1 nodes): `layout.blade.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 281`** (1 nodes): `new-message.blade.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 282`** (1 nodes): `otp.blade.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 283`** (1 nodes): `review-prompt.blade.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 284`** (1 nodes): `session-reminder-one-hour.blade.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 285`** (1 nodes): `session-reminder.blade.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 286`** (1 nodes): `teacher-approved.blade.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 287`** (1 nodes): `teacher-rejected.blade.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 288`** (1 nodes): `user-warning.blade.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 289`** (1 nodes): `404.blade.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 290`** (1 nodes): `419.blade.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 291`** (1 nodes): `429.blade.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 292`** (1 nodes): `500.blade.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 293`** (1 nodes): `public.blade.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 294`** (1 nodes): `about-us.blade.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 295`** (1 nodes): `contact.blade.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 296`** (1 nodes): `privacy-policy.blade.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 297`** (1 nodes): `terms-and-conditions.blade.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 298`** (1 nodes): `api.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 299`** (1 nodes): `auth.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 300`** (1 nodes): `channels.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 301`** (1 nodes): `console.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 302`** (1 nodes): `web.php`
-  Too small to be a meaningful cluster - may be noise or needs more connections extracted.
+- **300 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `subscribeToConversation()` connect `Community 7` to `Community 5`?**
-  _High betweenness centrality (0.024) - this node is a cross-community bridge._
-- **Why does `validateFile()` connect `Community 14` to `Community 5`?**
+- **Why does `BookingSlot` connect `Community 22` to `Community 56`, `Community 6`, `Community 8`, `Community 42`, `Community 45`, `Community 14`, `Community 81`, `Community 52`, `Community 85`, `Community 86`, `Community 88`, `Community 89`, `Community 126`, `Community 93`, `Community 286`?**
   _High betweenness centrality (0.017) - this node is a cross-community bridge._
-- **Why does `User` connect `Community 3` to `Community 1`, `Community 9`?**
+- **Why does `TeacherDocument` connect `Community 4` to `Community 0`, `Community 3`, `Community 6`?**
   _High betweenness centrality (0.015) - this node is a cross-community bridge._
-- **Are the 14 inferred relationships involving `ClassMember` (e.g. with `.messages()` and `.store()`) actually correct?**
-  _`ClassMember` has 14 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 14 inferred relationships involving `BookingSlot` (e.g. with `.handle()` and `.teacherAvailability()`) actually correct?**
-  _`BookingSlot` has 14 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 10 inferred relationships involving `Report` (e.g. with `.index()` and `.show()`) actually correct?**
-  _`Report` has 10 INFERRED edges - model-reasoned connections that need verification._
-- **What connects `Controller`, `EncryptCookies`, `PreventRequestsDuringMaintenance` to the rest of the system?**
-  _6 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Why does `ClassMember` connect `Community 20` to `Community 32`, `Community 3`, `Community 7`, `Community 14`, `Community 86`, `Community 24`?**
+  _High betweenness centrality (0.012) - this node is a cross-community bridge._
+- **Are the 32 inferred relationships involving `ClassMember` (e.g. with `.messages()` and `.assertParticipant()`) actually correct?**
+  _`ClassMember` has 32 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 34 inferred relationships involving `AuditLogger` (e.g. with `.store()` and `.destroy()`) actually correct?**
+  _`AuditLogger` has 34 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 33 inferred relationships involving `BookingSlot` (e.g. with `.createSlotIfNotExists()` and `.teacherAvailability()`) actually correct?**
+  _`BookingSlot` has 33 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 20 inferred relationships involving `Report` (e.g. with `.index()` and `.show()`) actually correct?**
+  _`Report` has 20 INFERRED edges - model-reasoned connections that need verification._

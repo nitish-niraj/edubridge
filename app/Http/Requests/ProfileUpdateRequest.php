@@ -27,7 +27,7 @@ class ProfileUpdateRequest extends FormRequest
         ];
 
         if ($this->user()?->isStudent()) {
-            $gradeOptions = [
+            $gradeOptions = config('edubridge.student_grades', [
                 'Class 1',
                 'Class 2',
                 'Class 3',
@@ -42,9 +42,9 @@ class ProfileUpdateRequest extends FormRequest
                 'Class 12',
                 'Undergraduate',
                 'Postgraduate',
-            ];
+            ]);
 
-            $subjectOptions = [
+            $subjectOptions = config('edubridge.subjects', [
                 'Math',
                 'Science',
                 'English',
@@ -59,9 +59,9 @@ class ProfileUpdateRequest extends FormRequest
                 'Economics',
                 'Commerce',
                 'Other',
-            ];
+            ]);
 
-            $languageOptions = [
+            $languageOptions = config('edubridge.languages', [
                 'English',
                 'Hindi',
                 'Punjabi',
@@ -70,7 +70,7 @@ class ProfileUpdateRequest extends FormRequest
                 'Telugu',
                 'Marathi',
                 'Gujarati',
-            ];
+            ]);
 
             $rules['class_grade'] = ['sometimes', 'nullable', 'string', Rule::in($gradeOptions)];
             $rules['school_name'] = ['sometimes', 'nullable', 'string', 'max:150'];

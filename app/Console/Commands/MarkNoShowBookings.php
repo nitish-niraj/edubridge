@@ -12,7 +12,8 @@ class MarkNoShowBookings extends Command
      *
      * @var string
      */
-    protected $signature = 'bookings:mark-no-show';
+    protected $signature = 'check_no_shows';
+    protected $aliases = ['bookings:mark-no-show'];
 
     /**
      * The console command description.
@@ -37,7 +38,12 @@ class MarkNoShowBookings extends Command
 
         $count = 0;
         foreach ($bookingsToUpdate as $booking) {
-            $booking->update(['status' => 'no_show']);
+            if (! $booking->canTransitionTo(\App\Models\Booking::STATUS_NO_SHOW)) {
+                continue;
+            }
+
+            $booking->transitionTo(\App\Models\Booking::STATUS_NO_SHOW);
+            app(\App\Services\NotificationService::class)->sendNoShowDetected($booking);
             // If the session was paid, it's held. We don't release to teacher until admin dispute or completion phase,
             // or maybe the teacher is paid for no-show. The prompt doesn't specify no-show payment logic yet, 
             // Phase 3C does payment. So we just update the status.

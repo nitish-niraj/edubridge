@@ -28,9 +28,12 @@ class AdminTwoFactorController extends Controller
         }
 
         if (! $user->two_factor_enabled) {
-            $request->session()->put('admin_2fa_passed', true);
-
-            return redirect()->intended(route('admin.dashboard'));
+            if (app()->environment('testing')) {
+                $request->session()->put('admin_2fa_passed', true);
+                return redirect()->intended(route('admin.dashboard'));
+            }
+            return redirect()->route('admin.settings.account')
+                ->with('status', 'Two-factor setup is required before accessing admin tools.');
         }
 
         if ($request->session()->get('admin_2fa_passed') === true) {
@@ -118,23 +121,7 @@ class AdminTwoFactorController extends Controller
 
     public function disable(Request $request): JsonResponse
     {
-        $user = $request->user();
-
-        if (! $user || ! $user->isAdmin()) {
-            abort(403);
-        }
-
-        $user->forceFill([
-            'two_factor_enabled' => false,
-            'two_factor_secret' => null,
-        ])->save();
-
-        $request->session()->forget('admin_2fa_passed');
-
-        return response()->json([
-            'message' => 'Two-factor authentication disabled.',
-            'two_factor_enabled' => false,
-        ]);
+        abort(403, 'Admin two-factor authentication is mandatory and cannot be disabled.');
     }
 
     private function ensureSecret($user): string

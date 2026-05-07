@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\AppNotification;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -36,6 +37,13 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $user,
             ],
+            'notifications' => $user ? [
+                'unread_count' => (int) AppNotification::query()
+                    ->where('user_id', $user->id)
+                    ->whereNull('read_at')
+                    ->whereNull('dismissed_at')
+                    ->count(),
+            ] : null,
             'teacher_ui' => $user && $user->isTeacher()
                 ? [
                     'high_contrast' => (bool) optional($user->notificationPreferences)->high_contrast,

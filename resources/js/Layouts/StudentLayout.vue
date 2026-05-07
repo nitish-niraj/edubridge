@@ -4,6 +4,7 @@ import { Link, usePage } from '@inertiajs/vue3';
 import { computed, onMounted, ref } from 'vue';
 import PortalExperience from '@/Components/PortalExperience.vue';
 import { useScrollReveal } from '@/composables/useScrollReveal';
+import { useToast } from '@/composables/useToast';
 
 defineOptions({ inheritAttrs: false });
 
@@ -11,11 +12,20 @@ const page = usePage();
 const { props } = page;
 const user = computed(() => props.auth?.user);
 const logoutProcessing = ref(false);
+const { info } = useToast();
 
 useScrollReveal();
 
 onMounted(() => {
     document.body.setAttribute('data-portal', 'student');
+
+    if (window.Echo && user.value?.id) {
+        window.Echo.private(`App.Models.User.${user.value.id}`)
+            .listen('.notification.created', (payload) => {
+                if (payload?.audience !== 'student') return;
+                info(payload.message || 'You have a new notification.', 4500);
+            });
+    }
 });
 
 const navItems = [
@@ -29,10 +39,9 @@ const navItems = [
 ];
 
 const isActive = (item) => {
-    if (item.activePrefix === '/teachers') {
-        return page.url.startsWith('/teachers');
+    if (item.label === 'Find Teachers') {
+        return page.url.startsWith('/teachers') || page.url.startsWith('/student/teachers');
     }
-
     return page.url.startsWith(item.activePrefix);
 };
 

@@ -24,7 +24,8 @@ class FeedbackController extends Controller
                 'public',
                 'feedback-screenshots',
                 'screenshot',
-                ['image/jpeg', 'image/png', 'image/webp']
+                ['image/jpeg', 'image/png', 'image/webp'],
+                5 * 1024 * 1024
             );
         }
 

@@ -30,6 +30,8 @@ class User extends Authenticatable
         'email',
         'phone',
         'password',
+        'oauth_provider',
+        'oauth_provider_id',
         'role',
         'avatar',
         'status',
@@ -66,6 +68,13 @@ class User extends Authenticatable
         'two_factor_secret'  => 'encrypted',
         'two_factor_enabled' => 'boolean',
     ];
+
+    protected static function booted(): void
+    {
+        static::created(function (User $user): void {
+            UserNotificationPreference::firstOrCreate(['user_id' => $user->id]);
+        });
+    }
 
     // -------------------------------------------------------------------------
     // Relationships
@@ -177,6 +186,11 @@ class User extends Authenticatable
     public function reviewsReceived(): HasMany
     {
         return $this->hasMany(Review::class, 'reviewee_id');
+    }
+
+    public function appNotifications(): HasMany
+    {
+        return $this->hasMany(AppNotification::class, 'user_id');
     }
 
     /**

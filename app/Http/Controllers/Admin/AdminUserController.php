@@ -12,8 +12,10 @@ use App\Http\Requests\Admin\UserIndexRequest;
 use App\Http\Resources\UserResource;
 use App\Jobs\ExportUsersJob;
 use App\Mail\AccountSuspendedMail;
+use App\Mail\ReactivationMail;
 use App\Models\Booking;
 use App\Models\User;
+use App\Models\AppNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -105,6 +107,7 @@ class AdminUserController extends Controller
         $user->update(['status' => 'suspended']);
 
         Mail::to($user->email)->send(new AccountSuspendedMail($user));
+        $this->notifyLinkedUsersOfSuspension($user);
 
         AuditLogger::log('user.suspended', 'User', $id, ['admin_note' => $request->input('reason', '')]);
 
@@ -115,6 +118,9 @@ class AdminUserController extends Controller
     {
         $user = User::findOrFail($id);
         $user->update(['status' => 'active', 'warnings_count' => 0]);
+        if ($user->email) {
+            Mail::to($user->email)->send(new ReactivationMail($user));
+        }
 
         AuditLogger::log('user.activated', 'User', $id);
 
@@ -146,17 +152,14 @@ class AdminUserController extends Controller
 
         $users = User::whereIn('id', $userIds)->get();
 
-        DB::transaction(function () use ($users): void {
+        DB::transaction(function () use ($users, $reason): void {
             foreach ($users as $user) {
                 $user->update(['status' => 'suspended']);
                 Mail::to($user->email)->send(new AccountSuspendedMail($user));
+                $this->notifyLinkedUsersOfSuspension($user);
+                AuditLogger::log('user.suspended', 'User', (int) $user->id, ['admin_note' => $reason, 'bulk' => true]);
             }
         });
-
-        AuditLogger::log('user.bulk_suspended', 'User', auth()->id() ?? 0, [
-            'user_ids' => $users->pluck('id')->values()->all(),
-            'admin_note' => $reason,
-        ]);
 
         return response()->json([
             'message' => 'Users suspended.',
@@ -189,5 +192,34 @@ class AdminUserController extends Controller
         abort_unless(Storage::disk('local')->exists($file), 404);
 
         return Storage::disk('local')->download($file);
+    }
+
+    private function notifyLinkedUsersOfSuspension(User $user): void
+    {
+        $counterpartyIds = Booking::query()
+            ->where('status', 'confirmed')
+            ->where(function ($query) use ($user): void {
+                $query->where('teacher_id', $user->id)
+                    ->orWhere('student_id', $user->id);
+            })
+            ->get()
+            ->flatMap(function (Booking $booking) use ($user) {
+                return [(int) $booking->teacher_id, (int) $booking->student_id];
+            })
+            ->filter(fn (int $id): bool => $id !== (int) $user->id)
+            ->unique()
+            ->values();
+
+        foreach ($counterpartyIds as $recipientId) {
+            AppNotification::query()->create([
+                'user_id' => (int) $recipientId,
+                'channel' => 'in_app',
+                'audience' => 'student',
+                'type' => 'linked_account_suspended',
+                'title' => 'Session Update',
+                'message' => 'An upcoming booking participant has been suspended by admin. Support will assist with next steps.',
+                'is_critical' => true,
+            ]);
+        }
     }
 }

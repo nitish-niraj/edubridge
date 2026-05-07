@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\Booking;
 use App\Models\Payment;
 use App\Models\TeacherEarning;
+use App\Services\NotificationService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -31,7 +32,7 @@ class ReleasePayment implements ShouldQueue
         public int $bookingId
     ) {}
 
-    public function handle(): void
+    public function handle(NotificationService $notifications): void
     {
         $booking = Booking::with('payment', 'teacher')->find($this->bookingId);
 
@@ -66,7 +67,7 @@ class ReleasePayment implements ShouldQueue
             );
         });
 
-        // TODO: Notify teacher about earnings credit
+        $notifications->sendEarningsReleased($booking->fresh());
     }
 
     public function failed(Throwable $exception): void

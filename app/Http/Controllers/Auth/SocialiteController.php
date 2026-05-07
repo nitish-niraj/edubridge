@@ -57,60 +57,73 @@ class SocialiteController extends Controller
 
         $existing = User::where('email', $googleEmail)->first();
 
+        // Block admin accounts from using Google OAuth
         if ($existing?->isAdmin()) {
             return redirect()
                 ->route($this->routeForSource($source))
                 ->withErrors(['email' => 'Admin accounts must sign in with email and password.']);
         }
 
+        // Block teacher accounts from using Google OAuth (spec requirement)
         if ($existing?->isTeacher()) {
-            if ($existing->status === 'suspended') {
-                return redirect()
-                    ->route('login')
-                    ->withErrors(['email' => 'Your account has been suspended. Contact support at support@edubridge.com.']);
-            }
-
-            $existing->forceFill([
-                'email_verified_at' => $existing->email_verified_at ?? now(),
-                'avatar' => $googleUser->getAvatar() ?: $existing->avatar,
-            ])->save();
-
-            auth()->login($existing);
-            $request->session()->regenerate();
-
-            $step = (int) ($existing->teacherProfile?->onboarding_step ?? 1);
-            if ($step >= 1 && $step <= 5 && $step < 5) {
-                return redirect()->route('teacher.profile.step', ['step' => $step]);
-            }
-
-            return redirect()->route('teacher.dashboard');
+            return redirect()
+                ->route('login')
+                ->withErrors(['email' => 'This email is registered as a teacher account. Teacher accounts cannot use Google sign-in.']);
         }
 
-        $user = User::firstOrCreate(
-            ['email' => $googleEmail],
-            [
+        // If no existing user, this is a new registration - only allow students
+        if (! $existing) {
+            // Create new student account via Google OAuth
+            $user = User::create([
                 'name'              => $googleUser->getName() ?: Str::before($googleEmail, '@'),
                 'password'          => bcrypt(Str::random(24)),
+                'oauth_provider'    => 'google',
+                'oauth_provider_id' => (string) $googleUser->getId(),
                 'role'              => 'student',
                 'status'            => 'active',
                 'email_verified_at' => now(),
                 'avatar'            => $googleUser->getAvatar(),
-            ]
-        );
+                'email'             => $googleEmail,
+            ]);
+
+            Role::findOrCreate('student', 'web');
+            $user->assignRole('student');
+
+            StudentProfile::create(['user_id' => $user->id]);
+
+            auth()->login($user);
+            $request->session()->regenerate();
+
+            return redirect()->route('student.onboarding');
+        }
+
+        // Existing student account - allow login
+        if ($existing->status === 'suspended') {
+            return redirect()
+                ->route('login')
+                ->withErrors(['email' => 'Your account has been suspended. Contact support at support@edubridge.com.']);
+        }
+
+        $existing->forceFill([
+            'email_verified_at' => $existing->email_verified_at ?? now(),
+            'avatar' => $googleUser->getAvatar() ?: $existing->avatar,
+            'oauth_provider' => $existing->oauth_provider ?: 'google',
+            'oauth_provider_id' => $existing->oauth_provider_id ?: (string) $googleUser->getId(),
+        ])->save();
 
         Role::findOrCreate('student', 'web');
-        if (! $user->hasRole('student')) {
-            $user->assignRole('student');
+        if (! $existing->hasRole('student')) {
+            $existing->assignRole('student');
         }
 
-        if (! $user->studentProfile) {
-            StudentProfile::create(['user_id' => $user->id]);
+        if (! $existing->studentProfile) {
+            StudentProfile::create(['user_id' => $existing->id]);
         }
 
-        auth()->login($user);
+        auth()->login($existing);
         $request->session()->regenerate();
 
-        if (! $user->studentProfile?->onboarding_completed) {
+        if (! $existing->studentProfile?->onboarding_completed) {
             return redirect()->route('student.onboarding');
         }
 

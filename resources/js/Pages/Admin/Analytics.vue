@@ -94,21 +94,28 @@ const destroyAllCharts = () => {
 };
 
 const renderOverviewChart = () => {
-    const labels = Object.keys(data.value.daily_users || {});
+    const userDates = Object.keys(data.value.daily_users || {});
+    const sessionDates = Object.keys(data.value.daily_sessions || {});
+    
+    // Union of all dates, sorted
+    const labels = [...new Set([...userDates, ...sessionDates])].sort();
 
     charts.overview = createChart(overviewCanvas.value, {
         type: 'line',
         data: {
             labels,
             datasets: [
-                createLineDataset('New users', Object.values(data.value.daily_users || {}), colors.blue),
-                createLineDataset('Sessions', labels.map((label) => data.value.daily_sessions?.[label] || 0), colors.green),
+                createLineDataset('New users', labels.map(date => data.value.daily_users?.[date] || 0), colors.blue),
+                createLineDataset('Sessions', labels.map(date => data.value.daily_sessions?.[date] || 0), colors.green),
             ],
         },
         options: {
             interaction: { mode: 'index', intersect: false },
             scales: {
-                y: { beginAtZero: true },
+                y: { 
+                    beginAtZero: true,
+                    ticks: { precision: 0 }
+                },
             },
         },
     });
@@ -120,10 +127,13 @@ const updateOverviewChart = () => {
         return;
     }
 
-    const labels = Object.keys(data.value.daily_users || {});
+    const userDates = Object.keys(data.value.daily_users || {});
+    const sessionDates = Object.keys(data.value.daily_sessions || {});
+    const labels = [...new Set([...userDates, ...sessionDates])].sort();
+
     charts.overview.data.labels = labels;
-    charts.overview.data.datasets[0].data = Object.values(data.value.daily_users || {});
-    charts.overview.data.datasets[1].data = labels.map((label) => data.value.daily_sessions?.[label] || 0);
+    charts.overview.data.datasets[0].data = labels.map(date => data.value.daily_users?.[date] || 0);
+    charts.overview.data.datasets[1].data = labels.map(date => data.value.daily_sessions?.[date] || 0);
     updateChart(charts.overview);
 };
 
@@ -246,7 +256,10 @@ const renderSessionsChart = () => {
         options: {
             indexAxis: 'y',
             scales: {
-                x: { beginAtZero: true },
+                x: {
+                    beginAtZero: true,
+                    ticks: { precision: 0 }
+                },
             },
         },
     });
@@ -702,9 +715,10 @@ onBeforeUnmount(() => {
 
 .metric-card {
     border: 1px solid #e2e8f0;
-    border-radius: 8px;
+    border-radius: 12px;
     background: #ffffff;
-    padding: 14px;
+    padding: 18px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .metric-card span {
@@ -723,17 +737,35 @@ onBeforeUnmount(() => {
 
 .panel {
     border: 1px solid #e2e8f0;
-    border-radius: 8px;
+    border-radius: 12px;
     background: #ffffff;
-    padding: 14px;
+    padding: 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .panel-header {
-    margin-bottom: 10px;
+    margin-bottom: 14px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
+}
+
+.panel-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: #2D2D2D;
+}
+
+.chart-container {
+    position: relative;
+    height: 320px;
+    margin-top: 10px;
+}
+
+.chart-container.doughnut-wrap {
+    height: 260px;
 }
 
 .panel-header h3 {

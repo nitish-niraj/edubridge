@@ -3,17 +3,20 @@ import StudentLayout from '@/Layouts/StudentLayout.vue';
 import axios from 'axios';
 import EmptyState from '@/Components/Shared/EmptyState.vue';
 import ErrorState from '@/Components/Shared/ErrorState.vue';
+import TeacherCard from '@/Components/Student/TeacherCard.vue';
 import { HeartIcon, MagnifyingGlassIcon, ChevronDownIcon } from '@heroicons/vue/24/outline';
 import { HeartIcon as HeartSolidIcon } from '@heroicons/vue/24/solid';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { Head, Link, usePage } from '@inertiajs/vue3';
 import { enforceMinimumDelay } from '@/composables/useMinimumDelay';
+import StarRating from '@/Components/Shared/StarRating.vue';
 
 const page = usePage();
 const currentUser = computed(() => page.props.auth?.user ?? null);
 
 const teachers = ref([]);
-const pageNumber = ref(1);
+const nextCursor = ref(null);
+const totalTeachers = ref(0);
 const hasMore = ref(true);
 const isLoading = ref(false);
 const isMobileFilterOpen = ref(false);
@@ -28,10 +31,12 @@ const filterResetting = ref(false);
 const sortMenuOpen = ref(false);
 const sortDropdownRef = ref(null);
 
-let searchDebounceTimer = null;
-const heartFx = ref({});
+// Bookmark and heart animation state
 const bookmarkBusyIds = ref(new Set());
+const heartFx = ref({});
 const heartFxTimers = new Map();
+
+let searchDebounceTimer = null;
 
 const filters = ref({
     subjects: [],
@@ -42,8 +47,14 @@ const filters = ref({
     gender: 'any',
 });
 
-const allSubjects = ['Math', 'Science', 'Languages', 'Arts', 'Other'];
-const allLanguages = ['English', 'Hindi', 'Tamil', 'Telugu', 'Bengali', 'Marathi'];
+const allSubjects = [
+    'Math', 'Science', 'Physics', 'Chemistry', 'Biology',
+    'English', 'Hindi', 'Punjabi', 'Urdu', 'Sanskrit',
+    'History', 'Geography', 'Social Studies', 'Political Science', 'Economics', 'Commerce',
+    'Computer Science', 'Information Technology',
+    'Physical Education', 'Fine Arts', 'Music', 'Other'
+];
+const allLanguages = ['English', 'Hindi', 'Punjabi', 'Bengali', 'Tamil', 'Telugu', 'Marathi', 'Gujarati'];
 const allDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const ratingOptions = [
     { label: '3+', value: 3 },
@@ -53,6 +64,8 @@ const ratingOptions = [
 
 const isSearchMode = computed(() => searchQuery.value.trim().length >= 2);
 const showInitialSkeleton = computed(() => isLoading.value && teachers.value.length === 0);
+const showingCount = computed(() => teachers.value.length);
+
 const sortOptions = computed(() => {
     const base = [
         { label: 'Rating: High to Low', value: 'rating_desc' },
@@ -87,21 +100,31 @@ const activeFilterChips = computed(() => {
     return chips;
 });
 
-const subjectColor = (subject) => ({
-    Math: '#5BC4E5',
-    Science: '#4CB87E',
-    Languages: '#9B72CF',
-    Arts: '#FFAB76',
-    Other: '#F5C518',
-}[subject] ?? '#F5C518');
+const subjectColor = (subject) => {
+    const map = {
+        'Mathematics': '#5BC4E5',
+        'Math': '#5BC4E5',
+        'Science': '#4CB87E',
+        'Physics': '#4CB87E',
+        'Chemistry': '#4CB87E',
+        'Biology': '#4CB87E',
+        'English': '#9B72CF',
+        'Hindi': '#9B72CF',
+        'Punjabi': '#9B72CF',
+        'History': '#FFAB76',
+        'Geography': '#FFAB76',
+        'Other': '#F5C518',
+    };
+    return map[subject] || '#F5C518';
+};
 
 const buildParams = () => {
     const params = {
-        page: pageNumber.value,
         per_page: 12,
         sort: sort.value,
     };
 
+    if (nextCursor.value) params.cursor = nextCursor.value;
     if (filters.value.subjects.length) params.subjects = filters.value.subjects;
     if (filters.value.languages.length) params.languages = filters.value.languages;
     if (filters.value.availability_days.length) params.availability_days = filters.value.availability_days;
@@ -125,7 +148,7 @@ const fetchTeachers = async (reset = false) => {
 
     if (reset) {
         teachers.value = [];
-        pageNumber.value = 1;
+        nextCursor.value = null;
         hasMore.value = true;
     }
 
@@ -142,9 +165,17 @@ const fetchTeachers = async (reset = false) => {
             teachers.value = [...teachers.value, ...items];
         }
 
-        hasMore.value = Boolean(payload.links?.next);
-        if (hasMore.value) {
-            pageNumber.value += 1;
+        totalTeachers.value = payload.meta?.total ?? 0;
+        
+        // Handle cursor pagination
+        const nextUrl = payload.links?.next;
+        if (nextUrl) {
+            const url = new URL(nextUrl);
+            nextCursor.value = url.searchParams.get('cursor');
+            hasMore.value = true;
+        } else {
+            nextCursor.value = null;
+            hasMore.value = false;
         }
     } catch (error) {
         const statusCode = Number(error?.response?.status || 0);
@@ -307,10 +338,17 @@ onMounted(async () => {
 onBeforeUnmount(() => {
     clearTimeout(searchDebounceTimer);
 
-    heartFxTimers.forEach((timer) => {
-        window.clearTimeout(timer);
-    });
-    heartFxTimers.clear();
+    // Safely clear all heart animation timers
+    if (heartFxTimers && typeof heartFxTimers.forEach === 'function') {
+        try {
+            heartFxTimers.forEach((timer) => {
+                window.clearTimeout(timer);
+            });
+            heartFxTimers.clear();
+        } catch (error) {
+            console.warn('Error clearing heart animation timers:', error);
+        }
+    }
 
     window.removeEventListener('click', handleClickOutsideSort);
 });
@@ -364,6 +402,10 @@ onBeforeUnmount(() => {
                     </button>
                 </TransitionGroup>
 
+                <div class="search-results-meta" v-if="teachers.length > 0">
+                    <p>Showing {{ showingCount }} of {{ totalTeachers }} teachers</p>
+                </div>
+
                 <div v-if="showInitialSkeleton" class="teacher-grid">
                     <article v-for="index in 6" :key="index" class="teacher-card teacher-card--skeleton skeleton-card">
                         <div class="skeleton subject-strip-skeleton"></div>
@@ -400,49 +442,12 @@ onBeforeUnmount(() => {
                 </div>
 
                 <TransitionGroup v-else name="teacher-grid" tag="div" class="teacher-grid">
-                    <article v-for="(teacher, index) in teachers" :key="teacher.id" class="teacher-card" :style="{ '--stagger': `${index * 80}ms` }">
-                        <div class="subject-stripe" :style="{ background: subjectColor(teacher.subjects?.[0] || 'Other') }" />
-                        <button
-                            class="bookmark-btn"
-                            type="button"
-                            :class="{ saved: teacher.is_saved }"
-                            :disabled="isBookmarkBusy(teacher.teacher_id)"
-                            :aria-label="teacher.is_saved ? 'Remove teacher from saved list' : 'Save teacher'"
-                            @click="toggleBookmark(teacher)"
-                        >
-                            <span class="heart-shell" :class="[teacher.is_saved ? 'is-saved' : '', heartFxClass(teacher.teacher_id)]">
-                                <HeartIcon class="bookmark-icon outline" aria-hidden="true" />
-                                <HeartSolidIcon class="bookmark-icon fill" aria-hidden="true" />
-                            </span>
-                        </button>
-
-                        <img :src="teacher.avatar || '/favicon.ico'" loading="lazy" alt="Teacher avatar" class="avatar" width="96" height="96" />
-                        <h3>{{ teacher.name }}</h3>
-                        <p class="rating">⭐ {{ teacher.rating_avg.toFixed(1) }} ({{ teacher.total_reviews }} reviews)</p>
-
-                        <div class="tag-row">
-                            <span
-                                v-for="subject in teacher.subjects_visible"
-                                :key="subject"
-                                class="subject-tag"
-                                :style="{ background: subjectColor(subject) }"
-                            >
-                                {{ subject }}
-                            </span>
-                            <span v-if="teacher.subjects_extra_count > 0" class="subject-tag" style="background:#f5c518;">
-                                +{{ teacher.subjects_extra_count }} more
-                            </span>
-                        </div>
-
-                        <div class="tag-row">
-                            <span v-for="language in teacher.languages" :key="language" class="language-tag">{{ language }}</span>
-                        </div>
-
-                        <div class="card-footer">
-                            <Link :href="route('teachers.show', { teacher: teacher.teacher_id })" class="view-btn view-profile-btn">View Profile</Link>
-                            <span class="price-badge" :class="{ free: teacher.is_free }">{{ teacher.price_label }}</span>
-                        </div>
-                    </article>
+                    <TeacherCard
+                        v-for="(teacher, index) in teachers"
+                        :key="teacher.id"
+                        :teacher="teacher"
+                        :index="index"
+                    />
                 </TransitionGroup>
 
                 <div v-if="hasMore && teachers.length" class="load-more-wrap">
@@ -659,6 +664,14 @@ onBeforeUnmount(() => {
 
 .search-row.is-visible {
     animation: search-row-in 480ms var(--s-spring) forwards;
+}
+
+.search-results-meta {
+    margin-bottom: 16px;
+    font-family: Nunito, sans-serif;
+    color: #6B7280;
+    font-size: 14px;
+    font-weight: 600;
 }
 
 .search-input-wrap {

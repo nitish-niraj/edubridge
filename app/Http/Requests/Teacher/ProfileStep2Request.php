@@ -14,16 +14,16 @@ class ProfileStep2Request extends FormRequest
 
     public function rules(): array
     {
-        $allowedSubjects = [
-            'Math','Science','English','History','Geography','Physics',
-            'Chemistry','Biology','Hindi','Punjabi','Computer Science',
-            'Economics','Commerce','Other',
-        ];
+        $allowedSubjects = config('edubridge.subjects', [
+            'Math', 'Science', 'English', 'History', 'Geography', 'Physics',
+            'Chemistry', 'Biology', 'Hindi', 'Punjabi', 'Computer Science',
+            'Economics', 'Commerce', 'Other',
+        ]);
 
-        $allowedLanguages = [
-            'English','Hindi','Punjabi','Bengali','Tamil',
-            'Telugu','Marathi','Gujarati',
-        ];
+        $allowedLanguages = config('edubridge.languages', [
+            'English', 'Hindi', 'Punjabi', 'Bengali', 'Tamil',
+            'Telugu', 'Marathi', 'Gujarati',
+        ]);
 
         return [
             // Rulebook §13: at least 1 selection required; each must be from allowed list

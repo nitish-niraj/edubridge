@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Helpers\AuditLogger;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\AnnouncementStoreRequest;
 use App\Http\Resources\AnnouncementResource;
@@ -39,6 +40,11 @@ class AdminAnnouncementController extends Controller
             BulkAnnouncementEmailJob::dispatch($announcement->id);
         }
 
+        AuditLogger::log('announcement.created', 'Announcement', $announcement->id, [
+            'target_role' => $announcement->target_role,
+            'delivery_type' => $announcement->delivery_type,
+        ]);
+
         return (new AnnouncementResource($announcement->load('creator:id,name')))
             ->response()
             ->setStatusCode(201);
@@ -46,7 +52,9 @@ class AdminAnnouncementController extends Controller
 
     public function destroy(int $id): JsonResponse
     {
-        Announcement::findOrFail($id)->delete();
+        $announcement = Announcement::findOrFail($id);
+        $announcement->delete();
+        AuditLogger::log('announcement.deleted', 'Announcement', $id);
         return response()->json(['message' => 'Announcement deleted.']);
     }
 

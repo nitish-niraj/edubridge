@@ -197,34 +197,38 @@ class ChatController extends Controller
         Conversation $conversation
     ): MessageResource {
         $validated = $request->validated();
-        $this->assertParticipant($conversation, $request->user()->id);
+        $user = $request->user();
+        $this->assertParticipant($conversation, $user->id);
+
+        // Rule 5.2: Only students can initiate 1:1, but teachers can reply to existing ones.
+        // The initiation is handled in store(), this is for ongoing conversations.
+        if (! $conversation->is_group && $user->isTeacher() && $conversation->messages()->count() === 0) {
+            throw new HttpException(403, 'Teachers cannot initiate 1:1 conversations.');
+        }
 
         $fileUrl = null;
         if ($request->hasFile('attachment')) {
             $allowedMimes = $validated['type'] === 'image'
                 ? ['image/jpeg', 'image/png', 'image/webp']
-                : [
-                    'image/jpeg',
-                    'image/png',
-                    'image/webp',
-                    'application/pdf',
-                    'text/plain',
-                    'application/msword',
-                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                ];
+                : ['application/pdf']; // Rule 5.3: PDF only for 'file' type
+
+            $maxBytes = $validated['type'] === 'image'
+                ? (5 * 1024 * 1024)
+                : (10 * 1024 * 1024);
 
             $path = UploadSecurity::storeValidatedFile(
                 $request->file('attachment'),
                 'public',
                 'chat-files',
                 'attachment',
-                $allowedMimes
+                $allowedMimes,
+                $maxBytes
             );
             $fileUrl = '/storage/' . $path;
         }
 
         $message = $conversation->messages()->create([
-            'sender_id' => $request->user()->id,
+            'sender_id' => $user->id,
             'body' => $validated['body'] ?? null,
             'type' => $validated['type'],
             'file_url' => $fileUrl,
@@ -327,7 +331,9 @@ class ChatController extends Controller
     }
 
     /**
-     * Delete a message (teacher only in groups, soft delete).
+     * Delete a message (soft delete).
+     * Rule 5.2: Individual messages can be deleted by sender within 10 minutes.
+     * Rule 5.7: Teacher can delete any message in group chat.
      */
     public function deleteMessage(Request $request, Conversation $conversation, int $messageId): JsonResponse
     {
@@ -344,8 +350,9 @@ class ChatController extends Controller
             throw new HttpException(403, 'You cannot delete this message.');
         }
 
-        if (! $isTeacher && $conversation->is_group && $message->created_at->lt(now()->subMinutes(10))) {
-            throw new HttpException(403, 'Students can delete group messages only within 10 minutes.');
+        // Rule 5.2: 10 minute limit for non-teachers (applies to 1:1 and students in groups)
+        if (! $isTeacher && $message->created_at->lt(now()->subMinutes(10))) {
+            throw new HttpException(403, 'Messages can only be deleted within 10 minutes of sending.');
         }
 
         $message->delete(); // soft delete

@@ -15,8 +15,8 @@ class ProfileStep3Request extends FormRequest
     {
         return [
             'is_free'     => ['required', 'boolean'],
-            // Rulebook §10: if charging, rate must be ≥ 1 and ≤ 50000 (no ₹0 sessions)
-            'hourly_rate' => ['required_if:is_free,false', 'nullable', 'numeric', 'min:1', 'max:50000'],
+            // Spec §3.1: if charging, rate must be ≥ ₹50 and ≤ ₹2000
+            'hourly_rate' => ['required_if:is_free,false', 'nullable', 'numeric', 'min:50', 'max:2000'],
         ];
     }
 
@@ -24,8 +24,8 @@ class ProfileStep3Request extends FormRequest
     {
         return [
             'hourly_rate.required_if' => 'Please enter your hourly rate since you chose to charge students.',
-            'hourly_rate.min'         => 'Hourly rate must be at least ₹1.',
-            'hourly_rate.max'         => 'Hourly rate cannot exceed ₹50,000.',
+            'hourly_rate.min'         => 'Hourly rate must be at least ₹50.',
+            'hourly_rate.max'         => 'Hourly rate cannot exceed ₹2,000.',
         ];
     }
 }

@@ -131,7 +131,6 @@ const saveProfile = async () => {
 
 const code = ref('');
 const busy = ref(false);
-const disabling = ref(false);
 const success = ref('');
 const error = ref('');
 
@@ -161,23 +160,6 @@ const enableTwoFactor = async () => {
     }
 };
 
-const disableTwoFactor = async () => {
-    if (disabling.value) return;
-
-    success.value = '';
-    error.value = '';
-    disabling.value = true;
-
-    try {
-        await axios.delete('/admin/settings/account/2fa');
-        success.value = 'Two-factor authentication has been disabled.';
-        window.location.reload();
-    } catch (requestError) {
-        error.value = requestError?.response?.data?.message || 'Unable to disable two-factor authentication.';
-    } finally {
-        disabling.value = false;
-    }
-};
 </script>
 
 <template>
@@ -242,14 +224,7 @@ const disableTwoFactor = async () => {
             <div v-if="isEnabled" style="background:#FFF8F0;border:1px solid #FFE7DD;border-radius:16px;padding:18px;">
                 <h2 style="margin:0 0 8px;font-size:20px;font-weight:800;color:#2D2D2D;">Two-Factor Status: Enabled</h2>
                 <p style="margin:0 0 14px;color:#2D2D2D;">Your admin account requires a 6-digit code at sign-in.</p>
-                <button
-                    type="button"
-                    :disabled="disabling"
-                    @click="disableTwoFactor"
-                    style="min-height:44px;padding:0 16px;border-radius:10px;border:1px solid #ef4444;background:#fff;color:#b91c1c;font-weight:700;cursor:pointer;"
-                >
-                    {{ disabling ? 'Disabling...' : 'Disable Two-Factor Authentication' }}
-                </button>
+                <p style="margin:0;color:#9CA3AF;font-size:14px;">Two-factor cannot be disabled for admin accounts.</p>
             </div>
 
             <div v-else style="display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start;">

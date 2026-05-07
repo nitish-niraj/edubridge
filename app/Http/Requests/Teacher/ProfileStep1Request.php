@@ -14,10 +14,10 @@ class ProfileStep1Request extends FormRequest
     public function rules(): array
     {
         return [
-            // Rulebook §2: description min 50, max 2000
+            // Spec §3.1: bio min 50, max 2000
             'bio'              => ['nullable', 'string', 'min:50', 'max:2000'],
-            // Rulebook §10: number, 0–60
-            'experience_years' => ['required', 'integer', 'min:0', 'max:60'],
+            // Spec §3.1: experience years 0–50
+            'experience_years' => ['required', 'integer', 'min:0', 'max:50'],
             'previous_school'  => ['nullable', 'string', 'max:150'],
         ];
     }

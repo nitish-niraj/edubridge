@@ -1,14 +1,76 @@
 <script setup>
 import StudentLayout from '@/Layouts/StudentLayout.vue';
+import axios from 'axios';
 import { AcademicCapIcon, ChatBubbleLeftRightIcon, CalendarDaysIcon, MagnifyingGlassIcon, UserCircleIcon } from '@heroicons/vue/24/outline';
 import { Head, Link, usePage } from '@inertiajs/vue3';
-import { computed } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 
-defineOptions({ inheritAttrs: false });
+const props = defineProps({
+    user: Object,
+    profile: Object,
+    announcements: {
+        type: Array,
+        default: () => [],
+    },
+});
 
 const page = usePage();
+const activeGroupSessions = ref([]);
+const closedAnnouncements = ref([]);
 
-const user = computed(() => page.props.auth?.user ?? null);
+const user = computed(() => props.user ?? page.props.auth?.user ?? null);
+
+const filteredAnnouncements = computed(() => {
+    return props.announcements.filter(a => !closedAnnouncements.value.includes(a.id));
+});
+
+const closeAnnouncement = (id) => {
+    closedAnnouncements.value.push(id);
+    try {
+        const saved = JSON.parse(localStorage.getItem('closed_announcements') || '[]');
+        if (!saved.includes(id)) {
+            saved.push(id);
+            localStorage.setItem('closed_announcements', JSON.stringify(saved));
+        }
+    } catch (e) {
+        console.error('Failed to save closed announcement', e);
+    }
+};
+
+const fetchActiveSessions = async () => {
+    try {
+        const { data } = await axios.get('/api/conversations');
+        // Find conversations with active video sessions
+        // This is a bit simplified, ideally the backend returns active sessions directly
+        const groupsWithSessions = data.data.filter(c => c.is_group && c.active_session_id);
+        activeGroupSessions.value = groupsWithSessions;
+    } catch (e) { /* noop */ }
+};
+
+onMounted(() => {
+    fetchActiveSessions();
+
+    try {
+        closedAnnouncements.value = JSON.parse(localStorage.getItem('closed_announcements') || '[]');
+    } catch (e) {
+        closedAnnouncements.value = [];
+    }
+
+    if (window.Echo) {
+        window.Echo.private(`App.Models.User.${user.value.id}`)
+            .listen('.InAppNotificationCreated', (e) => {
+                if (e.notification.type === 'group_session_started') {
+                    fetchActiveSessions();
+                }
+            });
+    }
+});
+
+onUnmounted(() => {
+    if (window.Echo) {
+        window.Echo.leave(`App.Models.User.${user.value.id}`);
+    }
+});
 
 const firstName = computed(() => {
     const full = user.value?.name || 'Learner';
@@ -19,7 +81,7 @@ const quickActions = [
     {
         label: 'Find Teachers',
         sub: 'Discover verified mentors by subject and availability.',
-        route: 'teachers.index',
+        route: 'student.teachers',
         cta: 'Explore now',
         icon: MagnifyingGlassIcon,
     },
@@ -53,6 +115,33 @@ const quickActions = [
     <StudentLayout>
         <div class="student-dashboard-page">
             <div class="dashboard-shell">
+                <!-- Group Session Banner -->
+                <transition-group name="banner-pop">
+                    <div v-for="session in activeGroupSessions" :key="session.id" class="session-banner">
+                        <div class="banner-content">
+                            <span class="pulse-dot"></span>
+                            <p><strong>{{ session.display_name }}</strong> session is live! Join your classmates now.</p>
+                        </div>
+                        <Link :href="`/group-session/${session.id}`" class="join-now-btn">Join Session</Link>
+                    </div>
+                </transition-group>
+
+                <!-- Admin Announcements -->
+                <section v-if="filteredAnnouncements.length" class="announcements-section">
+                    <div v-for="announcement in filteredAnnouncements" :key="announcement.id" class="announcement-card">
+                        <div class="announcement-content">
+                            <span class="announcement-tag">ANNOUNCEMENT</span>
+                            <button type="button" class="close-announcement" @click="closeAnnouncement(announcement.id)" aria-label="Close">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="h-4 w-4">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                            <h3>{{ announcement.title }}</h3>
+                            <p>{{ announcement.message }}</p>
+                        </div>
+                    </div>
+                </section>
+
                 <section class="hero-card">
                     <div class="hero-badge">
                         <AcademicCapIcon class="h-5 w-5" aria-hidden="true" />
@@ -66,7 +155,7 @@ const quickActions = [
                     </p>
 
                     <div class="hero-ctas">
-                        <Link :href="route('teachers.index')" class="primary-btn">Find teachers</Link>
+                        <Link :href="route('student.teachers')" class="primary-btn">Find teachers</Link>
                         <Link :href="route('student.bookings')" class="ghost-btn">View bookings</Link>
                     </div>
                 </section>
@@ -97,6 +186,145 @@ const quickActions = [
 .dashboard-shell {
     max-width: 1100px;
     margin: 0 auto;
+}
+
+.session-banner {
+    background: #e8553e;
+    color: #fff;
+    border-radius: 16px;
+    padding: 16px 24px;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 10px 20px rgba(232, 85, 62, 0.2);
+    font-family: Nunito, sans-serif;
+}
+
+.banner-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.pulse-dot {
+    width: 10px;
+    height: 10px;
+    background: #fff;
+    border-radius: 50%;
+    animation: banner-pulse 1.5s infinite;
+}
+
+@keyframes banner-pulse {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7); }
+    70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(255, 255, 255, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+}
+
+.session-banner p {
+    margin: 0;
+    font-size: 16px;
+}
+
+.join-now-btn {
+    background: #fff;
+    color: #e8553e;
+    padding: 10px 24px;
+    border-radius: 999px;
+    text-decoration: none;
+    font-weight: 800;
+    font-size: 14px;
+    transition: transform 0.2s;
+}
+
+.join-now-btn:hover {
+    transform: scale(1.05);
+}
+
+.banner-pop-enter-active, .banner-pop-leave-active {
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.banner-pop-enter-from, .banner-pop-leave-to {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+}
+
+.announcements-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.announcement-card {
+    background: linear-gradient(135deg, #2D2D2D 0%, #1A1A1A 100%);
+    color: #fff;
+    border-radius: 16px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+}
+
+.announcement-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 150px;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(232, 85, 62, 0.1));
+    pointer-events: none;
+}
+
+.close-announcement {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: rgba(255, 255, 255, 0.8);
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    z-index: 10;
+}
+
+.close-announcement:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+}
+
+.announcement-tag {
+    background: #E8553E;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 800;
+    padding: 4px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.05em;
+    font-family: Nunito, sans-serif;
+}
+
+.announcement-content h3 {
+    margin: 10px 0 6px;
+    font-size: 18px;
+    color: #fff;
+    font-family: 'Fredoka One', cursive;
+}
+
+.announcement-content p {
+    margin: 0;
+    font-size: 14px;
+    color: #E2E8F0;
+    line-height: 1.5;
+    font-family: Nunito, sans-serif;
 }
 
 .hero-card {

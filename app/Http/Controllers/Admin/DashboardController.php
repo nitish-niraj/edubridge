@@ -122,7 +122,7 @@ class DashboardController extends Controller
                 'pending_verifications' => $pendingVerifications,
                 'unread_reports'        => $unreadReports,
                 'revenue_this_month'    => (float) Payment::query()
-                    ->where('status', 'released')
+                    ->whereIn('status', ['held', 'released'])
                     ->whereBetween('paid_at', [now('UTC')->startOfMonth(), now('UTC')->endOfMonth()])
                     ->sum('amount'),
             ],

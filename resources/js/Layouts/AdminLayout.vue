@@ -15,7 +15,8 @@ import {
     UserCircleIcon,
     UsersIcon,
 } from '@heroicons/vue/24/outline';
-import { computed, onMounted, ref, watch } from 'vue';
+import axios from 'axios';
+import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue';
 
 const props = defineProps({
     pageTitle: {
@@ -194,8 +195,11 @@ const resolvedBreadcrumb = computed(() => {
     return ['Admin', resolvedPageTitle.value];
 });
 
-const notificationCount = computed(() => page.props.admin?.notifications_count ?? 0);
+const notificationCount = computed(() => page.props.admin?.notifications_count ?? page.props.notifications?.unread_count ?? 0);
 const avatarInitial = computed(() => (user.value?.name || 'A').charAt(0).toUpperCase());
+const criticalNotifications = ref([]);
+const notificationMenuOpen = ref(false);
+const notificationMenuRef = ref(null);
 
 const searchPlaceholder = computed(() => {
     if (currentPath.value.startsWith('/admin/users')) return 'Search users by name or email';
@@ -245,6 +249,39 @@ const submitTopbarSearch = () => {
 
 watch(() => page.url, syncTopbarSearchFromUrl);
 
+const fetchCriticalNotifications = async () => {
+    try {
+        const response = await axios.get('/api/notifications', {
+            params: { limit: 8, critical_only: true, active_only: true },
+        });
+        criticalNotifications.value = response.data?.data || [];
+    } catch {
+        criticalNotifications.value = [];
+    }
+};
+
+const toggleNotificationMenu = async () => {
+    notificationMenuOpen.value = !notificationMenuOpen.value;
+    if (notificationMenuOpen.value) {
+        await fetchCriticalNotifications();
+    }
+};
+
+const dismissNotification = async (notificationId) => {
+    try {
+        await axios.patch(`/api/notifications/${notificationId}/dismiss`);
+        criticalNotifications.value = criticalNotifications.value.filter((item) => Number(item.id) !== Number(notificationId));
+    } catch {
+        // No-op to avoid breaking admin navigation flow.
+    }
+};
+
+const handleDocumentClick = (event) => {
+    if (!notificationMenuRef.value?.contains(event.target)) {
+        notificationMenuOpen.value = false;
+    }
+};
+
 const navAnimationStyle = (item) => ({
     animationDelay: `${item.navIndex * 30}ms`,
 });
@@ -262,6 +299,11 @@ onMounted(() => {
     } catch {
         shouldAnimateNav.value = true;
     }
+    document.addEventListener('click', handleDocumentClick);
+});
+
+onBeforeUnmount(() => {
+    document.removeEventListener('click', handleDocumentClick);
 });
 </script>
 
@@ -334,10 +376,25 @@ onMounted(() => {
                         />
                     </label>
 
-                    <button type="button" class="topbar-icon-button" aria-label="Notifications">
-                        <BellIcon class="topbar-icon" />
-                        <span v-if="notificationCount" class="notification-badge">{{ notificationCount }}</span>
-                    </button>
+                    <div ref="notificationMenuRef" class="topbar-notification-menu">
+                        <button type="button" class="topbar-icon-button" aria-label="Notifications" @click.stop="toggleNotificationMenu">
+                            <BellIcon class="topbar-icon" />
+                            <span v-if="notificationCount" class="notification-badge">{{ notificationCount }}</span>
+                        </button>
+                        <div v-if="notificationMenuOpen" class="notification-dropdown">
+                            <p class="notification-dropdown-title">Critical notifications</p>
+                            <p v-if="!criticalNotifications.length" class="notification-empty">No critical notifications.</p>
+                            <ul v-else class="notification-list">
+                                <li v-for="item in criticalNotifications" :key="item.id" class="notification-item">
+                                    <div>
+                                        <p class="notification-item-title">{{ item.title || 'Alert' }}</p>
+                                        <p class="notification-item-message">{{ item.message }}</p>
+                                    </div>
+                                    <button type="button" class="notification-dismiss" @click="dismissNotification(item.id)">Dismiss</button>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
 
                     <button type="button" class="topbar-avatar" aria-label="Admin account">
                         <span>{{ avatarInitial }}</span>
@@ -630,6 +687,77 @@ onMounted(() => {
 .topbar-icon-button {
     position: relative;
     width: 36px;
+}
+
+.topbar-notification-menu {
+    position: relative;
+}
+
+.notification-dropdown {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 6px);
+    width: 360px;
+    max-height: 380px;
+    overflow: auto;
+    border: 1px solid var(--s-border);
+    border-radius: 10px;
+    background: #fff;
+    padding: 10px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+}
+
+.notification-dropdown-title {
+    margin: 0 0 8px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--s-text-muted);
+    text-transform: uppercase;
+}
+
+.notification-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 8px;
+}
+
+.notification-item {
+    display: flex;
+    gap: 10px;
+    justify-content: space-between;
+    border: 1px solid #f1f5f9;
+    border-radius: 8px;
+    padding: 8px;
+}
+
+.notification-item-title {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.notification-item-message {
+    margin: 2px 0 0;
+    font-size: 12px;
+    color: var(--s-text-muted);
+}
+
+.notification-dismiss {
+    border: 1px solid var(--s-border);
+    border-radius: 6px;
+    background: #fff;
+    font-size: 11px;
+    min-height: 28px;
+    padding: 0 8px;
+    cursor: pointer;
+}
+
+.notification-empty {
+    margin: 0;
+    font-size: 12px;
+    color: var(--s-text-muted);
 }
 
 .topbar-icon {

@@ -33,6 +33,15 @@ class PasswordResetLinkController extends Controller
             'email' => 'required|email',
         ]);
 
+        // Google OAuth users must continue with Google sign-in.
+        $user = \App\Models\User::where('email', $request->email)->first();
+
+        if ($user && $user->oauth_provider === 'google') {
+            throw ValidationException::withMessages([
+                'email' => 'You signed up with Google. Password reset is not available. Please sign in with Google.',
+            ]);
+        }
+
         // We will send the password reset link to this user. Once we have attempted
         // to send the link, we will examine the response then see the message we
         // need to show to the user. Finally, we'll send out a proper response.

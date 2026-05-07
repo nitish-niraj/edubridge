@@ -2,6 +2,8 @@ import Chart from 'chart.js/auto';
 
 export const ADMIN_CHART_BLUE = '#E8553E';
 export const ADMIN_CHART_GREEN = '#16A34A';
+export const ADMIN_CHART_GRADIENT_START = 'rgba(232, 85, 62, 0.1)';
+export const ADMIN_CHART_GRADIENT_END = 'rgba(232, 85, 62, 0)';
 
 let defaultsApplied = false;
 
@@ -188,31 +190,63 @@ export function useAdminChart() {
 
         const mergedOptions = deepMerge(cloneValue(defaultOptions), config.options || {});
 
+        // Better grid styling for "beautiful" look
+        if (mergedOptions.scales?.y) {
+            mergedOptions.scales.y.grid = {
+                ...mergedOptions.scales.y.grid,
+                color: 'rgba(0, 0, 0, 0.04)',
+                drawBorder: false,
+            };
+        }
+
         return new Chart(canvas, {
             ...config,
             options: mergedOptions,
         });
     };
 
-    const createLineDataset = (label, data, color = ADMIN_CHART_BLUE, overrides = {}) => ({
-        label,
-        data,
-        borderColor: color,
-        backgroundColor: color,
-        fill: false,
-        tension: 0.4,
-        pointRadius: 3,
-        pointHoverRadius: 6,
-        ...overrides,
-    });
+    const createLineDataset = (label, data, color = ADMIN_CHART_BLUE, overrides = {}) => {
+        const isBlue = color === ADMIN_CHART_BLUE;
+        return {
+            label,
+            data,
+            borderColor: color,
+            borderWidth: 3,
+            backgroundColor: (context) => {
+                const chart = context.chart;
+                const { ctx, chartArea } = chart;
+                if (!chartArea) return null;
+                const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+                if (isBlue) {
+                    gradient.addColorStop(0, 'rgba(232, 85, 62, 0)');
+                    gradient.addColorStop(0.5, 'rgba(232, 85, 62, 0.05)');
+                    gradient.addColorStop(1, 'rgba(232, 85, 62, 0.15)');
+                } else {
+                    gradient.addColorStop(0, 'rgba(22, 163, 74, 0)');
+                    gradient.addColorStop(0.5, 'rgba(22, 163, 74, 0.05)');
+                    gradient.addColorStop(1, 'rgba(22, 163, 74, 0.15)');
+                }
+                return gradient;
+            },
+            fill: true,
+            tension: 0.45, // Smoother lines
+            pointRadius: 0, // Hide points by default for cleaner look
+            pointHoverRadius: 6,
+            pointHoverBackgroundColor: color,
+            pointHoverBorderColor: '#fff',
+            pointHoverBorderWidth: 2,
+            ...overrides,
+        };
+    };
 
     const createBarDataset = (label, data, color = ADMIN_CHART_BLUE, overrides = {}) => ({
         label,
         data,
         backgroundColor: color,
-        borderRadius: 4,
-        barThickness: 24,
-        maxBarThickness: 24,
+        borderRadius: 8, // More rounded corners
+        barThickness: 'flex',
+        maxBarThickness: 40,
+        hoverBackgroundColor: color + 'EE', // Slight transparency on hover
         ...overrides,
     });
 

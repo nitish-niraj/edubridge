@@ -39,7 +39,7 @@ class SecurityHeaders
             $jitsiConnectSrc .= ' ' . $jitsiWsOrigin;
         }
 
-        $csp = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://checkout.phonepe.com https://browser.sentry-cdn.com https://www.googletagmanager.com{$jitsiScriptSrc}; frame-src 'self' https://mercury.phonepe.com https://mercury-t2.phonepe.com https://*.daily.co{$jitsiFrameSrc}; connect-src 'self' wss://*.pusher.com https://api.twilio.com https://api.daily.co https://*.daily.co wss://*.daily.co https://www.google-analytics.com https://region1.google-analytics.com https://*.ingest.sentry.io{$jitsiConnectSrc}; media-src 'self' blob: mediastream:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.bunny.net; font-src 'self' https://fonts.gstatic.com https://fonts.bunny.net; img-src 'self' data: blob: https:;";
+        $csp = "default-src 'self'; script-src 'self' 'unsafe-inline' https://checkout.phonepe.com https://mercury.phonepe.com https://mercury-t2.phonepe.com https://sdk.twilio.com https://browser.sentry-cdn.com https://www.googletagmanager.com{$jitsiScriptSrc}; frame-src 'self' https://mercury.phonepe.com https://mercury-t2.phonepe.com{$jitsiFrameSrc}; connect-src 'self' wss://*.pusher.com https://api.twilio.com https://www.google-analytics.com https://region1.google-analytics.com https://*.ingest.sentry.io{$jitsiConnectSrc}; media-src 'self' blob: mediastream:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.bunny.net; font-src 'self' https://fonts.gstatic.com https://fonts.bunny.net; img-src 'self' data: blob: https:;";
 
         if (!app()->environment('local')) {
             $response->headers->set('Content-Security-Policy', $csp);

@@ -33,20 +33,24 @@ class BulkAnnouncementEmailJob implements ShouldQueue
     {
         $announcement = Announcement::findOrFail($this->announcementId);
         $targetRole = $announcement->target_role;
-        $sentCount = 0;
 
         $query = User::where('status', 'active');
         if ($targetRole !== 'all') {
             $query->where('role', $targetRole);
         }
 
-        $query->chunk(100, function ($users) use ($announcement, &$sentCount) {
-            foreach ($users as $user) {
-                Mail::to($user->email)->send(new AnnouncementMail($announcement));
-                $sentCount++;
+        $batchIndex = 0;
+        $sentCount = 0;
+        $query->select('id')->chunk(100, function ($users) use (&$batchIndex, &$sentCount, $announcement): void {
+            $ids = $users->pluck('id')->values()->all();
+            $sentCount += count($ids);
+            if (app()->environment('testing')) {
+                SendAnnouncementEmailChunkJob::dispatchSync($announcement->id, $ids);
+            } else {
+                SendAnnouncementEmailChunkJob::dispatch($announcement->id, $ids)
+                    ->delay(now()->addMilliseconds($batchIndex * 500));
             }
-            // 500ms delay between batches
-            usleep(500000);
+            $batchIndex++;
         });
 
         $announcement->update(['sent_count' => $sentCount]);

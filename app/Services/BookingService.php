@@ -25,24 +25,27 @@ class BookingService
      */
     public function cancelBooking(Booking $booking, User $cancelledBy): array
     {
-        $hoursUntilSession = now()->diffInHours($booking->start_at, false);
+        $minutesUntilSession = now()->diffInMinutes($booking->start_at, false);
         $isTeacher  = $cancelledBy->id === $booking->teacher_id;
         $isStudent  = $cancelledBy->id === $booking->student_id;
         $refundAmount = 0;
         $refunded = false;
 
+        if (! in_array($booking->status, [Booking::STATUS_PENDING, Booking::STATUS_CONFIRMED], true)) {
+            abort(422, 'Booking cannot be cancelled from its current state.');
+        }
+
         if ($isTeacher) {
             $refundAmount = (float) $booking->price; // Teacher always full refund
         } elseif ($isStudent) {
-            $refundAmount = $hoursUntilSession > 2 ? (float) $booking->price : 0;
+            $refundAmount = $minutesUntilSession > 120 ? (float) $booking->price : 0;
         }
 
         try {
             DB::transaction(function () use ($booking, $refundAmount, &$refunded) {
                 $booking->loadMissing('payment');
 
-                $booking->update([
-                    'status' => 'cancelled',
+                $booking->transitionTo(Booking::STATUS_CANCELLED, [
                     'payment_status' => $refundAmount > 0 && $booking->payment?->status === Payment::STATUS_HELD
                         ? 'refunded'
                         : $booking->payment_status,

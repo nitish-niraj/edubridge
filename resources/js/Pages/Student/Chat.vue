@@ -54,19 +54,27 @@ const revokeAttachmentPreview = () => {
 const assignAttachment = (file) => {
     if (!file) return;
 
-    if (!/^image\/(png|jpe?g|webp)$/i.test(file.type)) {
-        window.alert('Only PNG, JPG, and WEBP images are supported.');
+    const isImage = /^image\/(png|jpe?g|webp)$/i.test(file.type);
+    const isPDF = file.type === 'application/pdf';
+
+    if (!isImage && !isPDF) {
+        window.alert('Only PNG, JPG, WEBP images and PDF files are supported.');
         return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-        window.alert('Image must be 5MB or smaller.');
+    const maxSize = isImage ? 5 * 1024 * 1024 : 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+        window.alert(`File is too large. Max size for ${isImage ? 'images' : 'PDFs'} is ${maxSize / (1024 * 1024)}MB.`);
         return;
     }
 
     revokeAttachmentPreview();
     attachmentFile.value = file;
-    attachmentPreviewUrl.value = URL.createObjectURL(file);
+    if (isImage) {
+        attachmentPreviewUrl.value = URL.createObjectURL(file);
+    } else {
+        attachmentPreviewUrl.value = '/images/pdf-icon.png'; // Fallback icon for PDF
+    }
 };
 
 const fetchConversations = async () => {
@@ -163,7 +171,8 @@ const sendMessage = async () => {
     try {
         const formData = new FormData();
         if (attachmentFile.value) {
-            formData.append('type', 'image');
+            const isImage = /^image\/(png|jpe?g|webp)$/i.test(attachmentFile.value.type);
+            formData.append('type', isImage ? 'image' : 'file');
             formData.append('attachment', attachmentFile.value);
             if (messageText.value.trim()) {
                 formData.append('body', messageText.value.trim());
@@ -417,7 +426,7 @@ onBeforeUnmount(() => {
                         title="No conversations yet"
                         body="Find a teacher and send them a message."
                         cta-text="Find teachers"
-                        :cta-route="route('teachers.index')"
+                        :cta-route="route('student.teachers')"
                     />
                 </div>
 
@@ -470,7 +479,15 @@ onBeforeUnmount(() => {
                                         </div>
                                     </div>
 
-                                    <a v-if="message.file_url" :href="message.file_url" target="_blank" rel="noreferrer">View image</a>
+                                    <div v-if="message.file_url" class="bubble-attachment">
+                                        <a v-if="message.type === 'image'" :href="message.file_url" target="_blank" rel="noreferrer">
+                                            <img :src="message.file_url" alt="Image attachment" class="attachment-image" />
+                                        </a>
+                                        <a v-else :href="message.file_url" target="_blank" rel="noreferrer" class="attachment-file">
+                                            <span class="file-icon">📄</span>
+                                            <span>View Document</span>
+                                        </a>
+                                    </div>
 
                                     <small class="meta">
                                         {{ new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }}
@@ -508,9 +525,9 @@ onBeforeUnmount(() => {
                         <button type="button" class="remove-attachment" @click="clearAttachment">×</button>
                     </div>
 
-                    <label class="clip-btn" aria-label="Attach image">
+                    <label class="clip-btn" aria-label="Attach file">
                         <span class="clip-icon">📎</span>
-                        <input type="file" accept="image/png,image/jpeg,image/webp" hidden @change="onAttachmentChange" />
+                        <input type="file" accept="image/png,image/jpeg,image/webp,application/pdf" hidden @change="onAttachmentChange" />
                     </label>
                     <input
                         v-model="messageText"
@@ -861,11 +878,36 @@ h2 {
     background: #f8fbff;
 }
 
-.mini-avatar {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    object-fit: cover;
+.bubble-attachment {
+    margin-top: 8px;
+}
+
+.attachment-image {
+    max-width: 100%;
+    max-height: 200px;
+    border-radius: 8px;
+    display: block;
+}
+
+.attachment-file {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    text-decoration: none;
+    color: inherit;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.teacher .attachment-file {
+    background: #f1f5f9;
+}
+
+.file-icon {
+    font-size: 18px;
 }
 
 .meta {

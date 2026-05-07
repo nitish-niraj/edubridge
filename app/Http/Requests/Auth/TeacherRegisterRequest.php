@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rules\Password;
 
@@ -14,8 +15,9 @@ class TeacherRegisterRequest extends FormRequest
 
     public function rules(): array
     {
-        // Rulebook §4: min 12 chars, uppercase, lowercase, number, symbol
-        $passwordRules = Password::min(12)
+        // Section 2.2: minimum 8 characters + uppercase + number + symbol.
+        // mixedCase() enforces uppercase and lowercase together.
+        $passwordRules = Password::min(8)
             ->letters()
             ->mixedCase()
             ->numbers()
@@ -29,7 +31,19 @@ class TeacherRegisterRequest extends FormRequest
             // Rulebook §6: min 2 chars, max 100, letters/spaces/hyphens only
             'name'     => ['required', 'string', 'min:2', 'max:100', 'regex:/^[\pL\s\-\'\.]+$/u'],
             // Rulebook §3: valid email, unique, max 254
-            'email'    => ['required', 'string', 'email:rfc', 'max:254', 'unique:users,email'],
+            'email'    => [
+                'required',
+                'string',
+                'email:rfc',
+                'max:254',
+                'unique:users,email',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    $existing = User::withTrashed()->where('email', (string) $value)->first();
+                    if ($existing?->status === 'suspended') {
+                        $fail('This email cannot be used to register.');
+                    }
+                },
+            ],
             // Rulebook §5: phone digits/+ only, 7-15 digits
             'phone'    => ['required', 'string', 'regex:/^\+?[0-9]{7,15}$/', 'unique:users,phone'],
             // Rulebook §12: must be from allowed set

@@ -9,6 +9,7 @@ use App\Jobs\SendBookingConfirmationNotification;
 use App\Models\Booking;
 use App\Models\BookingSlot;
 use App\Models\Payment;
+use App\Models\TeacherEarning;
 use App\Services\PaymentGatewayService;
 use App\Services\PhonePeService;
 use Illuminate\Http\JsonResponse;
@@ -48,6 +49,17 @@ class PaymentController extends Controller
         $gateway = $data['gateway'] ?? 'phonepe';
         $order = $this->paymentGateway->createOrder($booking, $gateway);
         $amountPaise = (int) round((float) $booking->price * 100);
+        $commissionRate = (float) config('edubridge.commission_rate', 0.12);
+        $platformFee = (float) ($booking->platform_fee ?? 0);
+        $teacherPayout = (float) ($booking->teacher_payout ?? 0);
+
+        if ($platformFee <= 0 && (float) $booking->price > 0) {
+            $platformFee = round((float) $booking->price * $commissionRate, 2);
+        }
+
+        if ($teacherPayout <= 0 && (float) $booking->price > 0) {
+            $teacherPayout = round((float) $booking->price - $platformFee, 2);
+        }
 
         $payment = Payment::updateOrCreate(
             ['booking_id' => $booking->id],
@@ -55,8 +67,8 @@ class PaymentController extends Controller
                 'payer_id' => $user->id,
                 'amount' => $booking->price,
                 'amount_paise' => $amountPaise,
-                'platform_fee' => round((float) $booking->price * 0.12, 2),
-                'teacher_payout' => round((float) $booking->price * 0.88, 2),
+                'platform_fee' => $platformFee,
+                'teacher_payout' => $teacherPayout,
                 'gateway' => $order['gateway'],
                 'gateway_order_id' => $order['gateway_order_id'],
                 'gateway_payment_id' => $order['gateway_payment_id'],
@@ -313,6 +325,63 @@ HTML);
         return response()->json(['code' => 'SUCCESS']);
     }
 
+    public function phonepeWebhook(Request $request): JsonResponse
+    {
+        $payload = (string) $request->getContent();
+        $signature = (string) $request->header('X-VERIFY', '');
+
+        if (! $this->paymentGateway->verifyWebhookSignature('phonepe', $payload, $signature)) {
+            Log::warning('PhonePe webhook signature verification failed.', [
+                'ip' => $request->ip(),
+            ]);
+
+            return response()->json(['code' => 'INVALID_SIGNATURE'], 400);
+        }
+
+        $decoded = json_decode($payload, true);
+        $data = is_array($decoded) ? $decoded : [];
+
+        // PhonePe callbacks can nest payload under response/body wrappers.
+        $merchantOrderId = $data['merchantOrderId']
+            ?? $data['merchant_order_id']
+            ?? $data['payload']['merchantOrderId']
+            ?? $data['response']['merchantOrderId']
+            ?? null;
+
+        if (! $merchantOrderId) {
+            return response()->json(['code' => 'SUCCESS']);
+        }
+
+        $payment = Payment::with('booking')->where('gateway_order_id', $merchantOrderId)->first();
+        if (! $payment) {
+            return response()->json(['code' => 'SUCCESS']);
+        }
+
+        if ($payment->booking && $payment->booking->status === Booking::STATUS_CONFIRMED && $payment->status === Payment::STATUS_HELD) {
+            return response()->json(['code' => 'SUCCESS']);
+        }
+
+        $state = strtoupper((string) (
+            $data['state']
+            ?? $data['status']
+            ?? $data['response']['state']
+            ?? $data['response']['status']
+            ?? ''
+        ));
+
+        if ($state === 'COMPLETED' || $state === 'SUCCESS') {
+            $this->markPaymentHeld($payment, [
+                'gateway_payment_id' => $data['orderId'] ?? $data['response']['orderId'] ?? $payment->gateway_payment_id,
+                'raw' => $data,
+                'verification' => 'phonepe_webhook',
+            ]);
+        } elseif ($state === 'FAILED') {
+            $this->markPaymentFailed($payment, $data);
+        }
+
+        return response()->json(['code' => 'SUCCESS']);
+    }
+
     private function markPaymentHeld(Payment $payment, array $context = []): void
     {
         $payment->refresh();
@@ -337,9 +406,19 @@ HTML);
                 'raw_response' => $context['raw'] ?? array_filter($context),
             ]);
 
-            $booking->update([
-                'status' => 'confirmed',
+            $booking->transitionTo(Booking::STATUS_CONFIRMED, [
                 'payment_status' => 'held',
+            ]);
+
+            TeacherEarning::create([
+                'teacher_id' => $booking->teacher_id,
+                'payment_id' => $lockedPayment->id,
+                'booking_id' => $booking->id,
+                'gross_amount' => $lockedPayment->amount,
+                'platform_fee' => $lockedPayment->platform_fee,
+                'net_amount' => $lockedPayment->teacher_payout,
+                'status' => 'pending',
+                'payout_date' => $booking->start_at?->addDays(3), // Tentative payout date
             ]);
 
             BookingSlot::where('id', $booking->slot_id)
@@ -383,7 +462,7 @@ HTML);
 
             // If the booking was never confirmed/paid, cancel and release the slot reservation.
             if ($booking->status === 'pending' && $booking->payment_status === 'unpaid') {
-                $booking->update(['status' => 'cancelled']);
+                $booking->transitionTo(Booking::STATUS_CANCELLED);
 
                 BookingSlot::where('id', $booking->slot_id)
                     ->update(['is_booked' => false, 'booking_id' => null]);

@@ -50,8 +50,23 @@ const displayRating = computed(() => {
     return selectedRating.value;
 });
 
-const stars = computed(() => {
+const hasReviews = computed(() => Number(props.count || 0) > 0);
+const roundedToHalf = computed(() => {
     const value = Math.max(0, Math.min(5, displayRating.value));
+
+    return Math.round(value * 2) / 2;
+});
+const ratingToneClass = computed(() => {
+    const value = roundedToHalf.value;
+    if (!hasReviews.value) return 'tone-none';
+    if (value < 3) return 'tone-low';
+    if (value >= 4) return 'tone-high';
+
+    return 'tone-mid';
+});
+
+const stars = computed(() => {
+    const value = roundedToHalf.value;
 
     return Array.from({ length: 5 }, (_, index) => {
         const starIndex = index + 1;
@@ -90,8 +105,8 @@ const handleClick = (index) => {
 </script>
 
 <template>
-    <div class="star-rating-wrapper" :class="{ interactive }" @mouseleave="handleLeave">
-        <div class="stars">
+    <div class="star-rating-wrapper" :class="[ratingToneClass, { interactive }]" @mouseleave="handleLeave">
+        <div v-if="hasReviews || interactive" class="stars">
             <svg
                 v-for="(star, index) in stars"
                 :key="star.index"
@@ -128,8 +143,11 @@ const handleClick = (index) => {
         </div>
 
         <div v-if="!interactive" class="rating-text">
-            <span class="rating-num">{{ Number(rating).toFixed(1) }}</span>
-            <span class="rating-count">({{ count }} reviews)</span>
+            <template v-if="hasReviews">
+                <span class="rating-num">{{ roundedToHalf.toFixed(1) }}</span>
+                <span class="rating-count">({{ count }} reviews)</span>
+            </template>
+            <span v-else class="no-reviews-text">No reviews yet</span>
         </div>
     </div>
 </template>
@@ -157,10 +175,16 @@ const handleClick = (index) => {
     font-family: var(--s-font-body, 'Nunito', sans-serif);
     font-weight: 600;
     font-size: 14px;
-    color: var(--s-text, #2D2D2D);
+    color: var(--rating-color, var(--s-text, #2D2D2D));
 }
 
 .rating-count {
+    font-family: var(--s-font-body, 'Nunito', sans-serif);
+    font-size: 13px;
+    color: var(--s-text-muted, #9CA3AF);
+}
+
+.no-reviews-text {
     font-family: var(--s-font-body, 'Nunito', sans-serif);
     font-size: 13px;
     color: var(--s-text-muted, #9CA3AF);
@@ -178,5 +202,17 @@ const handleClick = (index) => {
 .star-svg.glow-bump {
     transform: scale(1.3);
     transition-delay: var(--delay);
+}
+
+.tone-low {
+    --rating-color: #f59e0b;
+}
+
+.tone-mid {
+    --rating-color: #2D2D2D;
+}
+
+.tone-high {
+    --rating-color: #F5C518;
 }
 </style>

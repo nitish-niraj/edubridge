@@ -392,12 +392,19 @@ const canRunReleaseAction = () => {
                             <div class="section-title">Conversation</div>
                             <div class="conversation-link disabled" role="note" aria-disabled="true">
                                 <ChatBubbleLeftRightIcon class="icon-18" />
-                                Conversation access is limited to participants
+                                Conversation transcript for admin review
                             </div>
                             <p v-if="conversationId()" class="muted">
                                 Conversation #{{ conversationId() }} can be reviewed by student and teacher participants.
                             </p>
                             <p v-else class="muted">No conversation is linked to this booking.</p>
+                            <div v-if="drawerData.conversation_messages?.length" class="chat-transcript">
+                                <div v-for="msg in drawerData.conversation_messages" :key="msg.id" class="chat-row">
+                                    <strong>{{ msg.sender_name || 'Unknown' }}:</strong>
+                                    <span v-if="msg.deleted_at" class="muted">[deleted message]</span>
+                                    <span v-else>{{ msg.body || `[${msg.type}]` }}</span>
+                                </div>
+                            </div>
                         </section>
 
                         <section class="section">
@@ -817,6 +824,22 @@ h2 {
 
 .linked-row span {
     display: block;
+}
+
+.chat-transcript {
+    margin-top: 10px;
+    border: 1px solid #e5ebf3;
+    border-radius: 12px;
+    max-height: 220px;
+    overflow: auto;
+    padding: 10px;
+    background: #f8fbff;
+}
+
+.chat-row {
+    font-size: 13px;
+    margin-bottom: 6px;
+    color: #334155;
 }
 
 .conversation-link {

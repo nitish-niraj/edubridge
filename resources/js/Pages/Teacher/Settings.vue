@@ -125,8 +125,16 @@ const saveProfile = async () => {
 };
 
 const highContrast = ref(Boolean(props.preferences?.high_contrast));
+const notificationPreferences = reactive({
+    new_message_email: Boolean(props.preferences?.new_message_email ?? true),
+    booking_confirmed_email: Boolean(props.preferences?.booking_confirmed_email ?? true),
+    session_reminder_email: Boolean(props.preferences?.session_reminder_email ?? true),
+    booking_cancelled_email: Boolean(props.preferences?.booking_cancelled_email ?? true),
+    review_received_email: Boolean(props.preferences?.review_received_email ?? true),
+});
 const saving = ref(false);
 const statusMessage = ref('');
+const notificationStatusMessage = ref('');
 const STORAGE_KEY = 'edubridge.teacher.high_contrast';
 
 const applyContrastClass = (enabled) => {
@@ -166,6 +174,17 @@ const handleToggle = (event) => {
     highContrast.value = enabled;
     applyContrastClass(enabled);
     persistPreference(enabled);
+};
+
+const saveNotificationPreferences = async () => {
+    notificationStatusMessage.value = '';
+
+    try {
+        await axios.patch('/api/notification-preferences', notificationPreferences);
+        notificationStatusMessage.value = 'Notification preferences updated.';
+    } catch (error) {
+        notificationStatusMessage.value = error?.response?.data?.message || 'Unable to update notification preferences.';
+    }
 };
 
 onMounted(() => {
@@ -254,6 +273,18 @@ onMounted(() => {
 
                 <p v-if="statusMessage" class="status-message">{{ statusMessage }}</p>
                 <p v-if="saving" class="status-message">Saving preference...</p>
+
+                <p class="eyebrow section-space">Notifications</p>
+                <p class="helper compact-helper">Manage your email notification preferences. Critical security emails are always sent.</p>
+                <form class="profile-card" @submit.prevent="saveNotificationPreferences">
+                    <label class="pref-row"><input v-model="notificationPreferences.new_message_email" type="checkbox" /> New message email</label>
+                    <label class="pref-row"><input v-model="notificationPreferences.booking_confirmed_email" type="checkbox" /> Booking confirmed email</label>
+                    <label class="pref-row"><input v-model="notificationPreferences.session_reminder_email" type="checkbox" /> Session reminder email</label>
+                    <label class="pref-row"><input v-model="notificationPreferences.booking_cancelled_email" type="checkbox" /> Booking cancelled email</label>
+                    <label class="pref-row"><input v-model="notificationPreferences.review_received_email" type="checkbox" /> Review received email</label>
+                    <button type="submit" class="save-profile-btn">Save Notification Preferences</button>
+                    <p v-if="notificationStatusMessage" class="status-message">{{ notificationStatusMessage }}</p>
+                </form>
             </div>
         </div>
     </TeacherLayout>
@@ -510,6 +541,15 @@ h1 {
     font-family: 'Nunito', sans-serif;
     font-size: 18px;
     color: #E8553E;
+}
+
+.pref-row {
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Nunito', sans-serif;
+    color: #4b5563;
 }
 
 @media (max-width: 720px) {

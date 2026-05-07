@@ -90,7 +90,7 @@ class AdminReportController extends Controller
 
         Mail::to($user->email)->send(new UserWarningMail($user, $report->reason));
 
-        if ($user->warnings_count >= 3) {
+        if ($user->warnings_count >= (int) config('edubridge.warning_auto_suspend_threshold', 3)) {
             $user->update(['status' => 'suspended']);
             Mail::to($user->email)->send(new AccountSuspendedMail($user));
         }

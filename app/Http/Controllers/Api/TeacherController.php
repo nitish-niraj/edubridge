@@ -26,28 +26,23 @@ class TeacherController extends Controller
     {
         $validated = $request->validated();
         $perPage = (int) ($validated['per_page'] ?? 12);
-        $cacheVersion = $this->teacherCacheVersion();
-
-        $cacheKey = 'teachers:index:v' . $cacheVersion . ':' . md5(json_encode([
-            'viewer_id' => $request->user()?->id,
-            'page' => (int) ($validated['page'] ?? 1),
-            'per_page' => $perPage,
-            'filters' => $validated,
-        ]));
 
         try {
-            $teachers = $this->rememberTeacherResults($cacheKey, function () use ($request, $validated, $perPage) {
+                // Build base query without caching paginated results
                 $query = $this->baseTeacherQuery($request->user()?->id);
                 $this->applyFilters($query, $validated);
                 $this->applySort($query, $validated['sort'] ?? 'rating_desc');
 
-                return $query->simplePaginate($perPage)->withQueryString();
-            });
+               // Count total before pagination
+               $totalCount = $query->count();
+
+                // Spec §4.4: Cursor-based pagination for better performance
+                $teachers = $query->cursorPaginate($perPage)->withQueryString();
         } catch (QueryException) {
             throw new ServiceUnavailableHttpException(null, 'Teacher directory is temporarily unavailable. Please try again soon.');
         }
 
-        return TeacherCardResource::collection($teachers);
+            return TeacherCardResource::collection($teachers)->additional(['meta' => ['total' => $totalCount]]);
     }
 
     public function search(TeacherSearchRequest $request): AnonymousResourceCollection
@@ -55,18 +50,9 @@ class TeacherController extends Controller
         $validated = $request->validated();
         $perPage = (int) ($validated['per_page'] ?? 12);
         $sort = $validated['sort'] ?? 'relevance';
-        $cacheVersion = $this->teacherCacheVersion();
 
-        $cacheKey = 'teachers:search:v' . $cacheVersion . ':' . md5(json_encode([
-            'viewer_id' => $request->user()?->id,
-            'page' => (int) ($validated['page'] ?? 1),
-            'per_page' => $perPage,
-            'sort' => $sort,
-            'filters' => $validated,
-        ]));
-
-        try {
-            $teachers = $this->rememberTeacherResults($cacheKey, function () use ($request, $validated, $perPage, $sort) {
+            try {
+                // Get search results without caching paginated results
                 try {
                     $scoutIds = TeacherProfile::search($validated['q'])->keys()->map(fn ($id): int => (int) $id);
                 } catch (\Throwable) {
@@ -103,13 +89,17 @@ class TeacherController extends Controller
                     $this->applySort($query, $sort);
                 }
 
-                return $query->simplePaginate($perPage)->withQueryString();
-            }, 120);
+                   // Count total before pagination
+                   $totalCount = $query->count();
+
+                // Spec §4.4: Cursor-based pagination for better performance
+                $teachers = $query->cursorPaginate($perPage)->withQueryString();
+            
         } catch (QueryException) {
             throw new ServiceUnavailableHttpException(null, 'Teacher search is temporarily unavailable. Please try again soon.');
         }
 
-        return TeacherCardResource::collection($teachers);
+                return TeacherCardResource::collection($teachers)->additional(['meta' => ['total' => $totalCount]]);
     }
 
     private function applySearchFallback(Builder $query, string $term): void
@@ -134,6 +124,13 @@ class TeacherController extends Controller
     public function show(TeacherShowRequest $request, int $teacher): TeacherPublicProfileResource
     {
         $request->validated();
+        
+        // Spec §3.6: Teachers cannot view their own public profile while logged in as a teacher
+        $currentUser = $request->user();
+        if ($currentUser && $currentUser->isTeacher() && $currentUser->id === $teacher) {
+            throw new NotFoundHttpException('Teachers cannot view their own public profile. Please use the profile edit page.');
+        }
+        
         $studentId = $request->user()?->isStudent() ? $request->user()->id : null;
         $cacheVersion = $this->teacherCacheVersion();
         $cacheKey = 'teachers:profile:v' . $cacheVersion . ':teacher:' . $teacher . ':viewer:' . ($studentId ?? 'guest');
@@ -169,7 +166,7 @@ class TeacherController extends Controller
                     ->whereNotNull('comment')
                     ->with(['reviewer:id,name'])
                     ->orderByDesc('created_at')
-                    ->limit(6)
+                    ->limit(5)
                     ->get()
                     ->map(function (Review $review): array {
                         return [
@@ -210,7 +207,8 @@ class TeacherController extends Controller
             ->where('languages', '!=', '[]')
             ->whereHas('user', function (Builder $builder): void {
                 $builder->where('role', 'teacher')
-                    ->where('status', 'active');
+                    ->where('status', 'active')
+                    ->whereNotNull('avatar'); // Spec §4.1: Profile photo required for search
             });
 
         if ($studentId) {

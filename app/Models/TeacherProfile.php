@@ -105,7 +105,7 @@ class TeacherProfile extends Model
         foreach ($requiredTypes as $type) {
             $exists = $this->documents()
                 ->where('type', $type)
-                ->whereIn('status', ['pending', 'approved'])
+                ->where('status', 'approved')
                 ->exists();
 
             if (! $exists) {
@@ -114,6 +114,67 @@ class TeacherProfile extends Model
         }
 
         return true;
+    }
+
+    /**
+     * Calculate profile completeness percentage (0-100).
+     * Spec §3.4: Bio (20%), Subject (20%), Availability (20%), Photo (20%), Documents (20%)
+     */
+    public function getCompletenessScore(): int
+    {
+        $score = 0;
+
+        // Bio filled (>50 chars) = +20%
+        if (! empty($this->bio) && mb_strlen($this->bio) >= 50) {
+            $score += 20;
+        }
+
+        // At least 1 subject = +20%
+        if (is_array($this->subjects) && count($this->subjects) > 0) {
+            $score += 20;
+        }
+
+        // Availability set (1+ day) = +20%
+        if ($this->hasAvailability()) {
+            $score += 20;
+        }
+
+        // Profile photo uploaded = +20%
+        if (! empty($this->user?->avatar)) {
+            $score += 20;
+        }
+
+        // Documents uploaded (1+) = +20%
+        if ($this->documents()->exists()) {
+            $score += 20;
+        }
+
+        return $score;
+    }
+
+    /**
+     * Check if teacher has at least one day of availability set.
+     */
+    private function hasAvailability(): bool
+    {
+        if (! is_array($this->availability) || empty($this->availability)) {
+            return false;
+        }
+
+        foreach ($this->availability as $day => $settings) {
+            if (! is_array($settings)) {
+                continue;
+            }
+
+            // Check for 'enabled' or 'on' key being true
+            $isEnabled = ($settings['enabled'] ?? false) || ($settings['on'] ?? false);
+            
+            if ($isEnabled && ! empty($settings['start']) && ! empty($settings['end'])) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
 }

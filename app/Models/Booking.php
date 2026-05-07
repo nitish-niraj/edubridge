@@ -41,6 +41,20 @@ class Booking extends Model
         'teacher_payout' => 'decimal:2',
     ];
 
+    public const STATUS_PENDING = 'pending';
+    public const STATUS_CONFIRMED = 'confirmed';
+    public const STATUS_COMPLETED = 'completed';
+    public const STATUS_CANCELLED = 'cancelled';
+    public const STATUS_NO_SHOW = 'no_show';
+
+    public const ALLOWED_TRANSITIONS = [
+        self::STATUS_PENDING => [self::STATUS_CONFIRMED, self::STATUS_CANCELLED],
+        self::STATUS_CONFIRMED => [self::STATUS_COMPLETED, self::STATUS_NO_SHOW, self::STATUS_CANCELLED],
+        self::STATUS_COMPLETED => [],
+        self::STATUS_CANCELLED => [],
+        self::STATUS_NO_SHOW => [],
+    ];
+
     protected static function booted(): void
     {
         static::updated(function (Booking $booking): void {
@@ -49,7 +63,8 @@ class Booking extends Model
                 && $booking->status === 'completed'
                 && $booking->payment_status === 'held'
             ) {
-                ReleasePayment::dispatch($booking->id)->delay(now()->addHours(24));
+                $delayHours = (int) config('edubridge.payout_delay_hours', 24);
+                ReleasePayment::dispatch($booking->id)->delay(now()->addHours($delayHours));
             }
 
             if ($booking->wasChanged('status') && $booking->status === 'completed') {
@@ -57,6 +72,22 @@ class Booking extends Model
                 SendReviewReminder::dispatch($booking->id)->delay(now()->addMinutes(10));
             }
         });
+    }
+
+    public function canTransitionTo(string $targetStatus): bool
+    {
+        $allowedTargets = self::ALLOWED_TRANSITIONS[$this->status] ?? [];
+
+        return in_array($targetStatus, $allowedTargets, true);
+    }
+
+    public function transitionTo(string $targetStatus, array $attributes = []): void
+    {
+        if (! $this->canTransitionTo($targetStatus)) {
+            abort(422, "Invalid booking status transition: {$this->status} -> {$targetStatus}");
+        }
+
+        $this->update(array_merge($attributes, ['status' => $targetStatus]));
     }
 
     // ── Relationships ───────────────────────────────────────────────────────
