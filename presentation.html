@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EduBridge — Technical Presentation</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&family=Nunito:wght@600;700&display=swap" rel="stylesheet">
+<!-- FontAwesome for professional icons -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+:root {
+  /* Admin Portal Blue as primary presentation brand */
+  --bg: #F8FAFC;
+  --surface: #FFFFFF;
+  --card: #FFFFFF;
+  --border: #E2E8F0;
+  
+  --primary: #2563EB;
+  --primary-hover: #1D4ED8;
+  --accent: #3B82F6;
+  
+  --student-coral: #E8553E;
+  --teacher-sage: #3D6B4F;
+  
+  --green: #10B981;
+  --orange: #F97316;
+  --red: #EF4444;
+  --purple: #8B5CF6;
+  
+  --text: #0F172A;
+  --muted: #64748B;
+  --dim: #475569;
+  
+  --font: 'Inter', sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+  --head: 'Inter', sans-serif;
+  
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100vw; height: 100vh; overflow: hidden; background: var(--bg); color: var(--text); font-family: var(--font); }
+
+/* PROGRESS */
+#progress { position: fixed; top: 0; left: 0; height: 4px; background: var(--primary); transition: width .3s ease; z-index: 999; }
+
+/* SLIDE COUNTER */
+#counter { position: fixed; bottom: 1.5rem; left: 2rem; font-family: var(--mono); font-size: .85rem; color: var(--muted); font-weight: 600; letter-spacing: .05em; z-index: 99; }
+
+/* NAV BUTTONS */
+#nav { position: fixed; bottom: 1.5rem; right: 2rem; display: flex; gap: .75rem; z-index: 99; }
+.nbtn { width: 3rem; height: 3rem; border-radius: 50%; border: 1px solid var(--border); background: var(--card); color: var(--dim); font-size: 1.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .2s; box-shadow: var(--shadow-sm); }
+.nbtn:hover { background: var(--primary); color: white; border-color: var(--primary); transform: translateY(-2px); box-shadow: var(--shadow); }
+
+/* SLIDE BASE */
+.slide { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem 4rem; opacity: 0; visibility: hidden; transform: translateY(20px); transition: all .4s cubic-bezier(.4,0,.2,1); }
+.slide.active { opacity: 1; visibility: visible; transform: none; z-index: 10; }
+
+/* TYPOGRAPHY */
+.slide-label { font-family: var(--mono); font-size: .75rem; font-weight: 600; letter-spacing: .1em; color: var(--primary); text-transform: uppercase; margin-bottom: 1rem; display: inline-block; padding: 0.25rem 0.75rem; background: rgba(37, 99, 235, 0.1); border-radius: 999px; }
+h1.main { font-family: var(--head); font-size: 5rem; font-weight: 800; letter-spacing: -0.04em; color: var(--text); line-height: 1.1; margin-bottom: 1rem; }
+h2.slide-title { font-family: var(--head); font-size: 2.25rem; font-weight: 700; letter-spacing: -0.02em; color: var(--text); margin-bottom: 2rem; }
+h3.sub { font-family: var(--head); font-size: 1.1rem; font-weight: 600; color: var(--text); margin-bottom: .75rem; }
+p.body { color: var(--dim); line-height: 1.6; font-size: 1.05rem; }
+
+/* GRIDS */
+.g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+.g3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+.g4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; }
+
+/* FEATURE ITEM (Cards) */
+.fi { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; transition: .2s; box-shadow: var(--shadow-sm); }
+.fi:hover { border-color: var(--primary); box-shadow: var(--shadow); transform: translateY(-3px); }
+.fi .icon { font-size: 1.5rem; margin-bottom: 1rem; color: var(--primary); display: flex; align-items: center; justify-content: center; width: 3rem; height: 3rem; background: rgba(37, 99, 235, 0.08); border-radius: 8px; }
+.fi h4 { font-size: 1.05rem; font-weight: 600; margin-bottom: .5rem; color: var(--text); }
+.fi p { font-size: .9rem; color: var(--dim); line-height: 1.5; }
+
+/* BADGES */
+.badge { display: inline-block; padding: .25rem .75rem; border-radius: 99px; font-size: .75rem; font-weight: 600; }
+.badge-blue { background: rgba(37, 99, 235, 0.1); color: #1D4ED8; }
+.badge-coral { background: rgba(232, 85, 62, 0.1); color: var(--student-coral); font-family: 'Nunito', sans-serif; }
+.badge-sage { background: rgba(61, 107, 79, 0.1); color: var(--teacher-sage); font-family: 'Arial', sans-serif; }
+.badge-green { background: rgba(16, 185, 129, 0.1); color: #047857; }
+.badge-orange { background: rgba(249, 115, 22, 0.1); color: #C2410C; }
+.badge-purple { background: rgba(139, 92, 246, 0.1); color: #6D28D9; }
+
+/* BULLET LIST */
+ul.tl { list-style: none; }
+ul.tl li { padding: .75rem 0; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; gap: .75rem; color: var(--dim); font-size: .95rem; line-height: 1.5; }
+ul.tl li:last-child { border: none; }
+ul.tl li i { color: var(--primary); font-size: .8rem; margin-top: .3rem; }
+ul.tl li strong { color: var(--text); font-weight: 600; }
+
+/* SCREENSHOT */
+.ss { border-radius: 12px; overflow: hidden; border: 1px solid var(--border); background: #F1F5F9; box-shadow: var(--shadow); flex-shrink: 0; }
+.ss img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; transition: .4s ease; }
+.ss:hover img { transform: scale(1.02); }
+.ss-full { height: 380px; }
+.ss-half { height: 320px; }
+.ss-sm { height: 220px; }
+
+/* CAPTION */
+.cap { font-family: var(--mono); font-size: .75rem; color: var(--muted); text-align: center; margin-top: .75rem; font-weight: 500; }
+
+/* ARCH DIAGRAM */
+.arch-row { display: flex; align-items: center; gap: 0; margin: .5rem 0; }
+.arch-box { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: .75rem 1rem; font-size: .85rem; font-family: var(--mono); font-weight: 600; white-space: nowrap; text-align: center; min-width: 140px; box-shadow: var(--shadow-sm); color: var(--text); }
+.arch-arrow { color: var(--muted); font-size: 1rem; padding: 0 .75rem; flex-shrink: 0; }
+.arch-label { font-size: .7rem; color: var(--muted); display: block; margin-top: .25rem; font-weight: 400; font-family: var(--font); }
+
+/* DB TABLE */
+table.db { width: 100%; border-collapse: separate; border-spacing: 0; font-size: .85rem; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--card); }
+table.db th { background: #F1F5F9; color: var(--text); padding: .75rem 1rem; text-align: left; font-weight: 600; font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; border-bottom: 1px solid var(--border); }
+table.db td { padding: .75rem 1rem; border-bottom: 1px solid var(--border); color: var(--dim); font-family: var(--mono); }
+table.db tr:last-child td { border-bottom: none; }
+table.db td:first-child { color: var(--primary); font-weight: 600; }
+
+/* BOOKING STEPS */
+.step-flow { display: flex; align-items: center; margin-bottom: 1.5rem; }
+.step-dot { width: 2.25rem; height: 2.25rem; border-radius: 50%; background: var(--card); border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: .85rem; font-weight: 700; color: var(--muted); flex-shrink: 0; }
+.step-done { border-color: var(--primary); background: var(--primary); color: white; }
+.step-line { flex: 1; height: 2px; background: var(--border); margin: 0 .5rem; }
+.step-line.done { background: var(--primary); }
+
+/* TECH GRID */
+.tech-item { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; display: flex; align-items: center; gap: 1rem; box-shadow: var(--shadow-sm); }
+.tech-item .ti-icon { font-size: 1.5rem; color: var(--primary); width: 2.5rem; text-align: center; }
+.tech-item .ti-name { font-weight: 600; font-size: 1rem; color: var(--text); display: block; }
+.tech-item .ti-role { font-size: .8rem; color: var(--dim); margin-top: .15rem; }
+
+/* TITLE SLIDE EXTRAS */
+.title-center { text-align: center; max-width: 900px; display: flex; flex-direction: column; align-items: center; }
+.presenter { margin-top: 3rem; padding: 1.5rem 2.5rem; background: var(--card); border: 1px solid var(--border); border-radius: 12px; display: inline-block; box-shadow: var(--shadow-sm); }
+
+/* CUSTOM PORTAL COLORS FOR DIAGRAMS */
+.border-student { border-color: var(--student-coral) !important; }
+.border-teacher { border-color: var(--teacher-sage) !important; }
+.border-admin { border-color: var(--primary) !important; }
+</style>
+</head>
+<body>
+
+<div id="progress"></div>
+<div id="counter">01 / 17</div>
+<div id="nav">
+  <button class="nbtn" id="prev" title="Previous (←)"><i class="fa-solid fa-arrow-left"></i></button>
+  <button class="nbtn" id="next" title="Next (→)"><i class="fa-solid fa-arrow-right"></i></button>
+</div>
+
+<!-- SLIDE 1 -->
+<div class="slide active" id="s1">
+  <div class="title-center">
+    <img src="docs/image/lpu_logo.png" alt="LPU Logo" style="height: 120px; margin-bottom: 2rem; object-fit: contain;">
+    <div class="slide-label"><i class="fa-solid fa-code"></i> CAP777 — CA2: Project 1</div>
+    <h1 class="main">EduBridge</h1>
+    <p style="font-size: 1.5rem; color: var(--dim); margin-top: 1rem; font-weight: 500;">An Online Teacher-Student Booking Platform</p>
+    <p style="color: var(--muted); font-size: 1.1rem; margin-top: 1rem; font-family: var(--mono);">Laravel 10 · Vue 3 · Inertia.js · MySQL · Jitsi Meet · PhonePe</p>
+    <div class="presenter" style="text-align: left; display: flex; gap: 4rem; justify-content: center; min-width: 500px;">
+      <div>
+        <p style="font-family: var(--mono); font-size: .85rem; color: var(--muted); font-weight: 600;">SUBMITTED BY</p>
+        <p style="font-weight: 700; font-size: 1.25rem; color: var(--text); margin-top: .5rem;">Nitish Kumar</p>
+        <p style="font-size: .85rem; color: var(--dim); margin-top: .15rem;">Reg No: 12515641</p>
+      </div>
+      <div style="border-left: 1px solid var(--border); padding-left: 4rem;">
+        <p style="font-family: var(--mono); font-size: .85rem; color: var(--muted); font-weight: 600;">SUBMITTED TO</p>
+        <p style="font-weight: 700; font-size: 1.25rem; color: var(--text); margin-top: .5rem;">Simranpreet Kaur</p>
+        <p style="font-size: .85rem; color: var(--dim); margin-top: .15rem;">Faculty, CA Dept.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 2 -->
+<div class="slide" id="s2">
+  <div style="width: 100%; max-width: 1160px;">
+    <div class="slide-label">Platform Overview</div>
+    <h2 class="slide-title">What is EduBridge?</h2>
+    <p class="body" style="margin-bottom: 2rem; max-width: 800px; font-size: 1.15rem;">A web-based tutoring marketplace where students discover, book, and attend live 1-on-1 sessions with verified teachers — all within a single browser tab.</p>
+    <div class="g4">
+      <div class="fi"><div class="icon" style="color: var(--student-coral); background: rgba(232, 85, 62, 0.1);"><i class="fa-solid fa-user-graduate"></i></div><h4>Student Portal</h4><p>Search teachers, book sessions, chat, manage bookings and payments.</p></div>
+      <div class="fi"><div class="icon" style="color: var(--teacher-sage); background: rgba(61, 107, 79, 0.1);"><i class="fa-solid fa-person-chalkboard"></i></div><h4>Teacher Portal</h4><p>Set availability, manage sessions, view earnings and student reviews.</p></div>
+      <div class="fi"><div class="icon"><i class="fa-solid fa-shield-halved"></i></div><h4>Admin Panel</h4><p>Verify teachers, moderate disputes, push announcements, view analytics.</p></div>
+      <div class="fi"><div class="icon" style="color: var(--purple); background: rgba(139, 92, 246, 0.1);"><i class="fa-solid fa-video"></i></div><h4>Live Video</h4><p>Jitsi Meet SDK embedded directly — no installs, no third-party accounts needed.</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 3 -->
+<div class="slide" id="s3">
+  <div style="width: 100%; max-width: 1160px;">
+    <div class="slide-label">Motivation</div>
+    <h2 class="slide-title">Problem We Solve</h2>
+    <div class="g2">
+      <div style="background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 2rem; box-shadow: var(--shadow-sm);">
+        <h3 class="sub" style="color: var(--red); display: flex; align-items: center; gap: .5rem;"><i class="fa-solid fa-circle-xmark"></i> Current Pain Points</h3>
+        <ul class="tl">
+          <li><i class="fa-solid fa-chevron-right"></i> <span><strong>No unified platform</strong> — students find teachers through WhatsApp groups or word-of-mouth</span></li>
+          <li><i class="fa-solid fa-chevron-right"></i> <span><strong>No scheduling system</strong> — bookings done manually via calls/texts</span></li>
+          <li><i class="fa-solid fa-chevron-right"></i> <span><strong>No in-browser video</strong> — requires Zoom/Meet installs and separate links</span></li>
+          <li><i class="fa-solid fa-chevron-right"></i> <span><strong>No payment transparency</strong> — cash-only, no receipts or refund tracking</span></li>
+          <li><i class="fa-solid fa-chevron-right"></i> <span><strong>No quality control</strong> — unverified teachers, no reviews system</span></li>
+        </ul>
+      </div>
+      <div style="background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 2rem; box-shadow: var(--shadow-sm); border-top: 4px solid var(--green);">
+        <h3 class="sub" style="color: var(--green); display: flex; align-items: center; gap: .5rem;"><i class="fa-solid fa-circle-check"></i> EduBridge Solution</h3>
+        <ul class="tl">
+          <li><i class="fa-solid fa-arrow-right"></i> <span><strong>Discovery engine</strong> — filter teachers by subject, language, price, rating</span></li>
+          <li><i class="fa-solid fa-arrow-right"></i> <span><strong>4-step booking wizard</strong> — date → slot → details → payment, all in one flow</span></li>
+          <li><i class="fa-solid fa-arrow-right"></i> <span><strong>Embedded Jitsi</strong> — live video launches inside the app, no external tools</span></li>
+          <li><i class="fa-solid fa-arrow-right"></i> <span><strong>PhonePe gateway</strong> — secure digital payments with transaction IDs</span></li>
+          <li><i class="fa-solid fa-arrow-right"></i> <span><strong>Admin verification queue</strong> — document review + approve/reject workflow</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 4 -->
+<div class="slide" id="s4">
+  <div style="width: 100%; max-width: 1160px;">
+    <div class="slide-label">Technology</div>
+    <h2 class="slide-title">Tech Stack</h2>
+    <div class="g2">
+      <div>
+        <h3 class="sub" style="margin-bottom: 1rem;"><i class="fa-solid fa-server"></i> Backend</h3>
+        <div style="display: flex; flex-direction: column; gap: .75rem;">
+          <div class="tech-item"><div class="ti-icon" style="color: #FF2D20;"><i class="fa-brands fa-laravel"></i></div><div><span class="ti-name">Laravel 10</span><span class="ti-role">MVC Framework · REST API · Queue · Events · Sanctum Auth</span></div></div>
+          <div class="tech-item"><div class="ti-icon" style="color: #4479A1;"><i class="fa-solid fa-database"></i></div><div><span class="ti-name">MySQL</span><span class="ti-role">Relational DB · Eloquent ORM · Migrations · Factories</span></div></div>
+          <div class="tech-item"><div class="ti-icon" style="color: #9553E9;"><i class="fa-solid fa-bolt"></i></div><div><span class="ti-name">Inertia.js</span><span class="ti-role">SPA adapter — no REST JSON, passes props to Vue pages</span></div></div>
+          <div class="tech-item"><div class="ti-icon" style="color: #5B21B6;"><i class="fa-solid fa-credit-card"></i></div><div><span class="ti-name">PhonePe SDK</span><span class="ti-role">Payment gateway — sandbox + production ready</span></div></div>
+        </div>
+      </div>
+      <div>
+        <h3 class="sub" style="margin-bottom: 1rem;"><i class="fa-solid fa-laptop-code"></i> Frontend &amp; Services</h3>
+        <div style="display: flex; flex-direction: column; gap: .75rem;">
+          <div class="tech-item"><div class="ti-icon" style="color: #4FC08D;"><i class="fa-brands fa-vuejs"></i></div><div><span class="ti-name">Vue 3</span><span class="ti-role">Composition API · Reactive state · Component architecture</span></div></div>
+          <div class="tech-item"><div class="ti-icon" style="color: #646CFF;"><i class="fa-solid fa-cubes"></i></div><div><span class="ti-name">Vite</span><span class="ti-role">Asset bundler — HMR in dev, optimised build in prod</span></div></div>
+          <div class="tech-item"><div class="ti-icon" style="color: var(--purple);"><i class="fa-solid fa-video"></i></div><div><span class="ti-name">Jitsi Meet SDK</span><span class="ti-role">Embedded video conferencing — JaaSAPI, no installs</span></div></div>
+          <div class="tech-item"><div class="ti-icon" style="color: var(--orange);"><i class="fa-solid fa-satellite-dish"></i></div><div><span class="ti-name">Laravel Echo + Pusher</span><span class="ti-role">Real-time chat events, typing indicators, whiteboard</span></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 5 -->
+<div class="slide" id="s5">
+  <div style="width: 100%; max-width: 1160px;">
+    <div class="slide-label">System Design</div>
+    <h2 class="slide-title">Architecture — MVC + SPA Hybrid</h2>
+    <div class="g2" style="align-items: start;">
+      <div>
+        <h3 class="sub" style="margin-bottom: 1.25rem;"><i class="fa-solid fa-diagram-project"></i> Request Flow (Inertia SPA)</h3>
+        <div style="display: flex; flex-direction: column; gap: .5rem; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; box-shadow: var(--shadow-sm);">
+          <div class="arch-row"><div class="arch-box"><i class="fa-brands fa-chrome" style="color:var(--muted);margin-right:4px;"></i> Browser<span class="arch-label">Vue 3 + Inertia</span></div><span class="arch-arrow"><i class="fa-solid fa-arrow-down"></i></span><div class="arch-box">Apache / Nginx<span class="arch-label">XAMPP / Prod</span></div></div>
+          <div style="padding-left: 1.5rem; color: var(--muted); font-size: .75rem; font-family: var(--mono);">↓ HTTP request</div>
+          <div class="arch-row"><div class="arch-box border-admin"><i class="fa-solid fa-shield" style="color:var(--primary);margin-right:4px;"></i> RoleMiddleware<span class="arch-label">Auth + RBAC gate</span></div><span class="arch-arrow"><i class="fa-solid fa-arrow-down"></i></span><div class="arch-box">Controller<span class="arch-label">Business logic</span></div></div>
+          <div style="padding-left: 1.5rem; color: var(--muted); font-size: .75rem; font-family: var(--mono);">↓ Eloquent ORM</div>
+          <div class="arch-row"><div class="arch-box border-teacher"><i class="fa-solid fa-database" style="color:var(--teacher-sage);margin-right:4px;"></i> Model + DB<span class="arch-label">MySQL / Eloquent</span></div><span class="arch-arrow"><i class="fa-solid fa-arrow-down"></i></span><div class="arch-box border-student"><i class="fa-solid fa-file-code" style="color:var(--student-coral);margin-right:4px;"></i> Inertia Response<span class="arch-label">Props → Vue page</span></div></div>
+        </div>
+        <div style="margin-top: 1.25rem; padding: 1rem; background: rgba(37, 99, 235, 0.05); border-left: 3px solid var(--primary); border-radius: 0 8px 8px 0;">
+          <p style="font-size: .85rem; color: var(--dim);"><strong style="color: var(--text);">Key Concept:</strong> Inertia acts as the glue — no separate REST API for page loads. Async API routes (<code>/api/*</code>) are strictly used for AJAX-style operations like search and chat.</p>
+        </div>
+      </div>
+      <div>
+        <h3 class="sub" style="margin-bottom: 1.25rem;"><i class="fa-solid fa-users-viewfinder"></i> Portal Separation (RBAC)</h3>
+        <div style="display: flex; flex-direction: column; gap: 1rem;">
+          <div class="fi border-student"><div style="display: flex; justify-content: space-between; align-items: center;"><span style="font-weight: 700; font-family: var(--head); color: var(--student-coral);"><i class="fa-solid fa-user-graduate"></i> /student/*</span><span class="badge badge-coral">role=student</span></div><p style="margin-top: .5rem;">Dashboard, search, booking, chat, profile. Designed mobile-first.</p></div>
+          <div class="fi border-teacher"><div style="display: flex; justify-content: space-between; align-items: center;"><span style="font-weight: 700; font-family: var(--head); color: var(--teacher-sage);"><i class="fa-solid fa-person-chalkboard"></i> /teacher/*</span><span class="badge badge-sage">role=teacher</span></div><p style="margin-top: .5rem;">Dashboard, availability, sessions, earnings. Tablet/Desktop optimized.</p></div>
+          <div class="fi border-admin"><div style="display: flex; justify-content: space-between; align-items: center;"><span style="font-weight: 700; font-family: var(--head); color: var(--primary);"><i class="fa-solid fa-shield-halved"></i> /admin/*</span><span class="badge badge-blue">role=admin + 2FA</span></div><p style="margin-top: .5rem;">Users, verification, reports, analytics. Data-dense desktop layouts.</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 6 -->
+<div class="slide" id="s6">
+  <div style="width: 100%; max-width: 1160px;">
+    <div class="slide-label">Data Layer</div>
+    <h2 class="slide-title">Database Schema (Key Tables)</h2>
+    <div class="g2" style="gap: 2rem;">
+      <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+        <div><h3 class="sub" style="font-size: 1rem; margin-bottom: .5rem;"><i class="fa-solid fa-users"></i> users + profiles</h3><table class="db"><thead><tr><th>Column</th><th>Type</th><th>Purpose</th></tr></thead><tbody><tr><td>id</td><td>bigint PK</td><td>Primary key</td></tr><tr><td>role</td><td>enum</td><td>student / teacher / admin</td></tr><tr><td>email</td><td>varchar</td><td>Unique login identifier</td></tr><tr><td>password</td><td>varchar</td><td>bcrypt hash</td></tr></tbody></table></div>
+        <div><h3 class="sub" style="font-size: 1rem; margin-bottom: .5rem;"><i class="fa-solid fa-address-card"></i> teacher_profiles</h3><table class="db"><thead><tr><th>Column</th><th>Type</th><th>Purpose</th></tr></thead><tbody><tr><td>subjects</td><td>json</td><td>Array of teaching subjects</td></tr><tr><td>hourly_rate</td><td>decimal</td><td>Price per session hour</td></tr><tr><td>is_verified</td><td>bool</td><td>Admin verification status</td></tr></tbody></table></div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+        <div><h3 class="sub" style="font-size: 1rem; margin-bottom: .5rem;"><i class="fa-solid fa-calendar-check"></i> bookings + booking_slots</h3><table class="db"><thead><tr><th>Column</th><th>Type</th><th>Purpose</th></tr></thead><tbody><tr><td>student_id</td><td>FK → users</td><td>Who booked</td></tr><tr><td>teacher_id</td><td>FK → users</td><td>Who teaches</td></tr><tr><td>status</td><td>enum</td><td>pending/confirmed/completed</td></tr><tr><td>session_type</td><td>enum</td><td>solo / group</td></tr></tbody></table></div>
+        <div><h3 class="sub" style="font-size: 1rem; margin-bottom: .5rem;"><i class="fa-solid fa-comments"></i> conversations + messages</h3><table class="db"><thead><tr><th>Column</th><th>Type</th><th>Purpose</th></tr></thead><tbody><tr><td>conversation_id</td><td>FK</td><td>Thread grouping</td></tr><tr><td>sender_id</td><td>FK → users</td><td>Message author</td></tr><tr><td>body</td><td>text</td><td>Message content</td></tr></tbody></table></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 7 -->
+<div class="slide" id="s7">
+  <div style="width: 100%; max-width: 1160px;">
+    <div class="slide-label">Security</div>
+    <h2 class="slide-title">Security Implementation</h2>
+    <div class="g3">
+      <div class="fi border-admin">
+        <div class="icon"><i class="fa-solid fa-lock"></i></div><h4>Authentication</h4>
+        <ul class="tl" style="margin-top: .75rem;">
+          <li><i class="fa-solid fa-check"></i> <strong>Laravel Sanctum</strong> API token auth</li>
+          <li><i class="fa-solid fa-check"></i> <strong>bcrypt</strong> password hashing</li>
+          <li><i class="fa-solid fa-check"></i> <strong>Admin 2FA</strong> via <code>TwoFactorVerified</code></li>
+        </ul>
+      </div>
+      <div class="fi border-admin">
+        <div class="icon"><i class="fa-solid fa-layer-group"></i></div><h4>Middleware Stack</h4>
+        <ul class="tl" style="margin-top: .75rem;">
+          <li><i class="fa-solid fa-check"></i> <code>RoleMiddleware</code> RBAC gates</li>
+          <li><i class="fa-solid fa-check"></i> <code>SecurityHeaders</code> CSP &amp; HSTS</li>
+          <li><i class="fa-solid fa-check"></i> <code>ForceHttps</code> production redirect</li>
+        </ul>
+      </div>
+      <div class="fi border-admin">
+        <div class="icon"><i class="fa-solid fa-shield-virus"></i></div><h4>Injection Prevention</h4>
+        <ul class="tl" style="margin-top: .75rem;">
+          <li><i class="fa-solid fa-check"></i> <strong>Eloquent ORM</strong> parameterised queries</li>
+          <li><i class="fa-solid fa-check"></i> <strong>FormRequest</strong> server validation</li>
+          <li><i class="fa-solid fa-check"></i> <strong>CSRF tokens</strong> on state changes</li>
+        </ul>
+      </div>
+      <div class="fi border-admin">
+        <div class="icon" style="color: var(--orange); background: rgba(249, 115, 22, 0.1);"><i class="fa-solid fa-tower-broadcast"></i></div><h4>Realtime Security</h4>
+        <ul class="tl" style="margin-top: .75rem;">
+          <li><i class="fa-solid fa-check"></i> <strong>channels.php</strong> auth gates</li>
+          <li><i class="fa-solid fa-check"></i> Private channels verified by user ID</li>
+        </ul>
+      </div>
+      <div class="fi border-admin">
+        <div class="icon" style="color: var(--purple); background: rgba(139, 92, 246, 0.1);"><i class="fa-solid fa-video-slash"></i></div><h4>Video Access</h4>
+        <ul class="tl" style="margin-top: .75rem;">
+          <li><i class="fa-solid fa-check"></i> <strong>Jitsi JaaS</strong> JWT-signed tokens</li>
+          <li><i class="fa-solid fa-check"></i> Room name = UUID (unguessable)</li>
+        </ul>
+      </div>
+      <div class="fi border-admin">
+        <div class="icon" style="color: var(--green); background: rgba(16, 185, 129, 0.1);"><i class="fa-solid fa-file-invoice-dollar"></i></div><h4>Payments</h4>
+        <ul class="tl" style="margin-top: .75rem;">
+          <li><i class="fa-solid fa-check"></i> <strong>PhonePe webhook</strong> HMAC verified</li>
+          <li><i class="fa-solid fa-check"></i> State stored strictly server-side</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 8 -->
+<div class="slide" id="s8">
+  <div style="width: 100%; max-width: 1160px;">
+    <div class="slide-label"><i class="fa-solid fa-user-graduate"></i> Student Portal — Demo</div>
+    <h2 class="slide-title">Student Dashboard &amp; Teacher Discovery</h2>
+    <div class="g2">
+      <div>
+        <div class="ss ss-half"><img src="docs/image/student portal/Screenshot 2026-05-08 014605.png" alt="Student Dashboard"></div>
+        <p class="cap">STUDENT DASHBOARD — Announcements, quick-nav, upcoming bookings</p>
+        <div style="margin-top: 1.25rem; display: flex; gap: .5rem; flex-wrap: wrap;">
+          <span class="badge badge-blue">Vue 3 SPA</span>
+          <span class="badge badge-purple">Inertia.js props</span>
+          <span class="badge badge-coral">Role: student</span>
+        </div>
+      </div>
+      <div>
+        <div class="ss ss-half"><img src="docs/image/student portal/Screenshot 2026-05-08 014753.png" alt="Find Teachers"></div>
+        <p class="cap">FIND TEACHERS — Filter by subject, language, price, rating</p>
+        <ul class="tl" style="margin-top: 1rem;">
+          <li><i class="fa-solid fa-code"></i> <strong>Search API</strong> — <code>/api/teachers</code> with query params</li>
+          <li><i class="fa-solid fa-stopwatch"></i> <strong>Debounced input</strong> — axios call fires 300ms after typing</li>
+          <li><i class="fa-regular fa-heart"></i> <strong>SavedTeacher model</strong> — heart toggle persists to DB</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 9 -->
+<div class="slide" id="s9">
+  <div style="width: 100%; max-width: 1160px;">
+    <div class="slide-label"><i class="fa-solid fa-user-graduate"></i> Student Portal — Booking Engine</div>
+    <h2 class="slide-title">4-Step Booking Wizard</h2>
+    <div class="step-flow">
+      <div class="step-dot step-done"><i class="fa-solid fa-check"></i></div><div class="step-line done"></div>
+      <div class="step-dot step-done"><i class="fa-solid fa-check"></i></div><div class="step-line done"></div>
+      <div class="step-dot step-done"><i class="fa-solid fa-check"></i></div><div class="step-line"></div>
+      <div class="step-dot">4</div>
+      <span style="margin-left: 1rem; color: var(--text); font-weight: 500; font-size: .9rem;">Pick Date → Pick Time → Session Details → Review &amp; Pay</span>
+    </div>
+    <div class="g4">
+      <div>
+        <div class="ss ss-sm"><img src="docs/image/student portal/Screenshot 2026-05-08 015716.png" alt="Step 1 Calendar"></div>
+        <p class="cap">STEP 1 — Pick Date<br>Available days dynamically loaded</p>
+      </div>
+      <div>
+        <div class="ss ss-sm"><img src="docs/image/student portal/Screenshot 2026-05-08 015733.png" alt="Step 2 Time"></div>
+        <p class="cap">STEP 2 — Pick Slot<br>Slots filtered by teacher availability</p>
+      </div>
+      <div>
+        <div class="ss ss-sm"><img src="docs/image/student portal/Screenshot 2026-05-08 015754.png" alt="Step 3 Details"></div>
+        <p class="cap">STEP 3 — Session Details<br>Subject, notes, session type</p>
+      </div>
+      <div>
+        <div class="ss ss-sm"><img src="docs/image/student portal/Screenshot 2026-05-08 015807.png" alt="Step 4 Review"></div>
+        <p class="cap">STEP 4 — Review &amp; Pay<br>Summary + platform fee calculation</p>
+      </div>
+    </div>
+    <div style="margin-top: 1.5rem; padding: 1rem; background: var(--card); border: 1px solid var(--border); border-left: 3px solid var(--primary); border-radius: 4px; font-family: var(--mono); font-size: .8rem; color: var(--dim); box-shadow: var(--shadow-sm);">
+      <strong style="color: var(--text);">Implementation Detail:</strong> Modal state managed in Vue <code>reactive()</code> object. <code>BookingService</code> validates slot is not double-booked. Database transaction wraps slot lock + booking insert.
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 10 -->
+<div class="slide" id="s10">
+  <div style="width: 100%; max-width: 1160px;">
+    <div class="slide-label"><i class="fa-solid fa-user-graduate"></i> Student Portal — Payment Flow</div>
+    <h2 class="slide-title">Payment &amp; Booking Confirmation</h2>
+    <div class="g3" style="align-items: start;">
+      <div>
+        <div class="ss ss-half"><img src="docs/image/student portal/Screenshot 2026-05-08 015819.png" alt="PhonePe Payment"></div>
+        <p class="cap">PHONEPE GATEWAY — Sandbox mode<br>TXN: EDUB-{id}-{timestamp}</p>
+        <ul class="tl" style="margin-top: 1rem;">
+          <li><i class="fa-solid fa-chevron-right"></i> <strong>PhonePeService</strong> class wraps SDK calls cleanly</li>
+          <li><i class="fa-solid fa-chevron-right"></i> Secure server-to-server HMAC webhook verification</li>
+        </ul>
+      </div>
+      <div>
+        <div class="ss ss-half"><img src="docs/image/student portal/Screenshot 2026-05-08 015843.png" alt="Booking Confirmed"></div>
+        <p class="cap">BOOKING CONFIRMED — Status updated<br>Join Video link becomes active</p>
+        <ul class="tl" style="margin-top: 1rem;">
+          <li><i class="fa-solid fa-chevron-right"></i> Webhook sets <code>status=confirmed</code> asynchronously</li>
+          <li><i class="fa-solid fa-chevron-right"></i> Queue worker fires confirmation email</li>
+        </ul>
+      </div>
+      <div>
+        <div class="ss ss-half"><img src="docs/image/student portal/Screenshot 2026-05-08 014838.png" alt="Bookings Page"></div>
+        <p class="cap">MY BOOKINGS — Upcoming / Completed tabs<br>Full history management</p>
+        <ul class="tl" style="margin-top: 1rem;">
+          <li><i class="fa-solid fa-chevron-right"></i> Tabs filter by booking status enum in DB</li>
+          <li><i class="fa-solid fa-chevron-right"></i> Cancel triggers <code>SendCancellationNotification</code></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 11 -->
+<div class="slide" id="s11">
+  <div style="width: 100%; max-width: 1160px;">
+    <div class="slide-label"><i class="fa-solid fa-user-graduate"></i> Student Portal — Communication</div>
+    <h2 class="slide-title">Real-Time Chat &amp; Teacher Profiles</h2>
+    <div class="g2">
+      <div>
+        <div class="ss ss-half"><img src="docs/image/student portal/Screenshot 2026-05-08 015653.png" alt="Live Chat"></div>
+        <p class="cap">REAL-TIME CHAT — Student ↔ Teacher messaging</p>
+        <ul class="tl" style="margin-top: 1rem;">
+          <li><i class="fa-solid fa-satellite-dish"></i> <strong>Laravel Echo</strong> listens on <code>conversation.{id}</code> channel</li>
+          <li><i class="fa-solid fa-tower-broadcast"></i> <strong>MessageSent</strong> event broadcast via Pusher</li>
+          <li><i class="fa-solid fa-check-double"></i> Double-tick read receipts, timestamps, grouping</li>
+          <li><i class="fa-solid fa-envelope"></i> <strong>SendChatNotification</strong> queued for offline users</li>
+        </ul>
+      </div>
+      <div>
+        <div class="ss ss-half"><img src="docs/image/student portal/Screenshot 2026-05-08 015618.png" alt="Teacher Profile"></div>
+        <p class="cap">TEACHER PROFILE — Verified badge, subjects, rate, reviews</p>
+        <ul class="tl" style="margin-top: 1rem;">
+          <li><i class="fa-solid fa-database"></i> Profile data uses <code>teacher_profiles</code> JOIN <code>users</code></li>
+          <li><i class="fa-solid fa-star"></i> Reviews aggregated dynamically via <code>avg(rating)</code></li>
+          <li><i class="fa-solid fa-calendar-plus"></i> <strong>Book Session</strong> opens the 4-step modal wizard</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 12 -->
+<div class="slide" id="s12">
+  <div style="width: 100%; max-width: 1160px;">
+    <div class="slide-label"><i class="fa-solid fa-person-chalkboard"></i> Teacher Portal — Demo</div>
+    <h2 class="slide-title">Teacher Operations</h2>
+    <div class="g3" style="align-items: start;">
+      <div>
+        <div class="ss ss-half"><img src="docs/image/teacher portal/Screenshot 2026-05-08 015236.png" alt="Teacher Dashboard"></div>
+        <p class="cap">TEACHER DASHBOARD<br>Announcements, stats, quick actions</p>
+        <ul class="tl" style="margin-top: 1rem;">
+          <li><i class="fa-solid fa-chart-simple"></i> Analytics: sessions, students, earnings</li>
+          <li><i class="fa-solid fa-bullhorn"></i> Global banners broadcast by Admin</li>
+          <li><i class="fa-solid fa-certificate"></i> Verified badge shown post-approval</li>
+        </ul>
+      </div>
+      <div>
+        <div class="ss ss-half"><img src="docs/image/teacher portal/Screenshot 2026-05-08 015401.png" alt="Availability"></div>
+        <p class="cap">AVAILABILITY MANAGEMENT<br>Recurring weekly + one-time slots</p>
+        <ul class="tl" style="margin-top: 1rem;">
+          <li><i class="fa-solid fa-table"></i> <code>booking_slots</code> stores available ranges</li>
+          <li><i class="fa-solid fa-clock"></i> Supports recurring and specific dates</li>
+          <li><i class="fa-solid fa-filter"></i> Restricts what students can book</li>
+        </ul>
+      </div>
+      <div>
+        <div class="ss ss-half"><img src="docs/image/teacher portal/Screenshot 2026-05-08 015317.png" alt="Teacher Profile"></div>
+        <p class="cap">MY PROFILE + REVIEWS<br>Subjects, languages, student ratings</p>
+        <ul class="tl" style="margin-top: 1rem;">
+          <li><i class="fa-solid fa-comment-dots"></i> View reviews left by students</li>
+          <li><i class="fa-solid fa-star-half-stroke"></i> Monitors overall ranking score</li>
+          <li><i class="fa-solid fa-pen-to-square"></i> Edits trigger re-verification flow</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 13 -->
+<div class="slide" id="s13">
+  <div style="width: 100%; max-width: 1160px;">
+    <div class="slide-label"><i class="fa-solid fa-shield-halved"></i> Admin Portal — Demo</div>
+    <h2 class="slide-title">Dashboard &amp; User Management</h2>
+    <div class="g2">
+      <div>
+        <div class="ss ss-half"><img src="docs/image/admin/Screenshot 2026-05-08 015951.png" alt="Admin Dashboard"></div>
+        <p class="cap">OPERATIONS SNAPSHOT — Platform health &amp; activity feed</p>
+        <ul class="tl" style="margin-top: 1rem;">
+          <li><i class="fa-solid fa-bolt"></i> <strong>Real-time stats</strong> via Eloquent aggregate queries</li>
+          <li><i class="fa-solid fa-list-ol"></i> Live feed of recent signups with role tags</li>
+          <li><i class="fa-solid fa-lock"></i> Protected by strict <code>EnsureAdminTwoFactorVerified</code> gate</li>
+        </ul>
+      </div>
+      <div>
+        <div class="ss ss-half"><img src="docs/image/admin/Screenshot 2026-05-08 020017.png" alt="User Management"></div>
+        <p class="cap">USER MANAGEMENT — Drill-down data panels</p>
+        <ul class="tl" style="margin-top: 1rem;">
+          <li><i class="fa-solid fa-magnifying-glass"></i> Live search + status filtering</li>
+          <li><i class="fa-solid fa-user-xmark"></i> Admin controls to Suspend or Delete accounts</li>
+          <li><i class="fa-solid fa-file-csv"></i> Export capability via queued <code>ExportUsersJob</code></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 14 -->
+<div class="slide" id="s14">
+  <div style="width: 100%; max-width: 1160px;">
+    <div class="slide-label"><i class="fa-solid fa-shield-halved"></i> Admin Portal — Demo</div>
+    <h2 class="slide-title">Verification Queue &amp; Analytics</h2>
+    <div class="g2">
+      <div>
+        <div class="ss ss-half"><img src="docs/image/admin/Screenshot 2026-05-08 020139.png" alt="Verification Queue"></div>
+        <p class="cap">VERIFICATION QUEUE — Document review workflow</p>
+        <ul class="tl" style="margin-top: 1rem;">
+          <li><i class="fa-solid fa-file-signature"></i> Teachers submit profile + certificates on signup</li>
+          <li><i class="fa-solid fa-thumbs-up"></i> Approve sets <code>is_verified=true</code>, firing welcome email</li>
+          <li><i class="fa-solid fa-thumbs-down"></i> Reject requires mandatory decision note sent to teacher</li>
+        </ul>
+      </div>
+      <div>
+        <div class="ss ss-half"><img src="docs/image/admin/Screenshot 2026-05-08 020434.png" alt="Analytics"></div>
+        <p class="cap">ANALYTICS WORKSPACE — Financial &amp; session metrics</p>
+        <ul class="tl" style="margin-top: 1rem;">
+          <li><i class="fa-solid fa-chart-line"></i> Chart.js integration for revenue vs payout tracking</li>
+          <li><i class="fa-solid fa-chart-pie"></i> Session distribution analysis (paid vs free)</li>
+          <li><i class="fa-solid fa-calendar-days"></i> Dynamic date range filtering using raw SQL aggregates</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 15 -->
+<div class="slide" id="s15">
+  <div style="width: 100%; max-width: 1160px;">
+    <div class="slide-label"><i class="fa-solid fa-layer-group"></i> Extended Interfaces</div>
+    <h2 class="slide-title">Additional Features</h2>
+    <div class="g3">
+      <div>
+        <div class="ss ss-sm"><img src="docs/image/student portal/Screenshot 2026-05-08 014817.png" alt="Student Profile Settings"></div>
+        <p class="cap">Student Profile Settings</p>
+      </div>
+      <div>
+        <div class="ss ss-sm"><img src="docs/image/teacher portal/Screenshot 2026-05-08 015420.png" alt="Teacher Session View"></div>
+        <p class="cap">Teacher Session View</p>
+      </div>
+      <div>
+        <div class="ss ss-sm"><img src="docs/image/admin/Screenshot 2026-05-08 020212.png" alt="Admin Action Logs"></div>
+        <p class="cap">Admin Operations Log</p>
+      </div>
+      <div>
+        <div class="ss ss-sm"><img src="docs/image/teacher portal/Screenshot 2026-05-08 015503.png" alt="Teacher Revenue"></div>
+        <p class="cap">Teacher Revenue Tracking</p>
+      </div>
+      <div>
+        <div class="ss ss-sm"><img src="docs/image/student portal/Screenshot 2026-05-08 015633.png" alt="Chat Threads"></div>
+        <p class="cap">Messaging Threads</p>
+      </div>
+      <div>
+        <div class="ss ss-sm"><img src="docs/image/admin/Screenshot 2026-05-08 020332.png" alt="Dispute Resolution"></div>
+        <p class="cap">Admin Dispute Management</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 16 -->
+<div class="slide" id="s16">
+  <div style="width: 100%; max-width: 1160px;">
+    <div class="slide-label"><i class="fa-solid fa-rocket"></i> Roadmap</div>
+    <h2 class="slide-title">Future Scope</h2>
+    <div class="g3">
+      <div class="fi">
+        <div class="icon" style="color: #0284C7; background: rgba(2, 132, 199, 0.1);"><i class="fa-solid fa-mobile-screen"></i></div>
+        <h4>Mobile App</h4>
+        <p>Flutter cross-platform app consuming existing Laravel API. Push notifications via FCM.</p>
+        <div style="margin-top: 1rem;"><span class="badge badge-blue">Flutter</span> <span class="badge badge-blue">Firebase</span></div>
+      </div>
+      <div class="fi">
+        <div class="icon" style="color: #9333EA; background: rgba(147, 51, 234, 0.1);"><i class="fa-solid fa-robot"></i></div>
+        <h4>AI Teacher Matching</h4>
+        <p>ML model trained on booking history, ratings, subject affinity to rank teachers for each student.</p>
+        <div style="margin-top: 1rem;"><span class="badge badge-purple">Python ML</span> <span class="badge badge-purple">API Bridge</span></div>
+      </div>
+      <div class="fi">
+        <div class="icon" style="color: #059669; background: rgba(5, 150, 105, 0.1);"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+        <h4>Cloud Deployment</h4>
+        <p>Migrate from XAMPP to AWS EC2 + RDS + S3 with CI/CD pipeline via GitHub Actions.</p>
+        <div style="margin-top: 1rem;"><span class="badge badge-green">AWS</span> <span class="badge badge-green">CI/CD</span></div>
+      </div>
+      <div class="fi">
+        <div class="icon" style="color: #EA580C; background: rgba(234, 88, 12, 0.1);"><i class="fa-solid fa-users-rectangle"></i></div>
+        <h4>Group Classrooms</h4>
+        <p>Jitsi multi-participant rooms with whiteboard, draw permissions, and recording consent system.</p>
+        <div style="margin-top: 1rem;"><span class="badge badge-orange">Jitsi Groups</span> <span class="badge badge-orange">WebRTC</span></div>
+      </div>
+      <div class="fi">
+        <div class="icon" style="color: #4F46E5; background: rgba(79, 70, 229, 0.1);"><i class="fa-solid fa-credit-card"></i></div>
+        <h4>Live Payment Gateway</h4>
+        <p>Upgrade PhonePe from sandbox to production. Add Razorpay/Stripe as fallback options.</p>
+        <div style="margin-top: 1rem;"><span class="badge badge-blue">PhonePe Live</span></div>
+      </div>
+      <div class="fi">
+        <div class="icon" style="color: #DC2626; background: rgba(220, 38, 38, 0.1);"><i class="fa-solid fa-chart-simple"></i></div>
+        <h4>Advanced Analytics</h4>
+        <p>Teacher earnings forecasting, student progress tracking, heatmaps for peak booking times.</p>
+        <div style="margin-top: 1rem;"><span class="badge" style="background:rgba(220, 38, 38, 0.1);color:#DC2626;">Charts.js</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SLIDE 17 -->
+<div class="slide" id="s17">
+  <div class="title-center">
+    <div class="slide-label"><i class="fa-solid fa-flag-checkered"></i> Thank You</div>
+    <h1 class="main" style="font-size: 4.5rem;">Questions?</h1>
+    <p style="font-size: 1.25rem; color: var(--dim); margin-top: .5rem; font-weight: 500;">EduBridge — Bridging Students &amp; Teachers Through Technology</p>
+    
+    <div style="margin-top: 3rem; display: flex; gap: 1.5rem; justify-content: center; flex-wrap: wrap;">
+      <div class="fi" style="text-align: left; padding: 1.5rem 2rem; min-width: 280px;">
+        <p style="font-family: var(--mono); font-size: .75rem; color: var(--primary); font-weight: 600; margin-bottom: .5rem;"><i class="fa-solid fa-layer-group"></i> TECH STACK</p>
+        <p style="font-size: .95rem; color: var(--text); font-weight: 500; line-height: 1.6;">Laravel 10 · Vue 3 · Inertia.js<br>MySQL · Jitsi Meet · PhonePe</p>
+      </div>
+      <div class="fi" style="text-align: left; padding: 1.5rem 2rem; min-width: 280px;">
+        <p style="font-family: var(--mono); font-size: .75rem; color: var(--primary); font-weight: 600; margin-bottom: .5rem;"><i class="fa-solid fa-star"></i> KEY FEATURES</p>
+        <p style="font-size: .95rem; color: var(--text); font-weight: 500; line-height: 1.6;">3-portal RBAC · Live Video<br>Real-time Chat · Booking Wizard</p>
+      </div>
+      <div class="fi border-admin" style="text-align: left; padding: 1.5rem 2rem; min-width: 280px;">
+        <p style="font-family: var(--mono); font-size: .75rem; color: var(--primary); font-weight: 600; margin-bottom: .5rem;"><i class="fa-solid fa-link"></i> LOCAL DEMO</p>
+        <p style="font-size: 1rem; color: var(--primary); font-family: var(--mono); font-weight: 600;">http://localhost:8000</p>
+        <p style="font-size: .8rem; color: var(--dim); margin-top: .5rem;"><i class="fa-solid fa-terminal"></i> php artisan serve</p>
+      </div>
+    </div>
+    
+    <div style="margin-top: 3rem; display: flex; gap: 1rem; justify-content: center;">
+      <span class="badge badge-blue"><i class="fa-solid fa-user"></i> Nitish Kumar (12515641)</span>
+      <span class="badge badge-sage"><i class="fa-solid fa-code"></i> CAP777 — CA2 Project</span>
+    </div>
+  </div>
+</div>
+
+<script>
+const slides = document.querySelectorAll('.slide');
+const total = slides.length;
+let cur = 0;
+function go(n) {
+  slides[cur].classList.remove('active');
+  cur = (n + total) % total;
+  slides[cur].classList.add('active');
+  document.getElementById('progress').style.width = ((cur + 1) / total * 100) + '%';
+  document.getElementById('counter').textContent = String(cur + 1).padStart(2, '0') + ' / ' + String(total).padStart(2, '0');
+}
+document.getElementById('next').onclick = () => go(cur + 1);
+document.getElementById('prev').onclick = () => go(cur - 1);
+document.addEventListener('keydown', e => {
+  if(e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') go(cur + 1);
+  if(e.key === 'ArrowLeft' || e.key === 'PageUp') go(cur - 1);
+});
+go(0);
+</script>
+</body>
+</html>

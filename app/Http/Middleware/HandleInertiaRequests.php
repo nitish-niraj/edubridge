@@ -49,6 +49,10 @@ class HandleInertiaRequests extends Middleware
                     'high_contrast' => (bool) optional($user->notificationPreferences)->high_contrast,
                 ]
                 : null,
+            'flash' => [
+                'status' => $request->session()->get('status'),
+                'error' => $request->session()->get('error'),
+            ],
         ];
     }
 }

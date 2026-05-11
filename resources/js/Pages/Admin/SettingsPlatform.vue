@@ -4,16 +4,19 @@ import { useForm, Head } from '@inertiajs/vue3';
 import { ref } from 'vue';
 
 const props = defineProps({
-    settings: Object,
+    settings: {
+        type: Object,
+        default: () => ({}),
+    },
 });
 
 const form = useForm({
-    site_name: props.settings.site_name,
-    maintenance_mode: props.settings.maintenance_mode,
-    student_registration: props.settings.student_registration,
-    teacher_registration: props.settings.teacher_registration,
-    platform_fee_percent: props.settings.platform_fee_percent,
-    contact_email: props.settings.contact_email,
+    site_name: props.settings?.site_name || 'EduBridge',
+    maintenance_mode: !!(props.settings?.maintenance_mode ?? false),
+    student_registration: !!(props.settings?.student_registration ?? true),
+    teacher_registration: !!(props.settings?.teacher_registration ?? true),
+    platform_fee_percent: props.settings?.platform_fee_percent ?? 10,
+    contact_email: props.settings?.contact_email || 'support@edubridge.com',
 });
 
 const saveSettings = () => {
@@ -35,6 +38,13 @@ const saveSettings = () => {
                 </header>
 
                 <form @submit.prevent="saveSettings" class="settings-form">
+                    <div v-if="$page.props.flash?.status" class="alert-success">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.857-9.809a.75.75 0 0 0-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 1 0-1.06 1.061l2.5 2.5a.75.75 0 0 0 1.137-.089l4-5.5Z" clip-rule="evenodd" />
+                        </svg>
+                        {{ $page.props.flash.status }}
+                    </div>
+
                     <div class="form-grid">
                         <div class="form-group">
                             <label for="site_name">Site Name</label>
@@ -130,6 +140,20 @@ const saveSettings = () => {
     margin: 4px 0 0;
     color: #64748b;
     font-size: 14px;
+}
+
+.alert-success {
+    background: #ecfdf5;
+    border: 1px solid #10b981;
+    color: #065f46;
+    padding: 12px 16px;
+    border-radius: 10px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    font-weight: 600;
 }
 
 .form-grid {
