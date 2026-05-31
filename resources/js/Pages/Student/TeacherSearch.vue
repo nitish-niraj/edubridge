@@ -15,6 +15,7 @@ const page = usePage();
 const currentUser = computed(() => page.props.auth?.user ?? null);
 
 const teachers = ref([]);
+const recommendedTeachers = ref([]);
 const nextCursor = ref(null);
 const totalTeachers = ref(0);
 const hasMore = ref(true);
@@ -42,8 +43,12 @@ const filters = ref({
     subjects: [],
     languages: [],
     price: 'any',
+    price_min: '',
+    price_max: '',
     min_rating: null,
     availability_days: [],
+    availability_start: '',
+    availability_end: '',
     gender: 'any',
 });
 
@@ -94,7 +99,16 @@ const activeFilterChips = computed(() => {
     filters.value.availability_days.forEach((day) => chips.push({ key: `day:${day}`, label: `Day: ${day}` }));
 
     if (filters.value.price !== 'any') chips.push({ key: 'price', label: `Price: ${filters.value.price}` });
+    if (filters.value.price_min !== '' || filters.value.price_max !== '') {
+        chips.push({
+            key: 'price_range',
+            label: `Price: ${filters.value.price_min || 0}-${filters.value.price_max || 'Any'}`,
+        });
+    }
     if (filters.value.min_rating) chips.push({ key: 'min_rating', label: `${filters.value.min_rating}+ stars` });
+    if (filters.value.availability_start && filters.value.availability_end) {
+        chips.push({ key: 'availability_time', label: `${filters.value.availability_start}-${filters.value.availability_end}` });
+    }
     if (filters.value.gender !== 'any') chips.push({ key: 'gender', label: `Gender: ${filters.value.gender}` });
 
     return chips;
@@ -129,7 +143,13 @@ const buildParams = () => {
     if (filters.value.languages.length) params.languages = filters.value.languages;
     if (filters.value.availability_days.length) params.availability_days = filters.value.availability_days;
     if (filters.value.price !== 'any') params.price = filters.value.price;
+    if (filters.value.price_min !== '') params.price_min = filters.value.price_min;
+    if (filters.value.price_max !== '') params.price_max = filters.value.price_max;
     if (filters.value.min_rating) params.min_rating = filters.value.min_rating;
+    if (filters.value.availability_start && filters.value.availability_end) {
+        params.availability_start = filters.value.availability_start;
+        params.availability_end = filters.value.availability_end;
+    }
     if (filters.value.gender !== 'any') params.gender = filters.value.gender;
 
     if (isSearchMode.value) {
@@ -166,6 +186,7 @@ const fetchTeachers = async (reset = false) => {
         }
 
         totalTeachers.value = payload.meta?.total ?? 0;
+        recommendedTeachers.value = payload.meta?.recommendations ?? [];
         
         // Handle cursor pagination
         const nextUrl = payload.links?.next;
@@ -202,8 +223,12 @@ const clearFilters = async () => {
         subjects: [],
         languages: [],
         price: 'any',
+        price_min: '',
+        price_max: '',
         min_rating: null,
         availability_days: [],
+        availability_start: '',
+        availability_end: '',
         gender: 'any',
     };
     await fetchTeachers(true);
@@ -219,7 +244,15 @@ const removeChip = async (chipKey) => {
     if (type === 'language') filters.value.languages = filters.value.languages.filter((l) => l !== value);
     if (type === 'day') filters.value.availability_days = filters.value.availability_days.filter((d) => d !== value);
     if (chipKey === 'price') filters.value.price = 'any';
+    if (chipKey === 'price_range') {
+        filters.value.price_min = '';
+        filters.value.price_max = '';
+    }
     if (chipKey === 'min_rating') filters.value.min_rating = null;
+    if (chipKey === 'availability_time') {
+        filters.value.availability_start = '';
+        filters.value.availability_end = '';
+    }
     if (chipKey === 'gender') filters.value.gender = 'any';
 
     await fetchTeachers(true);
@@ -406,6 +439,18 @@ onBeforeUnmount(() => {
                     <p>Showing {{ showingCount }} of {{ totalTeachers }} teachers</p>
                 </div>
 
+                <section v-if="recommendedTeachers.length" class="recommendation-section">
+                    <h2>Teachers you might like based on your searches</h2>
+                    <div class="recommendation-grid">
+                        <TeacherCard
+                            v-for="(teacher, index) in recommendedTeachers"
+                            :key="`recommended-${teacher.teacher_id || teacher.id}`"
+                            :teacher="teacher"
+                            :index="index"
+                        />
+                    </div>
+                </section>
+
                 <div v-if="showInitialSkeleton" class="teacher-grid">
                     <article v-for="index in 6" :key="index" class="teacher-card teacher-card--skeleton skeleton-card">
                         <div class="skeleton subject-strip-skeleton"></div>
@@ -499,6 +544,10 @@ onBeforeUnmount(() => {
                         <option value="200_500">₹200-500</option>
                         <option value="500_plus">₹500+</option>
                     </select>
+                    <div class="range-row">
+                        <input v-model="filters.price_min" class="field-input" type="number" min="0" placeholder="Min">
+                        <input v-model="filters.price_max" class="field-input" type="number" min="0" placeholder="Max">
+                    </div>
                 </div>
 
                 <div class="filter-section">
@@ -528,6 +577,10 @@ onBeforeUnmount(() => {
                         >
                             {{ day }}
                         </button>
+                    </div>
+                    <div class="time-row">
+                        <input v-model="filters.availability_start" class="field-input" type="time">
+                        <input v-model="filters.availability_end" class="field-input" type="time">
                     </div>
                 </div>
 
@@ -590,6 +643,10 @@ onBeforeUnmount(() => {
                         <option value="200_500">₹200-500</option>
                         <option value="500_plus">₹500+</option>
                     </select>
+                    <div class="range-row">
+                        <input v-model="filters.price_min" class="field-input" type="number" min="0" placeholder="Min">
+                        <input v-model="filters.price_max" class="field-input" type="number" min="0" placeholder="Max">
+                    </div>
                 </div>
 
                 <div class="filter-section">
@@ -619,6 +676,10 @@ onBeforeUnmount(() => {
                         >
                             {{ day }}
                         </button>
+                    </div>
+                    <div class="time-row">
+                        <input v-model="filters.availability_start" class="field-input" type="time">
+                        <input v-model="filters.availability_end" class="field-input" type="time">
                     </div>
                 </div>
 
@@ -846,6 +907,24 @@ onBeforeUnmount(() => {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 24px;
     margin-top: 20px;
+}
+
+.recommendation-section {
+    margin: 18px 0 24px;
+}
+
+.recommendation-section h2 {
+    margin: 0 0 12px;
+    font-family: Nunito, sans-serif;
+    font-size: 18px;
+    font-weight: 800;
+    color: #2d2d2d;
+}
+
+.recommendation-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
 }
 
 .teacher-card {
@@ -1136,6 +1215,23 @@ h3 {
     padding: 0 10px;
 }
 
+.range-row,
+.time-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.field-input {
+    width: 100%;
+    height: 40px;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+    padding: 0 10px;
+    font-family: Nunito, sans-serif;
+}
+
 .rating-row {
     display: flex;
     gap: 6px;
@@ -1404,7 +1500,8 @@ h3 {
 }
 
 @media (max-width: 1200px) {
-    .teacher-grid {
+    .teacher-grid,
+    .recommendation-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
@@ -1433,7 +1530,8 @@ h3 {
 }
 
 @media (max-width: 640px) {
-    .teacher-grid {
+    .teacher-grid,
+    .recommendation-grid {
         grid-template-columns: 1fr;
     }
 

@@ -42,7 +42,12 @@ class TeacherController extends Controller
             throw new ServiceUnavailableHttpException(null, 'Teacher directory is temporarily unavailable. Please try again soon.');
         }
 
-            return TeacherCardResource::collection($teachers)->additional(['meta' => ['total' => $totalCount]]);
+            return TeacherCardResource::collection($teachers)->additional([
+                'meta' => [
+                    'total' => $totalCount,
+                    'recommendations' => $this->recommendedTeachers($request, $validated, $teachers->getCollection()->pluck('user_id')->all()),
+                ],
+            ]);
     }
 
     public function search(TeacherSearchRequest $request): AnonymousResourceCollection
@@ -99,7 +104,12 @@ class TeacherController extends Controller
             throw new ServiceUnavailableHttpException(null, 'Teacher search is temporarily unavailable. Please try again soon.');
         }
 
-                return TeacherCardResource::collection($teachers)->additional(['meta' => ['total' => $totalCount]]);
+                return TeacherCardResource::collection($teachers)->additional([
+                    'meta' => [
+                        'total' => $totalCount,
+                        'recommendations' => $this->recommendedTeachers($request, $validated, $teachers->getCollection()->pluck('user_id')->all()),
+                    ],
+                ]);
     }
 
     private function applySearchFallback(Builder $query, string $term): void
@@ -254,8 +264,30 @@ class TeacherController extends Controller
             $query->where('is_free', false)->where('hourly_rate', '>=', 500);
         }
 
+        $priceMin = array_key_exists('price_min', $filters) ? (float) $filters['price_min'] : null;
+        $priceMax = array_key_exists('price_max', $filters) ? (float) $filters['price_max'] : null;
+        if ($priceMin !== null || $priceMax !== null) {
+            $query->where(function (Builder $builder) use ($priceMin, $priceMax): void {
+                $builder->where(function (Builder $paidQuery) use ($priceMin, $priceMax): void {
+                    $paidQuery->where('is_free', false);
+
+                    if ($priceMin !== null) {
+                        $paidQuery->where('hourly_rate', '>=', $priceMin);
+                    }
+
+                    if ($priceMax !== null) {
+                        $paidQuery->where('hourly_rate', '<=', $priceMax);
+                    }
+                });
+
+                if ($priceMin === null || $priceMin <= 0) {
+                    $builder->orWhere('is_free', true);
+                }
+            });
+        }
+
         if (isset($filters['min_rating'])) {
-            $query->havingRaw('rating_avg >= ?', [(float) $filters['min_rating']]);
+            $query->where('rating_avg', '>=', (float) $filters['min_rating']);
         }
 
         $gender = $filters['gender'] ?? 'any';
@@ -281,6 +313,27 @@ class TeacherController extends Controller
                             ->where('is_active', true)
                             ->whereIn('day_of_week', $this->availabilityDayValues($day));
                     });
+                }
+            });
+        }
+
+        $availabilityStart = $filters['availability_start'] ?? null;
+        $availabilityEnd = $filters['availability_end'] ?? null;
+        if ($availabilityStart && $availabilityEnd) {
+            $query->whereHas('user.teacherAvailability', function (Builder $availabilityQuery) use ($availabilityStart, $availabilityEnd, $days): void {
+                $availabilityQuery
+                    ->where('is_active', true)
+                    ->where('start_time', '<=', $availabilityStart)
+                    ->where('end_time', '>=', $availabilityEnd);
+
+                if ($days !== []) {
+                    $dayValues = collect($days)
+                        ->flatMap(fn (string $day): array => $this->availabilityDayValues($day))
+                        ->unique()
+                        ->values()
+                        ->all();
+
+                    $availabilityQuery->whereIn('day_of_week', $dayValues);
                 }
             });
         }
@@ -361,5 +414,47 @@ class TeacherController extends Controller
     private function teacherCacheVersion(): int
     {
         return (int) Cache::get('teachers:cache_version', 1);
+    }
+
+    private function recommendedTeachers($request, array $filters, array $excludeTeacherIds): array
+    {
+        $query = $this->baseTeacherQuery($request->user()?->id)
+            ->whereNotIn('teacher_profiles.user_id', $excludeTeacherIds);
+
+        $subjects = Arr::wrap($filters['subjects'] ?? []);
+        $languages = Arr::wrap($filters['languages'] ?? []);
+        $searchTerms = collect(preg_split('/\s+/', (string) ($filters['q'] ?? ''), -1, PREG_SPLIT_NO_EMPTY))
+            ->map(fn (string $term): string => trim($term))
+            ->filter(fn (string $term): bool => mb_strlen($term) >= 2)
+            ->take(5)
+            ->values()
+            ->all();
+
+        if ($subjects !== [] || $languages !== [] || $searchTerms !== []) {
+            $query->where(function (Builder $builder) use ($subjects, $languages, $searchTerms): void {
+                foreach ($subjects as $subject) {
+                    $builder->orWhereJsonContains('subjects', $subject);
+                }
+
+                foreach ($languages as $language) {
+                    $builder->orWhereJsonContains('languages', $language);
+                }
+
+                foreach ($searchTerms as $term) {
+                    $builder->orWhere('subjects', 'like', "%{$term}%")
+                        ->orWhere('languages', 'like', "%{$term}%")
+                        ->orWhere('bio', 'like', "%{$term}%");
+                }
+            });
+        }
+
+        return $query
+            ->orderByDesc('rating_avg')
+            ->orderByDesc('total_reviews')
+            ->limit(3)
+            ->get()
+            ->map(fn (TeacherProfile $profile): array => (new TeacherCardResource($profile))->resolve($request))
+            ->values()
+            ->all();
     }
 }

@@ -101,6 +101,40 @@ class TeacherSearchTest extends TestCase
         $this->assertCount(1, $teacherIds);
     }
 
+    public function test_search_matches_teacher_name_and_returns_recommendations(): void
+    {
+        $searchedTeacher = $this->createTeacher(['name' => 'Anaya Physics Mentor'], ['subjects' => ['Physics']]);
+        $recommendedTeacher = $this->createTeacher(['name' => 'Related Science Mentor'], [
+            'subjects' => ['Physics', 'Science'],
+            'rating_avg' => 4.9,
+        ]);
+        $this->createTeacher(['name' => 'Unrelated Language Mentor'], ['subjects' => ['Languages']]);
+
+        $response = $this->getJson('/api/teachers/search?q=Anaya&subjects[]=Physics');
+
+        $response->assertOk();
+        $teacherIds = collect($response->json('data'))->pluck('teacher_id');
+        $recommendationIds = collect($response->json('meta.recommendations'))->pluck('teacher_id');
+
+        $this->assertTrue($teacherIds->contains($searchedTeacher->id));
+        $this->assertTrue($recommendationIds->contains($recommendedTeacher->id));
+    }
+
+    public function test_price_range_filter_returns_teachers_inside_range(): void
+    {
+        $insideRange = $this->createTeacher(profileOverrides: ['is_free' => false, 'hourly_rate' => 250]);
+        $this->createTeacher(profileOverrides: ['is_free' => false, 'hourly_rate' => 150]);
+        $this->createTeacher(profileOverrides: ['is_free' => false, 'hourly_rate' => 600]);
+
+        $response = $this->getJson('/api/teachers?price_min=200&price_max=300');
+
+        $response->assertOk();
+        $teacherIds = collect($response->json('data'))->pluck('teacher_id');
+
+        $this->assertTrue($teacherIds->contains($insideRange->id));
+        $this->assertCount(1, $teacherIds);
+    }
+
     public function test_price_low_to_high_puts_free_teachers_first(): void
     {
         $paidLow = $this->createTeacher(profileOverrides: ['is_free' => false, 'hourly_rate' => 150]);
@@ -143,6 +177,36 @@ class TeacherSearchTest extends TestCase
 
         $this->assertTrue($teacherIds->contains($mondayTeacher->id));
         $this->assertFalse($teacherIds->contains($tuesdayTeacher->id));
+    }
+
+    public function test_availability_time_filter_uses_matching_time_window(): void
+    {
+        $availableTeacher = $this->createTeacher();
+        $lateTeacher = $this->createTeacher();
+
+        TeacherAvailability::create([
+            'teacher_id' => $availableTeacher->id,
+            'day_of_week' => 'monday',
+            'start_time' => '09:00',
+            'end_time' => '11:00',
+            'is_active' => true,
+        ]);
+
+        TeacherAvailability::create([
+            'teacher_id' => $lateTeacher->id,
+            'day_of_week' => 'monday',
+            'start_time' => '12:00',
+            'end_time' => '13:00',
+            'is_active' => true,
+        ]);
+
+        $response = $this->getJson('/api/teachers?availability_days[]=Monday&availability_start=09:30&availability_end=10:30');
+
+        $response->assertOk();
+        $teacherIds = collect($response->json('data'))->pluck('teacher_id');
+
+        $this->assertTrue($teacherIds->contains($availableTeacher->id));
+        $this->assertFalse($teacherIds->contains($lateTeacher->id));
     }
 
     public function test_public_profile_visible_only_for_active_verified_teacher_and_hides_private_fields(): void

@@ -23,6 +23,8 @@ class TeacherSearchRequest extends FormRequest
             'languages' => ['nullable', 'array'],
             'languages.*' => ['string', 'max:50'],
             'price' => ['nullable', Rule::in(['any', 'free', 'under_200', '200_500', '500_plus'])],
+            'price_min' => ['nullable', 'numeric', 'min:0', 'max:100000'],
+            'price_max' => ['nullable', 'numeric', 'min:0', 'max:100000', 'gte:price_min'],
             'min_rating' => ['nullable', 'numeric', 'between:1,5'],
             'availability_days' => ['nullable', 'array'],
             'availability_days.*' => [
@@ -33,6 +35,8 @@ class TeacherSearchRequest extends FormRequest
                     'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday',
                 ]),
             ],
+            'availability_start' => ['nullable', 'date_format:H:i', 'required_with:availability_end'],
+            'availability_end' => ['nullable', 'date_format:H:i', 'after:availability_start', 'required_with:availability_start'],
             'gender' => ['nullable', Rule::in(['any', 'male', 'female', 'other'])],
             'sort' => ['nullable', Rule::in(['relevance', 'rating_desc', 'price_asc', 'price_desc', 'experienced', 'newest'])],
         ];
