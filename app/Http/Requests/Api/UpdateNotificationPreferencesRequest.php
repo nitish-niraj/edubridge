@@ -22,6 +22,8 @@ class UpdateNotificationPreferencesRequest extends FormRequest
             'session_reminder_sms' => ['sometimes', 'boolean'],
             'booking_cancelled_email' => ['sometimes', 'boolean'],
             'review_received_email' => ['sometimes', 'boolean'],
+            'earnings_released_email' => ['sometimes', 'boolean'],
+            'group_session_started_email' => ['sometimes', 'boolean'],
             'high_contrast' => ['sometimes', 'boolean'],
         ];
     }

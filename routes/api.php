@@ -55,6 +55,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/conversations', [ChatController::class, 'store']);
     Route::get('/conversations/{conversation}/messages', [ChatController::class, 'messages']);
     Route::post('/conversations/{conversation}/messages', [ChatController::class, 'send'])->middleware('throttle:messages');
+    Route::patch('/conversations/{conversation}/accept', [ChatController::class, 'accept']);
+    Route::patch('/conversations/{conversation}/decline', [ChatController::class, 'decline']);
     Route::patch('/conversations/{conversation}/read', [ChatController::class, 'markRead']);
     Route::post('/conversations/{conversation}/typing', [ChatController::class, 'typing'])->middleware('throttle:60,1');
 
@@ -122,6 +124,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     // ─── Group Video Sessions ──────────────────────────────────────────
     Route::post('/video-sessions/group/{conversationId}/start', [VideoSessionController::class, 'startGroupSession']);
     Route::post('/video-sessions/group/{conversationId}/join', [VideoSessionController::class, 'joinGroupSession']);
+    Route::post('/video-sessions/group/{conversationId}/raise-hand', [VideoSessionController::class, 'raiseHand']);
     Route::post('/video-sessions/group/{groupId}/token', [VideoSessionController::class, 'groupToken']);
     Route::patch('/video-sessions/group/{sessionId}/end', [VideoSessionController::class, 'endGroupSession']);
 

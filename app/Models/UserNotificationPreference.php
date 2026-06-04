@@ -20,19 +20,23 @@ class UserNotificationPreference extends Model
         'session_reminder_sms',
         'booking_cancelled_email',
         'review_received_email',
+        'earnings_released_email',
+        'group_session_started_email',
         'high_contrast',
     ];
 
     protected $casts = [
-        'new_message_email'        => 'boolean',
-        'new_message_sms'          => 'boolean',
-        'booking_confirmed_email'  => 'boolean',
-        'booking_confirmed_sms'    => 'boolean',
-        'session_reminder_email'   => 'boolean',
-        'session_reminder_sms'     => 'boolean',
-        'booking_cancelled_email'  => 'boolean',
-        'review_received_email'    => 'boolean',
-        'high_contrast'            => 'boolean',
+        'new_message_email'            => 'boolean',
+        'new_message_sms'              => 'boolean',
+        'booking_confirmed_email'      => 'boolean',
+        'booking_confirmed_sms'        => 'boolean',
+        'session_reminder_email'       => 'boolean',
+        'session_reminder_sms'         => 'boolean',
+        'booking_cancelled_email'      => 'boolean',
+        'review_received_email'        => 'boolean',
+        'earnings_released_email'      => 'boolean',
+        'group_session_started_email'  => 'boolean',
+        'high_contrast'                => 'boolean',
     ];
 
     public function user(): BelongsTo

@@ -369,6 +369,9 @@ const viewDocument = (document) => {
                 <section class="drawer-section">
                     <h4>Subjects and languages</h4>
                     <p><strong>Subjects:</strong> {{ (selectedTeacher.subjects || []).join(', ') || '-' }}</p>
+                    <p v-if="(selectedTeacher.subjects || []).includes('Other') && selectedTeacher.subject_other">
+                        <strong>Other subject:</strong> {{ selectedTeacher.subject_other }}
+                    </p>
                     <p><strong>Languages:</strong> {{ (selectedTeacher.languages || []).join(', ') || '-' }}</p>
                     <p><strong>Previous school:</strong> {{ selectedTeacher.previous_school || '-' }}</p>
                     <p><strong>Bio:</strong> {{ selectedTeacher.bio || '-' }}</p>

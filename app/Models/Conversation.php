@@ -23,12 +23,17 @@ class Conversation extends Model
         'description',
         'max_students',
         'teacher_id',
+        'direct_status',
+        'accepted_at',
+        'declined_at',
         'invite_code',
     ];
 
     protected $casts = [
         'is_group'     => 'boolean',
         'max_students' => 'integer',
+        'accepted_at' => 'datetime',
+        'declined_at' => 'datetime',
     ];
 
     public function createdBy(): BelongsTo

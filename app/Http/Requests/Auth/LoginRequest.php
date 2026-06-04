@@ -165,7 +165,7 @@ class LoginRequest extends FormRequest
                     ])->save();
 
                     AuditLog::create([
-                        'admin_id' => $user->id,
+                        'admin_id' => null,
                         'action' => 'auth.lockout_suspended',
                         'entity_type' => 'User',
                         'entity_id' => $user->id,
@@ -173,6 +173,8 @@ class LoginRequest extends FormRequest
                             'reason' => 'Too many failed login attempts',
                             'attempts' => $attempts,
                             'email' => (string) $this->string('email'),
+                            'ip_address' => $this->ip(),
+                            'auto_lockout' => true,
                         ],
                         'ip_address' => $this->ip(),
                         'created_at' => now(),

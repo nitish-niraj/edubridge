@@ -16,6 +16,10 @@ class ReviewController extends Controller
 {
     /**
      * POST /api/reviews
+     *
+     * Either party of a completed/no-show session may submit one review:
+     * - Student reviews the teacher (reviewee = teacher).
+     * - Teacher reviews the student (reviewee = student).
      */
     public function store(ReviewStoreRequest $request): JsonResponse
     {
@@ -24,34 +28,37 @@ class ReviewController extends Controller
         $booking = Booking::findOrFail($validated['booking_id']);
         $user    = auth()->user();
 
-        if ($user->id !== $booking->student_id) {
-            return response()->json(['message' => 'Only the student can leave a review.'], 403);
+        $isStudent = $user->id === $booking->student_id;
+        $isTeacher = $user->id === $booking->teacher_id;
+
+        if (! $isStudent && ! $isTeacher) {
+            return response()->json(['message' => 'Only participants of the session can leave a review.'], 403);
         }
 
         if (! in_array($booking->status, ['completed', 'no_show'], true)) {
-            // Rule: if the session time has passed by more than 10 minutes, allow review anyway
             $sessionEndWithBuffer = $booking->end_at?->addMinutes(10);
             if (! $sessionEndWithBuffer || now()->lt($sessionEndWithBuffer)) {
                 return response()->json(['message' => 'Can only review sessions after they have ended.'], 422);
             }
         }
 
-        // Check for existing review
-        if (Review::where('booking_id', $booking->id)->exists()) {
+        if (Review::where('booking_id', $booking->id)->where('reviewer_id', $user->id)->exists()) {
             return response()->json(['message' => 'You have already reviewed this session.'], 422);
         }
 
+        $revieweeId = $isStudent ? $booking->teacher_id : $booking->student_id;
+
         try {
-            $review = DB::transaction(function () use ($request, $booking, $user) {
+            $review = DB::transaction(function () use ($validated, $booking, $user, $revieweeId) {
                 $review = Review::create([
                     'booking_id'  => $booking->id,
                     'reviewer_id' => $user->id,
-                    'reviewee_id' => $booking->teacher_id,
-                    'rating'      => $request->validated('rating'),
-                    'comment'     => $request->validated('comment'),
+                    'reviewee_id' => $revieweeId,
+                    'rating'      => $validated['rating'],
+                    'comment'     => $validated['comment'] ?? null,
                 ]);
 
-                app(ReviewRatingService::class)->recalculateForTeacher($booking->teacher_id);
+                app(ReviewRatingService::class)->recalculateForUser($revieweeId);
                 app(NotificationService::class)->sendReviewReceived($review);
 
                 return $review;

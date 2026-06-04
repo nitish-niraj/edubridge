@@ -5,8 +5,11 @@ namespace App\Services;
 use App\Events\InAppNotificationCreated;
 use App\Mail\BookingCancelledMail;
 use App\Mail\BookingConfirmedMail;
+use App\Mail\EarningsReleasedMail;
+use App\Mail\GroupSessionStartedMail;
 use App\Mail\NewMessageMail;
 use App\Mail\NoShowNotificationMail;
+use App\Mail\ReviewReceivedMail;
 use App\Mail\ReviewReminderMail;
 use App\Mail\SessionCompletedMail;
 use App\Mail\SessionReminderMail;
@@ -124,9 +127,17 @@ class NotificationService
 
     public function sendReviewReminder(Booking $booking): void
     {
-        $booking->loadMissing('student.notificationPreferences', 'review');
+        $booking->loadMissing('student.notificationPreferences', 'reviews');
 
-        if ($booking->status !== 'completed' || $booking->review) {
+        if ($booking->status !== 'completed') {
+            return;
+        }
+
+        $studentAlreadyReviewed = $booking->reviews
+            ->where('reviewer_id', $booking->student_id)
+            ->isNotEmpty();
+
+        if ($studentAlreadyReviewed) {
             return;
         }
 
@@ -181,12 +192,14 @@ class NotificationService
 
             $this->createInApp(
                 user: $review->reviewee,
-                audience: 'teacher',
+                audience: $review->reviewee->isTeacher() ? 'teacher' : 'student',
                 type: 'review_received',
                 title: 'New Review Received',
                 message: $message,
                 data: ['review_id' => $review->id, 'booking_id' => $review->booking_id]
             );
+
+            $this->mailIfEnabled($review->reviewee, 'review_received_email', new ReviewReceivedMail($review));
         }
     }
 
@@ -207,10 +220,14 @@ class NotificationService
             ],
             isCritical: true
         );
+
+        $this->mailIfEnabled($booking->teacher, 'earnings_released_email', new EarningsReleasedMail($booking));
     }
 
     public function sendGroupSessionStarted(User $recipient, string $teacherName, int $conversationId): void
     {
+        $recipient->loadMissing('notificationPreferences');
+
         $this->createInApp(
             user: $recipient,
             audience: $recipient->isTeacher() ? 'teacher' : 'student',
@@ -220,6 +237,8 @@ class NotificationService
             data: ['conversation_id' => $conversationId],
             isCritical: true
         );
+
+        $this->mailIfEnabled($recipient, 'group_session_started_email', new GroupSessionStartedMail($teacherName, $conversationId));
     }
 
     private function mailIfEnabled(?User $user, string $preference, object $mailable): void

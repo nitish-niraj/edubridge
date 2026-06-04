@@ -131,6 +131,8 @@ const notificationPreferences = reactive({
     session_reminder_email: Boolean(props.preferences?.session_reminder_email ?? true),
     booking_cancelled_email: Boolean(props.preferences?.booking_cancelled_email ?? true),
     review_received_email: Boolean(props.preferences?.review_received_email ?? true),
+    earnings_released_email: Boolean(props.preferences?.earnings_released_email ?? true),
+    group_session_started_email: Boolean(props.preferences?.group_session_started_email ?? true),
 });
 const saving = ref(false);
 const statusMessage = ref('');
@@ -282,6 +284,8 @@ onMounted(() => {
                     <label class="pref-row"><input v-model="notificationPreferences.session_reminder_email" type="checkbox" /> Session reminder email</label>
                     <label class="pref-row"><input v-model="notificationPreferences.booking_cancelled_email" type="checkbox" /> Booking cancelled email</label>
                     <label class="pref-row"><input v-model="notificationPreferences.review_received_email" type="checkbox" /> Review received email</label>
+                    <label class="pref-row"><input v-model="notificationPreferences.earnings_released_email" type="checkbox" /> Earnings released email</label>
+                    <label class="pref-row"><input v-model="notificationPreferences.group_session_started_email" type="checkbox" /> Group session started email</label>
                     <button type="submit" class="save-profile-btn">Save Notification Preferences</button>
                     <p v-if="notificationStatusMessage" class="status-message">{{ notificationStatusMessage }}</p>
                 </form>

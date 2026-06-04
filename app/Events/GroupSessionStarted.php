@@ -29,11 +29,10 @@ class GroupSessionStarted implements ShouldBroadcast
     public function broadcastWith(): array
     {
         return [
-            'conversation_id' => $this->conversationId,
-            'teacher_name'    => $this->teacherName,
+            'conversation_id'  => $this->conversationId,
+            'teacher_name'     => $this->teacherName,
             'video_session_id' => $this->videoSessionId,
-            'booking_id'      => $this->videoSessionId,
-            'room_name'       => $this->roomName,
+            'room_name'        => $this->roomName,
         ];
     }
 }

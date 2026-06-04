@@ -122,6 +122,16 @@ class Booking extends Model
         return $this->hasOne(Review::class);
     }
 
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(Review::class);
+    }
+
+    public function reviewBy(int $reviewerId): ?Review
+    {
+        return $this->reviews()->where('reviewer_id', $reviewerId)->first();
+    }
+
     public function reports(): HasMany
     {
         return $this->hasMany(Report::class);

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
@@ -46,10 +47,18 @@ class NewPasswordController extends Controller
         $status = Password::reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),
             function ($user) use ($request) {
+                // Section 2.6: invalidate all remember_tokens and log the user out of all devices.
+                // Regenerating remember_token invalidates the "remember me" cookie on every device.
                 $user->forceFill([
                     'password' => Hash::make($request->password),
                     'remember_token' => Str::random(60),
                 ])->save();
+
+                // If the user happened to be authenticated during reset (rare edge case),
+                // force a logout of all other devices using Laravel's built-in helper.
+                if (Auth::check() && (int) Auth::id() === (int) $user->id) {
+                    Auth::logoutOtherDevices($request->password);
+                }
 
                 event(new PasswordReset($user));
             }

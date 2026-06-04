@@ -37,13 +37,13 @@ class StudentRegisterRequest extends FormRequest
         return [
             // Rulebook §6: min 2 chars, max 100, no numbers
             'name'        => ['required', 'string', 'min:2', 'max:100', 'regex:/^[\pL\s\-\'\.]+$/u'],
-            // Rulebook §3: valid email, unique, max 254
+            // Rulebook §3: valid email, unique across the entire users table (incl. soft-deleted), max 254
             'email'       => [
                 'required',
                 'string',
                 'email:rfc',
                 'max:254',
-                'unique:users,email',
+                Rule::unique('users', 'email')->whereNull('deleted_at'),
                 function (string $attribute, mixed $value, \Closure $fail): void {
                     $existing = User::withTrashed()->where('email', (string) $value)->first();
                     if ($existing?->status === 'suspended') {
@@ -51,8 +51,13 @@ class StudentRegisterRequest extends FormRequest
                     }
                 },
             ],
-            // Rulebook §5: phone digits/+ only, 7-15 digits
-            'phone'       => ['required', 'string', 'regex:/^\+?[0-9]{7,15}$/', 'unique:users,phone'],
+            // Rulebook §5: phone digits/+ only, 7-15 digits, unique across the entire users table (incl. soft-deleted)
+            'phone'       => [
+                'required',
+                'string',
+                'regex:/^\+?[0-9]{7,15}$/',
+                Rule::unique('users', 'phone')->whereNull('deleted_at'),
+            ],
             'password'    => ['required', 'confirmed', $passwordRules],
             // Rulebook §11: must be a real option from the list
             'class_grade' => ['nullable', 'string', Rule::in($gradeOptions)],

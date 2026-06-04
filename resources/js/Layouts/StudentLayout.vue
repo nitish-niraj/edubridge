@@ -2,6 +2,7 @@
 import axios from 'axios';
 import { Link, usePage } from '@inertiajs/vue3';
 import { computed, onMounted, ref } from 'vue';
+import NotificationBell from '@/Components/Shared/NotificationBell.vue';
 import PortalExperience from '@/Components/PortalExperience.vue';
 import { useScrollReveal } from '@/composables/useScrollReveal';
 import { useToast } from '@/composables/useToast';
@@ -89,8 +90,11 @@ const logout = async () => {
             <!-- User info + logout -->
             <div class="p-4 border-t border-orange-100">
                 <template v-if="user">
-                    <div style="font-family: Nunito, sans-serif; font-size: 14px; color: #888;">
-                        {{ user?.name }}
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                        <div style="font-family: Nunito, sans-serif; font-size: 14px; color: #888; min-width: 0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                            {{ user?.name }}
+                        </div>
+                        <NotificationBell audience="student" />
                     </div>
                     <button
                         type="button"

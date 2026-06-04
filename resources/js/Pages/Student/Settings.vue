@@ -40,6 +40,8 @@ const notificationPreferences = reactive({
     session_reminder_email: Boolean(page.props.notificationPreferences?.session_reminder_email ?? true),
     booking_cancelled_email: Boolean(page.props.notificationPreferences?.booking_cancelled_email ?? true),
     review_received_email: Boolean(page.props.notificationPreferences?.review_received_email ?? true),
+    earnings_released_email: Boolean(page.props.notificationPreferences?.earnings_released_email ?? true),
+    group_session_started_email: Boolean(page.props.notificationPreferences?.group_session_started_email ?? true),
 });
 const savingPreferences = ref(false);
 const preferencesStatus = ref('');
@@ -166,6 +168,14 @@ const saveNotificationPreferences = async () => {
                         <label class="pref-row">
                             <input v-model="notificationPreferences.review_received_email" type="checkbox">
                             <span>Review-related emails</span>
+                        </label>
+                        <label class="pref-row">
+                            <input v-model="notificationPreferences.earnings_released_email" type="checkbox">
+                            <span>Earnings released email</span>
+                        </label>
+                        <label class="pref-row">
+                            <input v-model="notificationPreferences.group_session_started_email" type="checkbox">
+                            <span>Group session started email</span>
                         </label>
                         <div class="action-row">
                             <PrimaryButton :disabled="savingPreferences">{{ savingPreferences ? 'Saving...' : 'Save Notifications' }}</PrimaryButton>

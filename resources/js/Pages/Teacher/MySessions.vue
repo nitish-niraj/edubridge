@@ -4,12 +4,39 @@ import EmptyState from '@/Components/Shared/EmptyState.vue';
 import ErrorState from '@/Components/Shared/ErrorState.vue';
 import { ref, onMounted, computed } from 'vue';
 import axios from 'axios';
+import { charCount } from '@/composables/useFormValidation';
 
 const bookings = ref([]);
 const earningsSummary = ref({ this_month: 0, total: 0, pending: 0 });
 const loading = ref(true);
 const filter = ref('all');
 const loadError = ref('');
+
+const showReviewModal = ref(false);
+const reviewTarget = ref(null);
+const reviewRating = ref(0);
+const reviewHover = ref(0);
+const reviewComment = ref('');
+const reviewSubmitting = ref(false);
+const reviewError = ref('');
+const reviewSuccess = ref(false);
+const reviewSuccessName = ref('');
+
+const COMMENT_MAX = 2000;
+const commentCharCount = computed(() => charCount(reviewComment.value, COMMENT_MAX));
+
+const reviewLabels = {
+    1: '😞 Challenging',
+    2: '😐 Could improve',
+    3: '🙂 Cooperative',
+    4: '😊 Great learner!',
+    5: '🌟 Outstanding!',
+};
+
+const activeReviewLabel = computed(() => {
+    const v = reviewHover.value || reviewRating.value;
+    return reviewLabels[v] || 'Move across the stars to rate your student';
+});
 
 const fetchBookings = async () => {
     loading.value = true;
@@ -81,6 +108,56 @@ const minutesUntil = (b) => {
     return `in ${Math.round(mins / 60)}h`;
 };
 
+const myReviewFor = (b) => {
+    const list = Array.isArray(b.reviews) ? b.reviews : [];
+    return list.find((r) => r.reviewer_id === b.teacher_id) || null;
+};
+
+const isReviewable = (b) => {
+    if (!['completed', 'no_show'].includes(b.status)) return false;
+    if (myReviewFor(b)) return false;
+    return true;
+};
+
+const openReviewModal = (b) => {
+    reviewTarget.value = b;
+    reviewRating.value = 0;
+    reviewHover.value = 0;
+    reviewComment.value = '';
+    reviewError.value = '';
+    reviewSuccess.value = false;
+    reviewSuccessName.value = b.student?.name || 'the student';
+    showReviewModal.value = true;
+};
+
+const closeReviewModal = () => {
+    showReviewModal.value = false;
+    reviewTarget.value = null;
+};
+
+const submitReview = async () => {
+    reviewError.value = '';
+    if (reviewRating.value === 0) {
+        reviewError.value = 'Please select a star rating before submitting.';
+        return;
+    }
+    if (!reviewTarget.value) return;
+    reviewSubmitting.value = true;
+    try {
+        await axios.post('/api/reviews', {
+            booking_id: reviewTarget.value.id,
+            rating: reviewRating.value,
+            comment: reviewComment.value.trim() || null,
+        });
+        reviewSuccess.value = true;
+        await fetchBookings();
+    } catch (e) {
+        reviewError.value = e.response?.data?.message || 'Could not submit review. Please try again.';
+    } finally {
+        reviewSubmitting.value = false;
+    }
+};
+
 const monthEarnings = computed(() => {
     return parseFloat(earningsSummary.value.this_month || 0);
 });
@@ -89,9 +166,8 @@ const monthSessions = computed(() => {
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
-    
+
     return bookings.value.filter(b => {
-        // Count both confirmed (upcoming) and completed sessions for the summary
         if (!['confirmed', 'completed'].includes(b.status)) return false;
         const bookingDate = b.start_at.includes('Z') ? new Date(b.start_at) : new Date(b.start_at + 'Z');
         return bookingDate.getMonth() === currentMonth && bookingDate.getFullYear() === currentYear;
@@ -115,7 +191,6 @@ const pendingRelease = computed(() => {
                 </p>
             </div>
 
-            <!-- Filter -->
             <div style="margin-bottom: 20px;">
                 <select v-model="filter" @change="fetchBookings"
                     style="height: 56px; padding: 0 16px; border: 2px solid #F0E8E0; border-radius: 10px; font-family: 'Nunito', sans-serif; font-size: 18px; color: #333; background: #fff; min-width: 200px;">
@@ -126,12 +201,10 @@ const pendingRelease = computed(() => {
                 </select>
             </div>
 
-            <!-- Loading -->
             <div v-if="loading" style="display: flex; flex-direction: column; gap: 16px;">
                 <div v-for="index in 3" :key="index" class="skeleton-card skeleton" style="padding: 20px 24px; min-height: 80px;"></div>
             </div>
 
-            <!-- Error -->
             <div v-else-if="loadError" style="background: #fff; border-radius: 12px; padding: 12px; border: 1px solid #E0E0E0;">
                 <ErrorState
                     code="503"
@@ -141,7 +214,6 @@ const pendingRelease = computed(() => {
                 />
             </div>
 
-            <!-- Table -->
             <div v-else-if="filteredBookings.length" style="border-radius: 12px; overflow: hidden; border: 1px solid #E0E0E0;">
                 <table style="width: 100%; border-collapse: collapse; font-family: 'Nunito', sans-serif;">
                     <thead>
@@ -163,7 +235,12 @@ const pendingRelease = computed(() => {
                                 <div style="font-size: 13px; color: #6B7280; margin-top: 2px;">{{ formatTime(b.start_at) }} – {{ formatTime(b.end_at) }}</div>
                             </td>
                             <td style="padding: 14px 20px; font-size: 15px; color: #333;">{{ b.student?.name || '—' }}</td>
-                            <td style="padding: 14px 20px; font-size: 15px; color: #333;">{{ b.subject || '—' }}</td>
+                            <td style="padding: 14px 20px; font-size: 15px; color: #333;">
+                                <div>{{ b.subject || '—' }}</div>
+                                <span v-if="Number(b.price) === 0" style="display: inline-block; background: #FFF3EF; color: #B53A2D; padding: 2px 10px; border-radius: 10px; font-size: 12px; font-weight: 600; margin-top: 2px;">
+                                    🆓 Volunteer
+                                </span>
+                            </td>
                             <td style="padding: 14px 20px; font-size: 15px; color: #333;">
                                 {{ durationMinutes(b) }} min
                             </td>
@@ -181,6 +258,13 @@ const pendingRelease = computed(() => {
                                     style="display: inline-block; padding: 10px 20px; background: #E8553E; color: #fff; border-radius: 10px; text-decoration: none; font-weight: bold; font-size: 14px;">
                                     🎥 Join Session
                                 </a>
+                                <button v-else-if="isReviewable(b)" type="button" @click="openReviewModal(b)"
+                                    style="padding: 10px 18px; background: #F5C518; color: #2D2D2D; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; font-size: 14px; font-family: 'Nunito', sans-serif;">
+                                    ⭐ Rate Student
+                                </button>
+                                <span v-else-if="myReviewFor(b)" style="color: #4CB87E; font-size: 13px; font-weight: 600;">
+                                    ✓ Rated
+                                </span>
                                 <span v-else-if="b.status === 'confirmed' && !canJoin(b)" style="color: #999; font-size: 13px;">
                                     Link opens {{ minutesUntil(b) }}
                                 </span>
@@ -201,7 +285,6 @@ const pendingRelease = computed(() => {
                 <span v-else style="color: #999; font-family: 'Nunito', sans-serif;">No {{ filter }} sessions found.</span>
             </div>
 
-            <!-- Summary bar -->
             <div style="margin-top: 24px; padding: 16px 24px; background: #FFF3EF; border-radius: 12px; font-family: 'Fredoka One', cursive; font-size: 18px; color: #E8553E; display: flex; gap: 32px; flex-wrap: wrap;">
                 <span>Sessions this month: <strong>{{ monthSessions }}</strong></span>
                 <span>Earnings this month: <strong>₹{{ monthEarnings.toFixed(0) }}</strong></span>
@@ -213,5 +296,317 @@ const pendingRelease = computed(() => {
                 Tip: keep session notes and attendance evidence updated for faster dispute resolution and payout release.
             </p>
         </div>
+
+        <!-- Rate Student Modal -->
+        <div v-if="showReviewModal" class="rate-modal-overlay" @click.self="closeReviewModal">
+            <div class="rate-modal" role="dialog" aria-modal="true" aria-label="Rate Student">
+                <div v-if="reviewSuccess" class="rate-success">
+                    <div class="success-emoji">🙏</div>
+                    <h2>Thanks for the feedback!</h2>
+                    <p>Your review of {{ reviewSuccessName }} helps the community.</p>
+                    <button type="button" class="rate-submit-btn" @click="closeReviewModal">Close</button>
+                </div>
+
+                <div v-else>
+                    <div class="rate-header">
+                        <div>
+                            <p class="rate-kicker">Post-Session</p>
+                            <h2 class="rate-title">Rate {{ reviewTarget?.student?.name || 'Student' }}</h2>
+                        </div>
+                        <button type="button" class="rate-close" @click="closeReviewModal" aria-label="Close">×</button>
+                    </div>
+
+                    <div class="rate-body">
+                        <div class="rate-summary">
+                            <div class="rate-avatar">{{ (reviewTarget?.student?.name || 'S').charAt(0) }}</div>
+                            <div>
+                                <p class="rate-name">{{ reviewTarget?.student?.name || 'Student' }}</p>
+                                <p class="rate-meta">
+                                    {{ reviewTarget?.subject || 'Session' }} ·
+                                    {{ reviewTarget ? formatDate(reviewTarget.start_at) : '' }}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="stars-row" @mouseleave="reviewHover = 0" role="radiogroup" aria-label="Student rating">
+                            <button
+                                v-for="s in 5"
+                                :key="s"
+                                type="button"
+                                class="rate-star-btn"
+                                :class="{
+                                    'is-filled': (reviewHover || reviewRating) >= s,
+                                    'is-hovered': reviewHover === s,
+                                }"
+                                :aria-label="`Rate ${s} out of 5 stars`"
+                                :aria-pressed="reviewRating === s ? 'true' : 'false'"
+                                @click="reviewRating = s; reviewError = '';"
+                                @mouseenter="reviewHover = s"
+                            >
+                                ★
+                            </button>
+                        </div>
+
+                        <p class="rate-label">{{ activeReviewLabel }}</p>
+
+                        <div style="position:relative;">
+                            <textarea
+                                v-model="reviewComment"
+                                rows="4"
+                                placeholder="Share a few words about how the session went…"
+                                class="rate-comment"
+                                maxlength="2000"
+                                aria-label="Comment about the student"
+                            />
+                            <div class="rate-counter">{{ commentCharCount }}</div>
+                        </div>
+
+                        <div v-if="reviewError" role="alert" class="rate-error">{{ reviewError }}</div>
+
+                        <div class="rate-actions">
+                            <button type="button" class="rate-cancel" @click="closeReviewModal">Cancel</button>
+                            <button
+                                type="button"
+                                class="rate-submit-btn"
+                                :disabled="reviewRating === 0 || reviewSubmitting"
+                                @click="submitReview"
+                            >
+                                {{ reviewSubmitting ? 'Submitting…' : 'Submit Review' }}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </TeacherLayout>
 </template>
+
+<style scoped>
+.rate-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 999;
+    background: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.rate-modal {
+    width: min(520px, 100%);
+    background: #fff;
+    border-radius: 22px;
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25);
+    padding: 24px 24px 20px;
+    font-family: 'Nunito', sans-serif;
+}
+
+.rate-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+}
+
+.rate-kicker {
+    margin: 0;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: #9CA3AF;
+    font-weight: 800;
+}
+
+.rate-title {
+    margin: 4px 0 0;
+    font-family: 'Fredoka One', cursive;
+    font-size: 22px;
+    color: #E8553E;
+}
+
+.rate-close {
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 999px;
+    background: #FFF8F0;
+    color: #9CA3AF;
+    cursor: pointer;
+    font-size: 24px;
+    line-height: 0;
+}
+
+.rate-close:hover {
+    background: #fee2e2;
+    color: #be123c;
+}
+
+.rate-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.rate-summary {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #FFF8F0;
+    border: 1px solid #F0E8E0;
+    border-radius: 14px;
+    padding: 10px 14px;
+}
+
+.rate-avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 999px;
+    background: #E8553E;
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+.rate-name {
+    margin: 0;
+    font-weight: 800;
+    font-size: 15px;
+    color: #2D2D2D;
+}
+
+.rate-meta {
+    margin: 2px 0 0;
+    font-size: 12px;
+    color: #6B7280;
+}
+
+.stars-row {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin: 10px 0 4px;
+}
+
+.rate-star-btn {
+    border: none;
+    background: none;
+    cursor: pointer;
+    padding: 4px;
+    font-size: 38px;
+    line-height: 1;
+    color: #DDD;
+    transition: transform 0.18s ease, color 0.18s ease;
+}
+
+.rate-star-btn.is-filled {
+    color: #F5C518;
+}
+
+.rate-star-btn.is-hovered {
+    transform: translateY(-2px) scale(1.18);
+}
+
+.rate-label {
+    margin: 0 0 6px;
+    text-align: center;
+    font-size: 14px;
+    color: #555;
+    font-weight: 700;
+    min-height: 22px;
+}
+
+.rate-comment {
+    width: 100%;
+    padding: 12px 14px;
+    border: 2px solid #f0ddd5;
+    border-radius: 12px;
+    font: inherit;
+    font-size: 14px;
+    resize: vertical;
+    outline: none;
+    box-sizing: border-box;
+    color: #2D2D2D;
+}
+
+.rate-comment:focus {
+    border-color: #E8553E;
+}
+
+.rate-counter {
+    text-align: right;
+    font-size: 12px;
+    color: #9CA3AF;
+    margin-top: 2px;
+}
+
+.rate-error {
+    color: #E8553E;
+    font-size: 13px;
+}
+
+.rate-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 4px;
+}
+
+.rate-cancel {
+    flex: 1;
+    padding: 12px;
+    border: 2px solid #e2e8f0;
+    background: #fff;
+    border-radius: 14px;
+    cursor: pointer;
+    font-weight: 800;
+    font-size: 14px;
+    color: #2D2D2D;
+}
+
+.rate-submit-btn {
+    flex: 1.4;
+    padding: 12px;
+    border: none;
+    background: #E8553E;
+    color: #fff;
+    border-radius: 14px;
+    cursor: pointer;
+    font-weight: 800;
+    font-size: 14px;
+    font-family: 'Nunito', sans-serif;
+}
+
+.rate-submit-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.rate-success {
+    text-align: center;
+    padding: 8px 0 4px;
+}
+
+.success-emoji {
+    font-size: 56px;
+    margin-bottom: 8px;
+}
+
+.rate-success h2 {
+    margin: 0;
+    font-family: 'Fredoka One', cursive;
+    font-size: 24px;
+    color: #E8553E;
+}
+
+.rate-success p {
+    margin: 6px 0 16px;
+    color: #555;
+    font-size: 14px;
+}
+</style>

@@ -28,6 +28,7 @@ const props = defineProps({
             earnings_this_month: 0,
             upcoming_sessions: 0,
             unread_messages: 0,
+            free_sessions: 0,
         }),
     },
     today_sessions: {
@@ -78,6 +79,7 @@ const dashboardCards = computed(() => [
     { label: 'Earnings this month', value: `INR ${Number(props.stats?.earnings_this_month || 0).toLocaleString()}` },
     { label: 'Upcoming sessions', value: Number(props.stats?.upcoming_sessions || 0) },
     { label: 'Unread messages', value: Number(props.stats?.unread_messages || 0) },
+    { label: 'Volunteer sessions', value: Number(props.stats?.free_sessions || 0) },
 ]);
 
 const formatTime = (value) => {
@@ -198,6 +200,11 @@ const sessionStatusClass = (status) => {
                     <Link :href="route('teacher.settings')" class="quick-card">
                         <strong>Settings</strong>
                         <span>Adjust accessibility and teacher preferences.</span>
+                    </Link>
+
+                    <Link :href="route('teacher.earnings')" class="quick-card">
+                        <strong>Earnings &amp; payouts</strong>
+                        <span>See released, pending, and lifetime earnings.</span>
                     </Link>
                 </div>
             </section>
@@ -351,7 +358,7 @@ h1 {
 
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: 10px;
 }
 
@@ -462,7 +469,7 @@ h1 {
 
 .quick-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 10px;
 }
 

@@ -18,7 +18,7 @@ class GroupStoreRequest extends FormRequest
             'name' => ['required', 'string', 'max:100'],
             'subject' => ['required', 'string', Rule::in(config('edubridge.subjects', []))],
             'description' => ['nullable', 'string', 'max:2000'],
-            'max_students' => ['nullable', 'integer', 'min:2', 'max:50'],
+            'max_students' => ['nullable', 'integer', 'min:2', 'max:30'],
         ];
     }
 }

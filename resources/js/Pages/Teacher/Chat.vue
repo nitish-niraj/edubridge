@@ -2,7 +2,7 @@
 import TeacherLayout from '@/Layouts/TeacherLayout.vue';
 import axios from 'axios';
 import { Head, usePage } from '@inertiajs/vue3';
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 const props = defineProps({
     initialConversationId: {
@@ -18,6 +18,8 @@ const conversations = ref([]);
 const activeConversation = ref(null);
 const messages = ref([]);
 const messageText = ref('');
+const conversationSearch = ref('');
+const messageSearch = ref('');
 const bannerMessage = ref('');
 const messageContainer = ref(null);
 const viewMode = ref('list');
@@ -34,6 +36,16 @@ const isDraggingAttachment = ref(false);
 const lastTypingAt = ref(0);
 const typingUsers = ref([]);
 const presenceChannel = ref(null);
+
+// Announcements (group-only, teacher)
+const announcementText = ref('');
+const announcementSending = ref(false);
+const pinnedAnnouncement = ref(null);
+const showAnnouncementForm = ref(false);
+
+const isGroupConversation = computed(() => Boolean(activeConversation.value?.is_group));
+const isGroupTeacher = computed(() => Number(activeConversation.value?.teacher_id) === authUserId.value);
+const canManageGroup = computed(() => isGroupConversation.value && isGroupTeacher.value);
 
 const revokeAttachmentPreview = () => {
     if (attachmentPreviewUrl.value && !attachmentPreviewUrl.value.startsWith('/')) {
@@ -84,6 +96,8 @@ const loadingMoreMessages = ref(false);
 let refreshConversationsTimer = null;
 
 const activeConversationId = computed(() => activeConversation.value?.id ?? null);
+const canReply = computed(() => !activeConversation.value || activeConversation.value.is_group || activeConversation.value.direct_status === 'accepted');
+const videoLaunching = ref(false);
 
 const showBanner = (text) => {
     bannerMessage.value = text;
@@ -119,7 +133,9 @@ const fetchConversations = async () => {
     conversationError.value = '';
 
     try {
-        const response = await axios.get('/api/conversations');
+        const response = await axios.get('/api/conversations', {
+            params: conversationSearch.value.trim() ? { q: conversationSearch.value.trim() } : {},
+        });
         conversations.value = response.data.data ?? [];
 
         if (props.initialConversationId && !activeConversation.value) {
@@ -140,7 +156,9 @@ const fetchMessages = async (conversationId) => {
     messagesError.value = '';
 
     try {
-        const response = await axios.get(`/api/conversations/${conversationId}/messages`);
+        const response = await axios.get(`/api/conversations/${conversationId}/messages`, {
+            params: messageSearch.value.trim() ? { q: messageSearch.value.trim() } : {},
+        });
         const payload = response.data ?? {};
         messages.value = [...(payload.data ?? [])].reverse();
         messagesNextCursor.value = payload.next_cursor ?? payload.meta?.next_cursor ?? null;
@@ -188,10 +206,19 @@ const subscribe = (conversationId) => {
         }
 
         messages.value.push(payload);
+        if (payload.type === 'announcement') {
+            pinnedAnnouncement.value = payload;
+        }
+        showBrowserMessageNotification(payload);
         await axios.patch(`/api/conversations/${conversationId}/read`);
         await nextTick();
         scrollToBottom();
         scheduleConversationsRefresh();
+    }).listen('MessagesRead', (payload) => {
+        const readIds = new Set((payload.message_ids || []).map((id) => Number(id)));
+        messages.value = messages.value.map((message) => (
+            readIds.has(Number(message.id)) ? { ...message, read_at: payload.read_at } : message
+        ));
     });
 
     presenceChannel.value = window.Echo.join(`conversation.${conversationId}`)
@@ -230,12 +257,101 @@ const scheduleConversationsRefresh = () => {
 const openConversation = async (conversation) => {
     activeConversation.value = conversation;
     viewMode.value = 'messages';
+    announcementText.value = '';
+    showAnnouncementForm.value = false;
     await fetchMessages(conversation.id);
+    if (conversation.is_group) {
+        await fetchPinnedAnnouncement(conversation.id);
+    } else {
+        pinnedAnnouncement.value = null;
+    }
     subscribe(conversation.id);
+};
+
+const fetchPinnedAnnouncement = async (conversationId) => {
+    if (!conversationId) {
+        pinnedAnnouncement.value = null;
+        return;
+    }
+    try {
+        const { data } = await axios.get(`/api/conversations/${conversationId}/pinned-announcement`);
+        pinnedAnnouncement.value = data?.data ?? data ?? null;
+    } catch (error) {
+        pinnedAnnouncement.value = null;
+    }
+};
+
+const sendAnnouncement = async () => {
+    if (!activeConversationId.value || announcementSending.value) return;
+    if (!announcementText.value.trim()) return;
+    if (!canManageGroup.value) return;
+
+    announcementSending.value = true;
+    try {
+        const { data } = await axios.post(
+            `/api/conversations/${activeConversationId.value}/announcements`,
+            { body: announcementText.value.trim() }
+        );
+        const created = data?.data ?? data;
+        if (created) {
+            messages.value.push(created);
+            await nextTick();
+            scrollToBottom();
+        }
+        pinnedAnnouncement.value = created || pinnedAnnouncement.value;
+        announcementText.value = '';
+        showAnnouncementForm.value = false;
+        showBanner('Announcement posted to the class.');
+    } catch (error) {
+        showBanner(error?.response?.data?.message || 'Could not post announcement.');
+    } finally {
+        announcementSending.value = false;
+    }
+};
+
+const acceptConversation = async () => {
+    if (!activeConversationId.value) return;
+
+    const response = await axios.patch(`/api/conversations/${activeConversationId.value}/accept`);
+    activeConversation.value = response.data.data ?? response.data;
+    conversations.value = conversations.value.map((conversation) => (
+        Number(conversation.id) === Number(activeConversationId.value) ? activeConversation.value : conversation
+    ));
+    showBanner('Conversation accepted.');
+};
+
+const openGroupSession = async () => {
+    if (!activeConversation.value?.is_group || videoLaunching.value) return;
+
+    videoLaunching.value = true;
+    try {
+        await axios.post(`/api/video-sessions/group/${activeConversation.value.id}/start`);
+        window.location.href = `/group-session/${activeConversation.value.id}`;
+    } catch (error) {
+        showBanner(error?.response?.data?.message || 'Unable to start group session.');
+    } finally {
+        videoLaunching.value = false;
+    }
+};
+
+const declineConversation = async () => {
+    if (!activeConversationId.value) return;
+
+    const response = await axios.patch(`/api/conversations/${activeConversationId.value}/decline`);
+    activeConversation.value = response.data.data ?? response.data;
+    conversations.value = conversations.value.map((conversation) => (
+        Number(conversation.id) === Number(activeConversationId.value) ? activeConversation.value : conversation
+    ));
+    showBanner('Conversation declined.');
 };
 
 const sendMessage = async () => {
     if (!activeConversationId.value || isSending.value) {
+        return;
+    }
+
+    if (!canReply.value) {
+        showBanner('Accept this conversation before replying.');
         return;
     }
 
@@ -294,8 +410,34 @@ const isDateBreak = (index) => {
     return current !== previous;
 };
 
+const requestBrowserNotifications = () => {
+    if (!('Notification' in window) || Notification.permission !== 'default') return;
+    Notification.requestPermission().catch(() => {});
+};
+
+const showBrowserMessageNotification = (message) => {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    if (document.visibilityState === 'visible') return;
+
+    const title = message.sender?.name ? `New message from ${message.sender.name}` : 'New message';
+    const body = message.body || (message.type === 'image' ? 'Sent an image' : 'Sent a file');
+    new Notification(title, {
+        body,
+        icon: message.sender?.avatar || '/favicon.ico',
+    });
+};
+
+watch(conversationSearch, () => {
+    fetchConversations();
+});
+
+watch(messageSearch, () => {
+    if (activeConversationId.value) fetchMessages(activeConversationId.value);
+});
+
 onMounted(async () => {
     document.body.setAttribute('data-portal', 'teacher');
+    requestBrowserNotifications();
     await fetchConversations();
 });
 
@@ -322,6 +464,12 @@ onBeforeUnmount(() => {
                 </div>
 
                 <p class="helper-copy">Open a conversation to read messages and reply in real time.</p>
+                <input
+                    v-model="conversationSearch"
+                    type="search"
+                    class="search-field"
+                    placeholder="Search chats"
+                />
 
                 <div v-if="loadingConversations" class="state-card">Loading conversations...</div>
                 <div v-else-if="conversationError" class="state-card error">
@@ -343,6 +491,9 @@ onBeforeUnmount(() => {
                     <div>
                         <p class="student-name">{{ conversation.display_name || 'Conversation' }}</p>
                         <p class="item-preview">{{ conversation.last_message_preview || 'No messages yet' }}</p>
+                        <span v-if="conversation.direct_status" class="status-pill" :class="conversation.direct_status">
+                            {{ conversation.direct_status }}
+                        </span>
                     </div>
                     <div class="item-side">
                         <p class="item-date">{{ formatDate(conversation.updated_at) }}</p>
@@ -354,11 +505,40 @@ onBeforeUnmount(() => {
             <section v-else class="panel messages-view">
                 <div class="header">
                     <button class="secondary-btn" type="button" @click="viewMode = 'list'">Back</button>
-                    <h2>{{ activeConversation?.display_name || 'Conversation' }}</h2>
-                    <button class="secondary-btn" type="button" @click="fetchMessages(activeConversation.id)">Refresh</button>
+                    <div class="header-title">
+                        <h2>{{ activeConversation?.display_name || 'Conversation' }}</h2>
+                        <span v-if="activeConversation?.direct_status" class="status-pill" :class="activeConversation.direct_status">
+                            {{ activeConversation.direct_status }}
+                        </span>
+                    </div>
+                    <div class="header-actions">
+                        <button
+                            v-if="activeConversation?.is_group"
+                            class="start-session-btn"
+                            type="button"
+                            :disabled="videoLaunching"
+                            @click="openGroupSession"
+                        >
+                            {{ videoLaunching ? 'Starting...' : 'Start Session' }}
+                        </button>
+                        <button class="secondary-btn" type="button" @click="fetchMessages(activeConversation.id)">Refresh</button>
+                    </div>
+                </div>
+
+                <div v-if="activeConversation?.direct_status === 'pending'" class="inquiry-actions">
+                    <span>This student is asking to start a conversation.</span>
+                    <button type="button" class="accept-btn" @click="acceptConversation">Accept</button>
+                    <button type="button" class="decline-btn" @click="declineConversation">Decline</button>
                 </div>
 
                 <div ref="messageContainer" class="messages-scroll">
+                    <input
+                        v-if="activeConversationId"
+                        v-model="messageSearch"
+                        type="search"
+                        class="search-field message-search"
+                        placeholder="Search this chat"
+                    />
                     <div v-if="messagesNextCursor" class="load-more-messages-wrap">
                         <button type="button" class="secondary-btn" :disabled="loadingMoreMessages" @click="loadOlderMessages">
                             {{ loadingMoreMessages ? 'Loading...' : 'Load older messages' }}
@@ -400,6 +580,47 @@ onBeforeUnmount(() => {
                             </p>
                         </article>
                     </template>
+
+                    <div v-if="typingUsers.length" class="typing-indicator">
+                        {{ typingUsers[0] }} is typing...
+                    </div>
+                </div>
+
+                <div v-if="isGroupConversation && pinnedAnnouncement" class="pinned-announcement">
+                    <div class="pin-label">📢 Pinned announcement</div>
+                    <p class="pin-body">{{ pinnedAnnouncement.body }}</p>
+                    <span class="pin-meta">— {{ pinnedAnnouncement.sender?.name || 'Teacher' }} • {{ formatTime(pinnedAnnouncement.created_at) }}</span>
+                </div>
+
+                <div v-if="canManageGroup" class="announcement-composer">
+                    <button
+                        v-if="!showAnnouncementForm"
+                        type="button"
+                        class="secondary-btn"
+                        @click="showAnnouncementForm = true"
+                    >
+                        📢 Post announcement to class
+                    </button>
+                    <div v-else class="announcement-form">
+                        <textarea
+                            v-model="announcementText"
+                            rows="3"
+                            maxlength="2000"
+                            class="announcement-textarea"
+                            placeholder="Write a class announcement (homework, notes, schedule…)"
+                        ></textarea>
+                        <div class="announcement-actions">
+                            <button type="button" class="secondary-btn" @click="showAnnouncementForm = false; announcementText = ''">Cancel</button>
+                            <button
+                                type="button"
+                                class="primary-btn"
+                                :disabled="announcementSending || !announcementText.trim()"
+                                @click="sendAnnouncement"
+                            >
+                                {{ announcementSending ? 'Posting…' : 'Pin to class' }}
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <div v-if="activeConversationId" class="input-row">
@@ -418,12 +639,12 @@ onBeforeUnmount(() => {
                         v-model="messageText"
                         type="text"
                         class="teacher-input"
-                        placeholder="Type your reply..."
-                        :disabled="isSending"
+                        :placeholder="canReply ? 'Type your reply...' : 'Accept this conversation before replying'"
+                        :disabled="isSending || !canReply"
                         @keydown.enter.prevent="sendMessage"
                         @input="emitTyping"
                     />
-                    <button class="send-button" type="button" :disabled="isSending" @click="sendMessage">
+                    <button class="send-button" type="button" :disabled="isSending || !canReply" @click="sendMessage">
                         {{ isSending ? 'Sending...' : 'Send' }}
                     </button>
                 </div>
@@ -474,6 +695,23 @@ onBeforeUnmount(() => {
     font-size: 14px;
 }
 
+.search-field {
+    width: 100%;
+    min-height: 40px;
+    border: 1px solid #f0e8e0;
+    border-radius: 999px;
+    padding: 0 14px;
+    margin-bottom: 10px;
+    font: inherit;
+}
+
+.message-search {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: #fff;
+}
+
 .conversation-item {
     width: 100%;
     border: 1px solid #f0e8e0;
@@ -499,6 +737,29 @@ onBeforeUnmount(() => {
     margin: 2px 0 0;
     font-size: 13px;
     color: #64748B;
+}
+
+.status-pill {
+    display: inline-flex;
+    width: fit-content;
+    margin-top: 6px;
+    border-radius: 999px;
+    padding: 3px 8px;
+    background: #eef2ff;
+    color: #3730a3;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: capitalize;
+}
+
+.status-pill.pending {
+    background: #fff7ed;
+    color: #c2410c;
+}
+
+.status-pill.declined {
+    background: #fee2e2;
+    color: #991b1b;
 }
 
 .item-side {
@@ -567,11 +828,72 @@ onBeforeUnmount(() => {
     padding-bottom: 10px;
 }
 
+.header-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.start-session-btn {
+    border: none;
+    border-radius: 999px;
+    background: #E8553E;
+    color: #fff;
+    min-height: 32px;
+    padding: 0 12px;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.start-session-btn:disabled {
+    opacity: 0.65;
+    cursor: wait;
+}
+
 .header h2 {
     margin: 0;
     font-size: 18px;
     color: #2D2D2D;
     text-align: center;
+}
+
+.header-title {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.inquiry-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 1px solid #f0e8e0;
+    padding: 10px 0;
+    color: #64748b;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.accept-btn,
+.decline-btn {
+    border: none;
+    border-radius: 999px;
+    min-height: 34px;
+    padding: 0 12px;
+    color: #fff;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.accept-btn {
+    background: #16a34a;
+}
+
+.decline-btn {
+    background: #dc2626;
 }
 
 .messages-scroll {
@@ -656,8 +978,95 @@ onBeforeUnmount(() => {
     border-top: 1px solid #f0e8e0;
     padding-top: 10px;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     gap: 8px;
+}
+
+.pinned-announcement {
+    border: 1px solid #fde2cf;
+    background: #fff7ef;
+    border-left: 4px solid #E8553E;
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-bottom: 8px;
+}
+
+.pinned-announcement .pin-label {
+    font-size: 11px;
+    font-weight: 800;
+    color: #E8553E;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.pinned-announcement .pin-body {
+    margin: 4px 0 0;
+    font-size: 14px;
+    color: #1f2937;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.pinned-announcement .pin-meta {
+    display: block;
+    margin-top: 6px;
+    font-size: 11px;
+    color: #6b7280;
+}
+
+.announcement-composer {
+    padding: 10px 0;
+    border-top: 1px dashed #f0e8e0;
+}
+
+.announcement-composer .secondary-btn {
+    width: 100%;
+    background: #fff7ef;
+    border: 1px dashed #E8553E;
+    color: #E8553E;
+    border-radius: 10px;
+    padding: 10px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.announcement-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.announcement-textarea {
+    width: 100%;
+    border: 1px solid #f0e8e0;
+    border-radius: 10px;
+    padding: 10px;
+    font-family: inherit;
+    font-size: 14px;
+    resize: vertical;
+    box-sizing: border-box;
+}
+
+.announcement-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.announcement-actions .primary-btn {
+    background: #E8553E;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 8px 16px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.announcement-actions .primary-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 
 .teacher-input {
@@ -779,6 +1188,17 @@ onBeforeUnmount(() => {
 .send-button:disabled {
     opacity: 0.7;
     cursor: not-allowed;
+}
+
+.typing-indicator {
+    width: fit-content;
+    border: 1px solid #f0e8e0;
+    border-radius: 999px;
+    background: #f8fafc;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 7px 10px;
 }
 
 @media (max-width: 900px) {

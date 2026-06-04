@@ -77,6 +77,7 @@ class VerificationController extends Controller
                     'experience_years' => $profile->experience_years,
                     'previous_school' => $profile->previous_school,
                     'subjects' => $profile->subjects ?? [],
+                    'subject_other' => $profile->subject_other,
                     'languages' => $profile->languages ?? [],
                     'hourly_rate' => $profile->hourly_rate,
                     'is_free' => (bool) $profile->is_free,

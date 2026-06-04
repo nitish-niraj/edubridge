@@ -29,7 +29,7 @@ const normalizeExperience = () => {
         return;
     }
 
-    form.experience_years = Math.min(60, Math.max(0, Math.trunc(value)));
+    form.experience_years = Math.min(50, Math.max(0, Math.trunc(value)));
 };
 
 const submit = (saveForLater = false) => {
@@ -80,10 +80,10 @@ const submit = (saveForLater = false) => {
                         <!-- Experience Years -->
                         <div style="margin-bottom:28px;">
                             <label for="step1-exp" style="font-family:'Nunito',sans-serif; font-size:20px; font-weight:bold; color:#333; display:block; margin-bottom:10px;">
-                                Years of Experience <span style="color:#E8553E;">*</span>
+                                Years of Experience
                             </label>
-                            <input id="step1-exp" v-model.number="form.experience_years" name="experience_years" type="number" min="0" max="60"
-                                placeholder="e.g. 25" required
+                            <input id="step1-exp" v-model.number="form.experience_years" name="experience_years" type="number" min="0" max="50"
+                                placeholder="e.g. 25"
                                 :aria-invalid="form.errors.experience_years ? 'true' : 'false'"
                                 aria-describedby="step1-exp-error"
                                 style="width:180px; padding:14px 16px; border:2px solid #F0E8E0; border-radius:8px; font-family:'Nunito',sans-serif; font-size:24px; min-height:56px; outline:none; text-align:center;"

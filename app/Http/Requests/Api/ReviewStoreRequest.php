@@ -8,7 +8,7 @@ class ReviewStoreRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->isStudent() === true;
+        return $this->user() !== null;
     }
 
     public function rules(): array

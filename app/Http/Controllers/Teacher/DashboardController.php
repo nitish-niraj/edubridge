@@ -55,6 +55,12 @@ class DashboardController extends Controller
             ->whereBetween('created_at', [Carbon::now('UTC')->startOfMonth(), Carbon::now('UTC')->endOfMonth()])
             ->sum('net_amount');
 
+        $freeSessionsCompleted = (int) Booking::query()
+            ->where('teacher_id', $teacherId)
+            ->where('price', 0)
+            ->whereIn('status', ['completed', 'confirmed'])
+            ->count();
+
         $unreadMessages = Message::query()
             ->whereNull('read_at')
             ->where('sender_id', '!=', $teacherId)
@@ -92,6 +98,7 @@ class DashboardController extends Controller
                 'earnings_this_month' => $earningsThisMonth,
                 'upcoming_sessions'   => $upcomingSessions,
                 'unread_messages'     => $unreadMessages,
+                'free_sessions'       => $freeSessionsCompleted,
             ],
             'today_sessions' => $todaySessions,
         ]);

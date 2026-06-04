@@ -393,6 +393,11 @@ onBeforeUnmount(() => {
                                     <button type="button" class="notification-dismiss" @click="dismissNotification(item.id)">Dismiss</button>
                                 </li>
                             </ul>
+                            <div class="notification-dropdown-footer">
+                                <Link :href="route('notifications.index')" class="notification-dropdown-link" @click="notificationMenuOpen = false">
+                                    View all notifications
+                                </Link>
+                            </div>
                         </div>
                     </div>
 
@@ -758,6 +763,27 @@ onBeforeUnmount(() => {
     margin: 0;
     font-size: 12px;
     color: var(--s-text-muted);
+}
+
+.notification-dropdown-footer {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #f1f5f9;
+    text-align: center;
+}
+
+.notification-dropdown-link {
+    display: inline-block;
+    font-size: 12px;
+    color: var(--s-coral-dark, #B53A2D);
+    font-weight: 700;
+    text-decoration: none;
+    padding: 6px 10px;
+    border-radius: 6px;
+}
+
+.notification-dropdown-link:hover {
+    background: #FFF3EF;
 }
 
 .topbar-icon {

@@ -20,6 +20,8 @@ const conversations = ref([]);
 const activeConversation = ref(null);
 const messages = ref([]);
 const messageText = ref('');
+const conversationSearch = ref('');
+const messageSearch = ref('');
 const typingUsers = ref([]);
 const isLoadingConversations = ref(false);
 const isSending = ref(false);
@@ -43,6 +45,25 @@ let refreshConversationsTimer = null;
 const activeConversationId = computed(() => activeConversation.value?.id ?? null);
 const showConversationSkeleton = computed(() => isLoadingConversations.value && conversations.value.length === 0);
 const messageSkeletonPattern = ['left', 'right', 'left', 'right', 'left'];
+const canSendMessage = computed(() => activeConversation.value?.direct_status !== 'declined');
+const videoJoining = ref(false);
+
+const isGroupConversation = computed(() => Boolean(activeConversation.value?.is_group));
+const pinnedAnnouncement = ref(null);
+const liveGroupSession = ref(null);
+
+const joinLiveGroupSession = async () => {
+    if (!liveGroupSession.value || videoJoining.value) return;
+    videoJoining.value = true;
+    try {
+        await axios.post(`/api/video-sessions/group/${liveGroupSession.value.conversation_id}/join`);
+        window.location.href = `/group-session/${liveGroupSession.value.conversation_id}`;
+    } catch (error) {
+        chatError.value = error?.response?.data?.message || 'No active group session right now.';
+    } finally {
+        videoJoining.value = false;
+    }
+};
 
 const revokeAttachmentPreview = () => {
     if (attachmentPreviewUrl.value) {
@@ -83,7 +104,9 @@ const fetchConversations = async () => {
     chatError.value = '';
     isLoadingConversations.value = true;
     try {
-        const response = await axios.get('/api/conversations');
+        const response = await axios.get('/api/conversations', {
+            params: conversationSearch.value.trim() ? { q: conversationSearch.value.trim() } : {},
+        });
         conversations.value = response.data.data ?? [];
 
         if (props.initialConversationId) {
@@ -114,7 +137,9 @@ const extractNextCursor = (payload) => {
 
 const fetchMessages = async (conversationId) => {
     try {
-        const response = await axios.get(`/api/conversations/${conversationId}/messages`);
+        const response = await axios.get(`/api/conversations/${conversationId}/messages`, {
+            params: messageSearch.value.trim() ? { q: messageSearch.value.trim() } : {},
+        });
         const payload = response.data ?? {};
         messages.value = [...(payload.data ?? [])].reverse();
         messagesNextCursor.value = extractNextCursor(payload);
@@ -153,9 +178,28 @@ const markAsRead = async (conversationId) => {
 const openConversation = async (conversation) => {
     activeConversation.value = conversation;
     mobileView.value = 'messages';
+    liveGroupSession.value = null;
     await fetchMessages(conversation.id);
     subscribeToConversation(conversation.id);
     openMessageMenuId.value = null;
+    if (conversation.is_group) {
+        await fetchPinnedAnnouncement(conversation.id);
+    } else {
+        pinnedAnnouncement.value = null;
+    }
+};
+
+const fetchPinnedAnnouncement = async (conversationId) => {
+    if (!conversationId) {
+        pinnedAnnouncement.value = null;
+        return;
+    }
+    try {
+        const { data } = await axios.get(`/api/conversations/${conversationId}/pinned-announcement`);
+        pinnedAnnouncement.value = data?.data ?? data ?? null;
+    } catch (error) {
+        pinnedAnnouncement.value = null;
+    }
 };
 
 const scrollToBottom = () => {
@@ -165,6 +209,7 @@ const scrollToBottom = () => {
 
 const sendMessage = async () => {
     if (!activeConversationId.value || isSending.value) return;
+    if (!canSendMessage.value) return;
     if (!messageText.value.trim() && !attachmentFile.value) return;
 
     isSending.value = true;
@@ -241,10 +286,32 @@ const subscribeToConversation = (conversationId) => {
             if (Number(payload.conversation_id) !== Number(conversationId)) return;
 
             messages.value.push(payload);
+            if (payload.type === 'announcement') {
+                pinnedAnnouncement.value = payload;
+            }
+            showBrowserMessageNotification(payload);
             await markAsRead(conversationId);
             await nextTick();
             scrollToBottom();
             scheduleConversationsRefresh();
+        })
+        .listen('.GroupSessionStarted', (payload) => {
+            if (Number(payload.conversation_id) !== Number(conversationId)) return;
+            liveGroupSession.value = {
+                conversation_id: Number(payload.conversation_id),
+                teacher_name: payload.teacher_name,
+                video_session_id: payload.video_session_id,
+            };
+        })
+        .listen('.GroupSessionEnded', (payload) => {
+            if (Number(payload.conversation_id) !== Number(conversationId)) return;
+            liveGroupSession.value = null;
+        })
+        .listen('MessagesRead', (payload) => {
+            const readIds = new Set((payload.message_ids || []).map((id) => Number(id)));
+            messages.value = messages.value.map((message) => (
+                readIds.has(Number(message.id)) ? { ...message, read_at: payload.read_at } : message
+            ));
         });
 
     presenceChannel.value = window.Echo.join(`conversation.${conversationId}`)
@@ -272,6 +339,37 @@ const emitTyping = () => {
     presenceChannel.value.whisper('typing', {
         name: 'Student',
     });
+};
+
+const requestBrowserNotifications = () => {
+    if (!('Notification' in window) || Notification.permission !== 'default') return;
+    Notification.requestPermission().catch(() => {});
+};
+
+const showBrowserMessageNotification = (message) => {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    if (document.visibilityState === 'visible') return;
+
+    const title = message.sender?.name ? `New message from ${message.sender.name}` : 'New message';
+    const body = message.body || (message.type === 'image' ? 'Sent an image' : 'Sent a file');
+    new Notification(title, {
+        body,
+        icon: message.sender?.avatar || '/favicon.ico',
+    });
+};
+
+const joinGroupSession = async () => {
+    if (!activeConversation.value?.is_group || videoJoining.value) return;
+
+    videoJoining.value = true;
+    try {
+        await axios.post(`/api/video-sessions/group/${activeConversation.value.id}/join`);
+        window.location.href = `/group-session/${activeConversation.value.id}`;
+    } catch (error) {
+        chatError.value = error?.response?.data?.message || 'No active group session right now.';
+    } finally {
+        videoJoining.value = false;
+    }
 };
 
 const scheduleConversationsRefresh = () => {
@@ -325,6 +423,14 @@ watch(messageText, () => {
     emitTyping();
 });
 
+watch(conversationSearch, () => {
+    fetchConversations();
+});
+
+watch(messageSearch, () => {
+    if (activeConversationId.value) fetchMessages(activeConversationId.value);
+});
+
 const handleEscape = (event) => {
     if (event.key === 'Escape') {
         openMessageMenuId.value = null;
@@ -335,6 +441,7 @@ const handleEscape = (event) => {
 onMounted(async () => {
     document.body.setAttribute('data-portal', 'student');
     window.addEventListener('keydown', handleEscape);
+    requestBrowserNotifications();
     await fetchConversations();
 });
 
@@ -354,6 +461,12 @@ onBeforeUnmount(() => {
         <div class="student-chat">
             <aside class="conversation-list" :class="{ mobileHidden: mobileView === 'messages' }">
                 <h2>Messages</h2>
+                <input
+                    v-model="conversationSearch"
+                    type="search"
+                    class="search-field"
+                    placeholder="Search chats"
+                />
 
                 <div v-if="showConversationSkeleton" class="conversation-skeleton-list">
                     <div v-for="index in 5" :key="index" class="conversation-row conversation-row--skeleton">
@@ -397,8 +510,44 @@ onBeforeUnmount(() => {
             <section class="message-pane" :class="{ mobileHidden: mobileView === 'list' }">
                 <div class="message-header">
                     <button class="back-btn" @click="mobileView = 'list'">←</button>
-                    <h3>{{ activeConversation?.display_name || 'Select a conversation' }}</h3>
+                    <div class="header-title">
+                        <h3>{{ activeConversation?.display_name || 'Select a conversation' }}</h3>
+                        <span v-if="activeConversation?.direct_status" class="conversation-status" :class="activeConversation.direct_status">
+                            {{ activeConversation.direct_status }}
+                        </span>
+                    </div>
+                    <button
+                        v-if="activeConversation?.is_group"
+                        class="join-session-btn"
+                        type="button"
+                        :disabled="videoJoining"
+                        @click="joinGroupSession"
+                    >
+                        {{ videoJoining ? 'Joining...' : 'Join Session' }}
+                    </button>
                 </div>
+
+                <transition name="live-session-fade">
+                    <div
+                        v-if="isGroupConversation && liveGroupSession"
+                        class="live-session-banner"
+                    >
+                        <div class="live-pulse" aria-hidden="true"></div>
+                        <div class="live-text">
+                            <strong>🔴 Live now:</strong>
+                            {{ liveGroupSession.teacher_name }} started a group session.
+                        </div>
+                        <button
+                            type="button"
+                            class="live-join-btn"
+                            :disabled="videoJoining"
+                            @click="joinLiveGroupSession"
+                        >
+                            {{ videoJoining ? 'Joining...' : 'Join now' }}
+                        </button>
+                    </div>
+                </transition>
+
 
                 <div v-if="showConversationSkeleton" class="chat-message-skeleton">
                     <div
@@ -431,6 +580,21 @@ onBeforeUnmount(() => {
                 </div>
 
                 <div v-else ref="messagesContainer" class="messages-scroll">
+                    <div
+                        v-if="isGroupConversation && pinnedAnnouncement"
+                        class="pinned-announcement"
+                    >
+                        <div class="pin-label">📢 Class announcement</div>
+                        <p class="pin-body">{{ pinnedAnnouncement.body }}</p>
+                        <span class="pin-meta">— {{ pinnedAnnouncement.sender?.name || 'Teacher' }} • {{ new Date(pinnedAnnouncement.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }}</span>
+                    </div>
+                    <input
+                        v-if="activeConversationId"
+                        v-model="messageSearch"
+                        type="search"
+                        class="message-search-field"
+                        placeholder="Search this chat"
+                    />
                     <div v-if="messagesNextCursor" class="load-more-messages-wrap">
                         <button type="button" class="load-more-messages-btn" :disabled="loadingMoreMessages" @click="loadOlderMessages">
                             {{ loadingMoreMessages ? 'Loading...' : 'Load older messages' }}
@@ -506,6 +670,7 @@ onBeforeUnmount(() => {
                     </TransitionGroup>
 
                     <div v-if="typingUsers.length" class="typing-indicator">
+                        <span class="typing-copy">{{ typingUsers[0] }} is typing...</span>
                         <span></span><span></span><span></span>
                     </div>
                 </div>
@@ -533,10 +698,11 @@ onBeforeUnmount(() => {
                         v-model="messageText"
                         type="text"
                         class="message-input"
-                        placeholder="Type a message..."
+                        :placeholder="canSendMessage ? 'Type a message...' : 'This conversation was declined'"
+                        :disabled="!canSendMessage"
                         @keydown.enter.prevent="sendMessage"
                     />
-                    <button class="send-btn" :disabled="isSending" @click="sendMessage">➤</button>
+                    <button class="send-btn" :disabled="isSending || !canSendMessage" @click="sendMessage">➤</button>
                 </div>
             </section>
         </div>
@@ -575,6 +741,58 @@ h2 {
     margin: 0 0 12px;
     font-family: 'Fredoka One', cursive;
     color: #e8553e;
+}
+
+.search-field,
+.message-search-field {
+    width: 100%;
+    min-height: 40px;
+    border: 1px solid #f0ddd5;
+    border-radius: 999px;
+    padding: 0 14px;
+    margin-bottom: 12px;
+    font-family: Nunito, sans-serif;
+}
+
+.pinned-announcement {
+    border: 1px solid #fde2cf;
+    background: #fff7ef;
+    border-left: 4px solid #E8553E;
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-bottom: 8px;
+}
+
+.pinned-announcement .pin-label {
+    font-size: 11px;
+    font-weight: 800;
+    color: #E8553E;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.pinned-announcement .pin-body {
+    margin: 4px 0 0;
+    font-size: 14px;
+    color: #1f2937;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.pinned-announcement .pin-meta {
+    display: block;
+    margin-top: 6px;
+    font-size: 11px;
+    color: #6b7280;
+}
+
+
+.message-search-field {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: #fff;
 }
 
 .conversation-list-items {
@@ -729,6 +947,109 @@ h2 {
     font-family: Nunito, sans-serif;
     font-size: 18px;
     font-weight: 700;
+}
+
+.join-session-btn {
+    margin-left: auto;
+    border: none;
+    border-radius: 999px;
+    background: #e8553e;
+    color: #fff;
+    min-height: 34px;
+    padding: 0 12px;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.join-session-btn:disabled {
+    background: #f5b1a3;
+    cursor: wait;
+}
+
+.live-session-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: linear-gradient(90deg, #ef5350 0%, #ff7a6b 100%);
+    color: #fff;
+    padding: 10px 14px;
+    border-radius: 10px;
+    margin: 10px 14px 0;
+    box-shadow: 0 4px 18px rgba(239, 83, 80, 0.35);
+}
+
+.live-session-banner .live-pulse {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #fff;
+    animation: live-pulse-dot 1.2s ease-in-out infinite;
+    flex-shrink: 0;
+}
+
+.live-session-banner .live-text {
+    flex: 1;
+    font-size: 14px;
+    line-height: 1.3;
+}
+
+.live-session-banner .live-join-btn {
+    background: #fff;
+    color: #ef5350;
+    border: none;
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.live-session-banner .live-join-btn:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+
+@keyframes live-pulse-dot {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.4); opacity: 0.5; }
+}
+
+.live-session-fade-enter-active,
+.live-session-fade-leave-active {
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.live-session-fade-enter-from,
+.live-session-fade-leave-to {
+    opacity: 0;
+    transform: translateY(-8px);
+}
+
+.header-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.conversation-status {
+    border-radius: 999px;
+    padding: 3px 8px;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: capitalize;
+    background: #eef2ff;
+    color: #3730a3;
+}
+
+.conversation-status.pending {
+    background: #fff7ed;
+    color: #c2410c;
+}
+
+.conversation-status.declined {
+    background: #fee2e2;
+    color: #991b1b;
 }
 
 .back-btn {
@@ -950,11 +1271,23 @@ h2 {
 
 .typing-indicator {
     display: inline-flex;
+    align-items: center;
     gap: 6px;
     background: #fff;
     border: 1px solid #e5e7eb;
     border-radius: 999px;
     padding: 8px 10px;
+}
+
+.typing-copy {
+    width: auto !important;
+    height: auto !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    animation: none !important;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 700;
 }
 
 .typing-indicator span {

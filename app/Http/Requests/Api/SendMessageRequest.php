@@ -30,7 +30,7 @@ class SendMessageRequest extends FormRequest
                 // Images: 5MB; Docs: 10MB
                 Rule::when(
                     $type === 'file',
-                    ['mimes:jpg,jpeg,png,webp,pdf,txt,doc,docx', 'max:10240'],
+                    ['mimes:pdf', 'max:10240'],
                     ['mimes:jpg,jpeg,png,webp', 'max:5120']
                 ),
                 Rule::requiredIf(fn (): bool => in_array($this->input('type'), ['image', 'file'], true)),

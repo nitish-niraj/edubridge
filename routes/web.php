@@ -161,6 +161,8 @@ Route::middleware(['auth', 'role:student'])->prefix('student')->name('student.')
                 'session_reminder_email',
                 'booking_cancelled_email',
                 'review_received_email',
+                'earnings_released_email',
+                'group_session_started_email',
             ]),
         ]);
     })->name('settings');
@@ -238,6 +240,8 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
                 'session_reminder_email' => (bool) ($preference?->session_reminder_email ?? true),
                 'booking_cancelled_email' => (bool) ($preference?->booking_cancelled_email ?? true),
                 'review_received_email' => (bool) ($preference?->review_received_email ?? true),
+                'earnings_released_email' => (bool) ($preference?->earnings_released_email ?? true),
+                'group_session_started_email' => (bool) ($preference?->group_session_started_email ?? true),
             ],
         ]);
     })->name('settings');
@@ -248,6 +252,9 @@ Route::middleware(['auth', 'role:teacher'])->prefix('teacher')->name('teacher.')
 
     // Sessions management
     Route::get('/sessions', fn () => Inertia::render('Teacher/MySessions'))->name('sessions');
+
+    // Earnings history
+    Route::get('/earnings', [\App\Http\Controllers\Teacher\EarningsController::class, 'index'])->name('earnings');
 
     // Class Groups
     Route::get('/classes/create', fn () => Inertia::render('Teacher/CreateClass'))->name('classes.create');
@@ -302,3 +309,8 @@ Route::middleware(['auth', 'role:admin', 'admin.2fa'])->prefix('admin')->name('a
 
 // ─── Breeze Auth Routes (login, logout, password reset) ──────────────────────
 require __DIR__ . '/auth.php';
+
+// ─── Notifications (shared by all authenticated roles) ───────────────────────
+Route::middleware('auth')->get('/notifications', function () {
+    return Inertia::render('Shared/Notifications');
+})->name('notifications.index');

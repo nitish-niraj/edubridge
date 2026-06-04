@@ -15,6 +15,7 @@ class ConversationMessagesRequest extends FormRequest
     {
         return [
             'cursor' => ['nullable', 'string'],
+            'q' => ['nullable', 'string', 'max:150'],
         ];
     }
 }

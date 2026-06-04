@@ -44,6 +44,13 @@ class HandleInertiaRequests extends Middleware
                     ->whereNull('dismissed_at')
                     ->count(),
             ] : null,
+            'admin' => $user && $user->isAdmin() ? [
+                'notifications_count' => (int) AppNotification::query()
+                    ->where('user_id', $user->id)
+                    ->whereNull('read_at')
+                    ->whereNull('dismissed_at')
+                    ->count(),
+            ] : null,
             'teacher_ui' => $user && $user->isTeacher()
                 ? [
                     'high_contrast' => (bool) optional($user->notificationPreferences)->high_contrast,

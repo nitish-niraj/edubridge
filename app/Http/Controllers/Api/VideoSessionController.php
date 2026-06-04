@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Events\GroupSessionStarted;
 use App\Events\GroupSessionEnded;
+use App\Events\GroupHandRaised;
 use App\Events\RecordingConsentRequest;
 use App\Events\WhiteboardUpdate;
 use App\Http\Controllers\Controller;
@@ -108,8 +109,8 @@ class VideoSessionController extends Controller
             return response()->json(['message' => 'Only verified teachers can start group sessions.'], 403);
         }
 
-        if ($conversation->activeClassMembers()->where('role', 'student')->count() > 50) {
-            return response()->json(['message' => 'Group sessions support a maximum of 50 participants.'], 422);
+        if ($conversation->activeClassMembers()->where('role', 'student')->count() > 30) {
+            return response()->json(['message' => 'Group sessions support a maximum of 30 students.'], 422);
         }
 
         // Close stale sessions before starting/joining
@@ -256,7 +257,7 @@ class VideoSessionController extends Controller
         $activeCount = ClassMember::where('conversation_id', $conversationId)
             ->whereNull('left_at')
             ->count();
-        if ($activeCount > 50) {
+        if ($activeCount > 31) {
             return response()->json(['message' => 'Session is full. Please contact your teacher.'], 422);
         }
 
@@ -288,6 +289,40 @@ class VideoSessionController extends Controller
     public function groupToken(int $groupId, Request $request): JsonResponse
     {
         return $this->joinGroupSession($groupId, $request);
+    }
+
+    public function raiseHand(int $conversationId, Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $validated = $request->validate([
+            'raised' => ['required', 'boolean'],
+        ]);
+
+        $member = ClassMember::query()
+            ->where('conversation_id', $conversationId)
+            ->where('user_id', $user->id)
+            ->whereNull('left_at')
+            ->first();
+
+        if (! $member) {
+            return response()->json(['message' => 'You are not a member of this class.'], 403);
+        }
+
+        if ($member->role !== 'student') {
+            return response()->json(['message' => 'Only students can raise a hand.'], 403);
+        }
+
+        broadcast(new GroupHandRaised(
+            conversationId: $conversationId,
+            userId: $user->id,
+            name: $user->name,
+            raised: (bool) $validated['raised']
+        ))->toOthers();
+
+        return response()->json([
+            'raised' => (bool) $validated['raised'],
+            'message' => $validated['raised'] ? 'Hand raised.' : 'Hand lowered.',
+        ]);
     }
 
     /**
@@ -425,25 +460,57 @@ class VideoSessionController extends Controller
 
         $videoSession = VideoSession::query()
             ->where('id', $sessionId)
-            ->where('conversation_id', $validated['conversation_id'])
-            ->where('is_group', true)
             ->whereNotNull('started_at')
             ->whereNull('ended_at')
             ->firstOrFail();
 
-        $conversation = Conversation::findOrFail($videoSession->conversation_id);
-        $member = ClassMember::query()
-            ->where('conversation_id', $conversation->id)
-            ->where('user_id', $request->user()->id)
-            ->whereNull('left_at')
-            ->first();
+        if ($videoSession->is_group) {
+            if ((int) $videoSession->conversation_id !== (int) $validated['conversation_id']) {
+                return response()->json(['message' => 'Invalid conversation for this session.'], 422);
+            }
 
-        if (! $member) {
-            return response()->json(['message' => 'You are not a member of this class.'], 403);
-        }
+            $conversation = Conversation::findOrFail($videoSession->conversation_id);
+            $member = ClassMember::query()
+                ->where('conversation_id', $conversation->id)
+                ->where('user_id', $request->user()->id)
+                ->whereNull('left_at')
+                ->first();
 
-        if ($conversation->teacher_id !== $request->user()->id && ! $member->can_draw) {
-            return response()->json(['message' => 'You do not have draw permission.'], 403);
+            if (! $member) {
+                return response()->json(['message' => 'You are not a member of this class.'], 403);
+            }
+
+            if ($conversation->teacher_id !== $request->user()->id && ! $member->can_draw) {
+                return response()->json(['message' => 'You do not have draw permission.'], 403);
+            }
+        } else {
+            // 1:1 session
+            $booking = Booking::findOrFail($videoSession->booking_id);
+            if ($request->user()->id !== $booking->student_id && $request->user()->id !== $booking->teacher_id) {
+                return response()->json(['message' => 'Unauthorized.'], 403);
+            }
+
+            // Find or create 1:1 conversation between these two
+            $conversation = Conversation::query()
+                ->where('is_group', false)
+                ->where('direct_student_id', $booking->student_id)
+                ->where('teacher_id', $booking->teacher_id)
+                ->first();
+
+            if (! $conversation) {
+                $conversation = Conversation::firstOrCreate([
+                    'is_group' => false,
+                    'direct_student_id' => $booking->student_id,
+                    'teacher_id' => $booking->teacher_id,
+                ], [
+                    'created_by' => $booking->student_id,
+                    'direct_status' => 'accepted',
+                ]);
+            }
+
+            if ((int) $conversation->id !== (int) $validated['conversation_id']) {
+                return response()->json(['message' => 'Invalid conversation for this session.'], 422);
+            }
         }
 
         broadcast(new WhiteboardUpdate(

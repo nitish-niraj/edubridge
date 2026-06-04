@@ -227,7 +227,7 @@ class BookingController extends Controller
             'teacher:id,name,avatar,role,status',
             'slot:id,teacher_id,slot_date,start_time,end_time,duration_minutes,is_booked',
             'videoSession:id,booking_id,started_at,ended_at,duration_minutes,recording_url',
-            'review:id,booking_id,reviewer_id,reviewee_id,rating,comment,is_visible,is_flagged,created_at',
+            'reviews:id,booking_id,reviewer_id,reviewee_id,rating,comment,is_visible,is_flagged,created_at',
         ])
             ->orderByDesc('start_at')
             ->paginate(20);
@@ -296,7 +296,7 @@ class BookingController extends Controller
             'teacher:id,name,avatar,role,status',
             'slot:id,teacher_id,slot_date,start_time,end_time,duration_minutes,is_booked',
             'videoSession:id,booking_id,started_at,ended_at,duration_minutes,recording_url',
-            'review:id,booking_id,reviewer_id,reviewee_id,rating,comment,is_visible,is_flagged,created_at',
+            'reviews:id,booking_id,reviewer_id,reviewee_id,rating,comment,is_visible,is_flagged,created_at',
             'payment:id,booking_id,status,amount,amount_paise,platform_fee,teacher_payout,paid_at,released_at',
         ])
             ->findOrFail($id);

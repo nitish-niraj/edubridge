@@ -18,7 +18,7 @@ class GroupUpdateRequest extends FormRequest
             'name' => ['sometimes', 'string', 'max:100'],
             'subject' => ['sometimes', 'string', Rule::in(config('edubridge.subjects', []))],
             'description' => ['nullable', 'string', 'max:2000'],
-            'max_students' => ['sometimes', 'integer', 'min:2', 'max:50'],
+            'max_students' => ['sometimes', 'integer', 'min:2', 'max:30'],
         ];
     }
 }

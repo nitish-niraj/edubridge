@@ -29,6 +29,7 @@ class TeacherProfile extends Model
         'rating_avg',
         'total_reviews',
         'subjects',
+        'subject_other',
         'languages',
         'gender',
         'availability',
@@ -46,9 +47,9 @@ class TeacherProfile extends Model
         'languages'     => 'array',
         'availability'  => 'array',
         'is_free'       => 'boolean',
-        'is_verified'  => 'boolean',
-        'hourly_rate'  => 'decimal:2',
-        'rating_avg'   => 'decimal:2',
+        'is_verified'   => 'boolean',
+        'hourly_rate'   => 'decimal:2',
+        'rating_avg'    => 'decimal:2',
         'tour_completed' => 'boolean',
     ];
 

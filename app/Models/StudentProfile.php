@@ -21,16 +21,15 @@ class StudentProfile extends Model
         'school_name',
         'subjects_needed',
         'preferred_language',
+        'rating_avg',
+        'total_reviews',
         'onboarding_completed',
     ];
 
-    /**
-     * The attributes that should be cast.
-     *
-     * @var array<string, string>
-     */
     protected $casts = [
         'subjects_needed'      => 'array',
+        'rating_avg'           => 'decimal:2',
+        'total_reviews'        => 'integer',
         'onboarding_completed' => 'boolean',
     ];
 

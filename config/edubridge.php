@@ -5,7 +5,6 @@ return [
     'payout_delay_hours' => 24,
     'warning_auto_suspend_threshold' => 3,
     'subjects' => [
-        'Mathematics',
         'Math',
         'Science',
         'Physics',

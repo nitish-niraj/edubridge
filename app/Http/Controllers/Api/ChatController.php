@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Helpers\UploadSecurity;
 use App\Http\Controllers\Controller;
+use App\Events\MessagesRead;
 use App\Events\MessageSent;
 use App\Events\UserTyping;
 use App\Http\Requests\Api\ConversationIndexRequest;
@@ -32,6 +33,7 @@ class ChatController extends Controller
     {
         $validated = $request->validated();
         $perPage = (int) ($validated['per_page'] ?? 20);
+        $search = trim((string) ($validated['q'] ?? ''));
         $userId = $request->user()->id;
 
         $conversations = Conversation::query()
@@ -53,6 +55,18 @@ class ChatController extends Controller
                 'participants:id,name,avatar,role',
                 'lastMessage.sender:id,name,avatar',
             ])
+            ->when($search !== '', function ($query) use ($search): void {
+                $query->where(function ($builder) use ($search): void {
+                    $builder->where('title', 'like', "%{$search}%")
+                        ->orWhereHas('participants', function ($participantQuery) use ($search): void {
+                            $participantQuery->where('users.name', 'like', "%{$search}%");
+                        })
+                        ->orWhereHas('messages', function ($messageQuery) use ($search): void {
+                            $messageQuery->where('body', 'like', "%{$search}%")
+                                ->orWhere('file_url', 'like', "%{$search}%");
+                        });
+                });
+            })
             ->withCount([
                 'messages as unread_count' => function ($query) use ($userId): void {
                     $query->whereNull('read_at')
@@ -103,12 +117,22 @@ class ChatController extends Controller
                     ],
                     [
                         'created_by' => $studentId,
+                        'direct_status' => 'pending',
                     ]
                 );
             } elseif (! $existing->direct_student_id || ! $existing->teacher_id) {
                 $existing->forceFill([
                     'direct_student_id' => $studentId,
                     'teacher_id' => $teacherId,
+                    'direct_status' => 'pending',
+                    'accepted_at' => null,
+                    'declined_at' => null,
+                ])->save();
+            } elseif ($existing->direct_status === 'declined') {
+                $existing->forceFill([
+                    'direct_status' => 'pending',
+                    'accepted_at' => null,
+                    'declined_at' => null,
                 ])->save();
             }
 
@@ -147,7 +171,7 @@ class ChatController extends Controller
         ConversationMessagesRequest $request,
         Conversation $conversation
     ): AnonymousResourceCollection {
-        $request->validated();
+        $validated = $request->validated();
         $userId = $request->user()->id;
         $this->assertParticipant($conversation, $userId);
         $mutedIds = [];
@@ -158,6 +182,17 @@ class ChatController extends Controller
                 'sender:id,name,avatar',
                 'conversation:id,is_group,teacher_id',
             ]);
+
+        $search = trim((string) ($validated['q'] ?? ''));
+        if ($search !== '') {
+            $query->where(function ($builder) use ($search): void {
+                $builder->where('body', 'like', "%{$search}%")
+                    ->orWhere('file_url', 'like', "%{$search}%")
+                    ->orWhereHas('sender', function ($senderQuery) use ($search): void {
+                        $senderQuery->where('name', 'like', "%{$search}%");
+                    });
+            });
+        }
 
         // For group chats: filter out muted student messages for non-teacher users
         if ($conversation->is_group) {
@@ -206,6 +241,14 @@ class ChatController extends Controller
             throw new HttpException(403, 'Teachers cannot initiate 1:1 conversations.');
         }
 
+        if (! $conversation->is_group && $conversation->direct_status === 'declined') {
+            throw new HttpException(403, 'This conversation has been declined.');
+        }
+
+        if (! $conversation->is_group && $user->isTeacher() && $conversation->direct_status === 'pending') {
+            throw new HttpException(403, 'Accept this conversation before replying.');
+        }
+
         $fileUrl = null;
         if ($request->hasFile('attachment')) {
             $allowedMimes = $validated['type'] === 'image'
@@ -244,6 +287,61 @@ class ChatController extends Controller
         return new MessageResource($message);
     }
 
+    public function accept(Request $request, Conversation $conversation): ConversationResource
+    {
+        $user = $request->user();
+        $this->assertParticipant($conversation, $user->id);
+
+        if ($conversation->is_group || (int) $conversation->teacher_id !== (int) $user->id) {
+            throw new HttpException(403, 'Only the teacher can accept this conversation.');
+        }
+
+        $conversation->forceFill([
+            'direct_status' => 'accepted',
+            'accepted_at' => now(),
+            'declined_at' => null,
+        ])->save();
+
+        $conversation->load([
+            'participants:id,name,avatar,role',
+            'lastMessage.sender:id,name,avatar',
+        ])->loadCount([
+            'messages as unread_count' => function ($query) use ($user): void {
+                $query->whereNull('read_at')
+                    ->where('sender_id', '!=', $user->id);
+            },
+        ]);
+
+        return new ConversationResource($conversation);
+    }
+
+    public function decline(Request $request, Conversation $conversation): ConversationResource
+    {
+        $user = $request->user();
+        $this->assertParticipant($conversation, $user->id);
+
+        if ($conversation->is_group || (int) $conversation->teacher_id !== (int) $user->id) {
+            throw new HttpException(403, 'Only the teacher can decline this conversation.');
+        }
+
+        $conversation->forceFill([
+            'direct_status' => 'declined',
+            'declined_at' => now(),
+        ])->save();
+
+        $conversation->load([
+            'participants:id,name,avatar,role',
+            'lastMessage.sender:id,name,avatar',
+        ])->loadCount([
+            'messages as unread_count' => function ($query) use ($user): void {
+                $query->whereNull('read_at')
+                    ->where('sender_id', '!=', $user->id);
+            },
+        ]);
+
+        return new ConversationResource($conversation);
+    }
+
     public function markRead(
         MarkConversationReadRequest $request,
         Conversation $conversation
@@ -252,11 +350,28 @@ class ChatController extends Controller
         $userId = $request->user()->id;
         $this->assertParticipant($conversation, $userId);
 
-        $updatedCount = Message::query()
+        $readAt = now();
+        $messageIds = Message::query()
             ->where('conversation_id', $conversation->id)
             ->where('sender_id', '!=', $userId)
             ->whereNull('read_at')
-            ->update(['read_at' => now()]);
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+
+        $updatedCount = Message::query()
+            ->where('conversation_id', $conversation->id)
+            ->whereIn('id', $messageIds)
+            ->update(['read_at' => $readAt]);
+
+        if ($updatedCount > 0) {
+            broadcast(new MessagesRead(
+                conversationId: $conversation->id,
+                readerId: $userId,
+                messageIds: $messageIds,
+                readAt: $readAt->toJSON()
+            ))->toOthers();
+        }
 
         return response()->json([
             'updated' => $updatedCount,

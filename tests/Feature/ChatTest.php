@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Events\MessageSent;
+use App\Events\MessagesRead;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\User;
@@ -36,6 +37,7 @@ class ChatTest extends TestCase
             'id' => $conversationId,
             'created_by' => $student->id,
             'is_group' => false,
+            'direct_status' => 'pending',
         ]);
 
         $this->assertDatabaseHas('conversation_participants', [
@@ -81,8 +83,59 @@ class ChatTest extends TestCase
         Event::assertDispatched(MessageSent::class);
     }
 
+    public function test_teacher_can_accept_pending_conversation_before_replying(): void
+    {
+        $student = User::factory()->create(['role' => 'student', 'status' => 'active']);
+        $teacher = User::factory()->create(['role' => 'teacher', 'status' => 'active']);
+
+        Sanctum::actingAs($student);
+        $conversationId = $this->postJson('/api/conversations', [
+            'teacher_id' => $teacher->id,
+            'message' => 'Can you help with algebra?',
+        ])->json('data.id');
+
+        Sanctum::actingAs($teacher);
+        $this->postJson("/api/conversations/{$conversationId}/messages", [
+            'type' => 'text',
+            'body' => 'Yes, happy to help.',
+        ])->assertStatus(403);
+
+        $this->patchJson("/api/conversations/{$conversationId}/accept")
+            ->assertOk()
+            ->assertJsonPath('data.direct_status', 'accepted');
+
+        $this->postJson("/api/conversations/{$conversationId}/messages", [
+            'type' => 'text',
+            'body' => 'Yes, happy to help.',
+        ])->assertCreated();
+    }
+
+    public function test_teacher_can_decline_conversation_and_block_replies(): void
+    {
+        $student = User::factory()->create(['role' => 'student', 'status' => 'active']);
+        $teacher = User::factory()->create(['role' => 'teacher', 'status' => 'active']);
+
+        Sanctum::actingAs($student);
+        $conversationId = $this->postJson('/api/conversations', [
+            'teacher_id' => $teacher->id,
+            'message' => 'Are you available?',
+        ])->json('data.id');
+
+        Sanctum::actingAs($teacher);
+        $this->patchJson("/api/conversations/{$conversationId}/decline")
+            ->assertOk()
+            ->assertJsonPath('data.direct_status', 'declined');
+
+        $this->postJson("/api/conversations/{$conversationId}/messages", [
+            'type' => 'text',
+            'body' => 'No.',
+        ])->assertStatus(403);
+    }
+
     public function test_read_endpoint_updates_read_at(): void
     {
+        Event::fake([MessagesRead::class]);
+
         $student = User::factory()->create(['role' => 'student', 'status' => 'active']);
         $teacher = User::factory()->create(['role' => 'teacher', 'status' => 'active']);
 
@@ -108,6 +161,7 @@ class ChatTest extends TestCase
 
         $message->refresh();
         $this->assertNotNull($message->read_at);
+        Event::assertDispatched(MessagesRead::class);
     }
 
     public function test_non_participant_gets_403_on_messages_endpoint(): void
@@ -161,5 +215,38 @@ class ChatTest extends TestCase
         
         // But we should have 2 messages
         $this->assertDatabaseCount('messages', 2);
+    }
+
+    public function test_conversation_and_message_history_are_searchable(): void
+    {
+        $student = User::factory()->create(['role' => 'student', 'status' => 'active', 'name' => 'Search Student']);
+        $teacher = User::factory()->create(['role' => 'teacher', 'status' => 'active', 'name' => 'Search Teacher']);
+
+        $conversation = Conversation::query()->create([
+            'created_by' => $student->id,
+            'direct_student_id' => $student->id,
+            'teacher_id' => $teacher->id,
+            'is_group' => false,
+            'direct_status' => 'accepted',
+        ]);
+        $conversation->participants()->attach($student->id, ['joined_at' => now()]);
+        $conversation->participants()->attach($teacher->id, ['joined_at' => now()]);
+
+        Message::query()->create([
+            'conversation_id' => $conversation->id,
+            'sender_id' => $student->id,
+            'body' => 'Please review this trigonometry homework.',
+            'type' => 'text',
+        ]);
+
+        Sanctum::actingAs($teacher);
+
+        $this->getJson('/api/conversations?q=trigonometry')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $conversation->id);
+
+        $this->getJson("/api/conversations/{$conversation->id}/messages?q=homework")
+            ->assertOk()
+            ->assertJsonPath('data.0.body', 'Please review this trigonometry homework.');
     }
 }

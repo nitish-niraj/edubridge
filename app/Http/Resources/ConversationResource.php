@@ -28,6 +28,9 @@ class ConversationResource extends JsonResource
             'id' => $this->id,
             'created_by' => $this->created_by,
             'is_group' => (bool) $this->is_group,
+            'direct_status' => $this->is_group ? null : ($this->direct_status ?? 'accepted'),
+            'accepted_at' => $this->accepted_at,
+            'declined_at' => $this->declined_at,
             'title' => $this->title,
             'display_name' => $this->is_group
                 ? ($this->title ?: 'Group Conversation')

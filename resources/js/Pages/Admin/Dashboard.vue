@@ -34,6 +34,10 @@ const props = defineProps({
         type: Array,
         default: () => [],
     },
+    top_teachers: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 const { createChart, createLineDataset, destroyChart, colors } = useAdminChart();
@@ -42,14 +46,19 @@ const defaultPayload = {
     stats: {
         total_active_users: 0,
         sessions_today: 0,
+        sessions_completed_this_month: 0,
         pending_verifications: 0,
         unread_reports: 0,
         revenue_this_month: 0,
+        platform_fees_this_month: 0,
+        dau: 0,
+        mau: 0,
     },
     recent_signups: [],
     pending_actions: [],
     sessions_chart: [],
     new_users_chart: [],
+    top_teachers: [],
 };
 
 const normalizePayload = (payload) => ({
@@ -61,6 +70,7 @@ const normalizePayload = (payload) => ({
     pending_actions: Array.isArray(payload?.pending_actions) ? payload.pending_actions : [],
     sessions_chart: Array.isArray(payload?.sessions_chart) ? payload.sessions_chart : [],
     new_users_chart: Array.isArray(payload?.new_users_chart) ? payload.new_users_chart : [],
+    top_teachers: Array.isArray(payload?.top_teachers) ? payload.top_teachers : [],
 });
 
 const dashboardData = ref(normalizePayload(props));
@@ -86,7 +96,7 @@ const knownSignupIds = ref(new Set(dashboardData.value.recent_signups.map((signu
 let dashboardChart = null;
 
 watch(
-    () => [props.stats, props.recent_signups, props.pending_actions, props.sessions_chart, props.new_users_chart],
+    () => [props.stats, props.recent_signups, props.pending_actions, props.sessions_chart, props.new_users_chart, props.top_teachers],
     () => {
         dashboardData.value = normalizePayload(props);
         knownActionIds.value = new Set(dashboardData.value.pending_actions.map((action) => action.id));
@@ -132,14 +142,35 @@ const statCards = computed(() => [
         trend: Math.max(2, Math.round(sessionTrend.value / 2)),
     },
     {
+        label: 'DAU (today)',
+        value: Number(dashboardData.value.stats.dau || 0),
+        trend: sessionTrend.value,
+    },
+    {
+        label: 'MAU (30 days)',
+        value: Number(dashboardData.value.stats.mau || 0),
+        trend: sessionTrend.value,
+    },
+    {
         label: 'Sessions Today',
         value: Number(dashboardData.value.stats.sessions_today || 0),
         trend: sessionTrend.value,
     },
     {
+        label: 'Sessions This Month',
+        value: Number(dashboardData.value.stats.sessions_completed_this_month || 0),
+        trend: sessionTrend.value >= 0 ? Math.max(2, Math.round(sessionTrend.value / 2)) : Math.round(sessionTrend.value / 2),
+    },
+    {
         label: 'Revenue This Month',
         value: Number(dashboardData.value.stats.revenue_this_month || 0),
         trend: sessionTrend.value >= 0 ? Math.max(2, Math.round(sessionTrend.value / 2)) : Math.round(sessionTrend.value / 2),
+        prefix: 'INR ',
+    },
+    {
+        label: 'Platform Fees (Month)',
+        value: Number(dashboardData.value.stats.platform_fees_this_month || 0),
+        trend: Math.max(2, Math.round(sessionTrend.value / 2)),
         prefix: 'INR ',
     },
     {
@@ -485,6 +516,28 @@ onBeforeUnmount(() => {
                     <canvas ref="chartCanvas" />
                 </div>
             </section>
+
+            <section class="panel top-teachers-panel">
+                <header class="panel-header">
+                    <h3>Top teachers this month</h3>
+                    <p>Ranked by completed sessions, with released earnings in INR</p>
+                </header>
+
+                <div v-if="dashboardData.top_teachers.length" class="top-teachers-list">
+                    <article v-for="(teacher, index) in dashboardData.top_teachers" :key="teacher.id" class="top-teacher-row">
+                        <span class="teacher-rank">#{{ index + 1 }}</span>
+                        <span class="teacher-avatar">{{ initials(teacher.name) }}</span>
+                        <span class="teacher-name">{{ teacher.name }}</span>
+                        <span class="teacher-sessions">
+                            <strong>{{ teacher.sessions_completed }}</strong>
+                            <span class="teacher-sessions-label">sessions</span>
+                        </span>
+                        <span class="teacher-earnings">INR {{ Number(teacher.earnings || 0).toLocaleString('en-IN') }}</span>
+                    </article>
+                </div>
+
+                <p v-else class="empty-copy">No completed sessions in the current month yet.</p>
+            </section>
         </div>
 
         <AdminDrawer
@@ -648,7 +701,7 @@ onBeforeUnmount(() => {
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 10px;
+    gap: 12px;
 }
 
 .content-grid {
@@ -1037,6 +1090,89 @@ onBeforeUnmount(() => {
 
     .content-grid {
         grid-template-columns: 1fr;
+    }
+}
+
+.top-teachers-panel {
+    margin-top: 0;
+}
+
+.top-teachers-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.top-teacher-row {
+    display: grid;
+    grid-template-columns: 32px 36px 1fr 110px 140px;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border: 1px solid #f1f5f9;
+    border-radius: 8px;
+    background: #fafbfc;
+    font-size: 13px;
+}
+
+.teacher-rank {
+    font-weight: 700;
+    color: var(--s-coral-dark, #B53A2D);
+    font-size: 14px;
+    text-align: center;
+}
+
+.teacher-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #FFE7DD;
+    color: var(--s-coral-dark, #B53A2D);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 12px;
+}
+
+.teacher-name {
+    color: #2D2D2D;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.teacher-sessions {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    color: #2D2D2D;
+}
+
+.teacher-sessions strong {
+    font-size: 15px;
+}
+
+.teacher-sessions-label {
+    color: #9CA3AF;
+    font-size: 12px;
+}
+
+.teacher-earnings {
+    text-align: right;
+    color: #15803D;
+    font-weight: 700;
+}
+
+@media (max-width: 900px) {
+    .top-teacher-row {
+        grid-template-columns: 28px 32px 1fr 80px;
+    }
+
+    .teacher-earnings {
+        grid-column: 3 / span 2;
+        text-align: left;
     }
 }
 

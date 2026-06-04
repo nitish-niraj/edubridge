@@ -141,16 +141,18 @@ const retryPayment = async (b) => {
     }
 };
 const isReviewable = (b) => {
+    const myReview = (b.reviews || []).find((r) => r.reviewer_id === (window?.edubridgeUserId || null));
+    if (myReview) return false;
     if (b.review) return false;
     if (['completed', 'no_show'].includes(b.status)) return true;
-    
+
     // If status is confirmed but time has passed by 10 mins
     if (b.status === 'confirmed' && b.end_at) {
         const end = b.end_at.includes('Z') || b.end_at.includes('+') ? new Date(b.end_at) : new Date(b.end_at + 'Z');
         const now = new Date();
         return now > new Date(end.getTime() + 10 * 60000);
     }
-    
+
     return false;
 };
 </script>
@@ -213,7 +215,12 @@ const isReviewable = (b) => {
                         </div>
                         <div>
                             <div style="font-family: Nunito, sans-serif; font-weight: 700; font-size: 16px; color: #333;">{{ b.teacher?.name || 'Teacher' }}</div>
-                            <span v-if="b.subject" style="display: inline-block; background: #E8F5E9; color: #2E7D32; padding: 2px 10px; border-radius: 10px; font-size: 12px; margin-top: 2px;">{{ b.subject }}</span>
+                            <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px;">
+                                <span v-if="b.subject" style="display: inline-block; background: #E8F5E9; color: #2E7D32; padding: 2px 10px; border-radius: 10px; font-size: 12px;">{{ b.subject }}</span>
+                                <span v-if="Number(b.price) === 0" style="display: inline-block; background: #FFF3EF; color: #B53A2D; padding: 2px 10px; border-radius: 10px; font-size: 12px; font-weight: 600;">
+                                    🆓 Free session
+                                </span>
+                            </div>
                         </div>
                     </div>
 

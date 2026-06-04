@@ -14,6 +14,7 @@ use App\Models\BookingEvent;
 use App\Models\Conversation;
 use App\Models\Payment;
 use App\Models\TeacherEarning;
+use App\Services\NotificationService;
 use App\Services\PhonePeService;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
@@ -297,20 +298,41 @@ class AdminDisputeController extends Controller
 
         $payment->transitionTo(Payment::STATUS_RELEASED, [
             'released_at' => now(),
+            'raw_response' => array_merge($payment->raw_response ?? [], [
+                'admin_release' => [
+                    'admin_id' => auth()->id(),
+                    'note' => $request->input('note'),
+                    'processed_at' => now()->toIso8601String(),
+                ],
+            ]),
         ]);
         $booking->update(['payment_status' => 'released']);
 
-        TeacherEarning::create([
-            'teacher_id'  => $booking->teacher_id,
-            'booking_id'  => $booking->id,
-            'amount'      => $payment->teacher_payout,
-            'type'        => 'session',
-            'released_at' => now(),
-        ]);
+        TeacherEarning::firstOrCreate(
+            ['payment_id' => $payment->id],
+            [
+                'teacher_id'   => $booking->teacher_id,
+                'booking_id'   => $booking->id,
+                'gross_amount' => (float) $payment->amount,
+                'platform_fee' => (float) $payment->platform_fee,
+                'net_amount'   => (float) $payment->teacher_payout,
+                'status'       => 'released',
+                'payout_date'  => now()->toDateString(),
+            ]
+        );
 
         $this->logEvent($id, 'released_to_teacher', ['amount' => $payment->teacher_payout, 'note' => $request->input('note')]);
         AuditLogger::log('dispute.released', 'Booking', $id);
         $this->notifyResolution($booking, 'Payment released to teacher.', 0);
+
+        try {
+            app(NotificationService::class)->sendEarningsReleased($booking->fresh(['teacher.notificationPreferences']));
+        } catch (\Throwable $e) {
+            Log::warning('Earnings released notification failed during admin dispute release.', [
+                'booking_id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         return response()->json(['message' => 'Payment released to teacher.']);
     }

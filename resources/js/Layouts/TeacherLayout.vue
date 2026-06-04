@@ -2,8 +2,9 @@
 import { Link, usePage } from '@inertiajs/vue3';
 import axios from 'axios';
 import TeacherBannerStack from '@/Components/Teacher/TeacherBannerStack.vue';
+import NotificationBell from '@/Components/Shared/NotificationBell.vue';
 import {
-    BellIcon,
+    BanknotesIcon,
     CalendarDaysIcon,
     ChatBubbleLeftRightIcon,
     ChevronDownIcon,
@@ -60,6 +61,13 @@ const navItems = [
         activePrefix: '/teacher/sessions',
     },
     {
+        id: 'nav-earnings',
+        label: 'Earnings',
+        route: 'teacher.earnings',
+        icon: BanknotesIcon,
+        activePrefix: '/teacher/earnings',
+    },
+    {
         id: 'nav-messages',
         label: 'Messages',
         route: 'teacher.chat',
@@ -80,7 +88,7 @@ const mobileTabItems = [
     navItems[2],
     navItems[3],
     navItems[4],
-    navItems[5],
+    navItems[6],
 ];
 
 const currentPath = computed(() => {
@@ -99,11 +107,6 @@ const resolvedPageTitle = computed(() => {
     if (props.pageTitle) return props.pageTitle;
     const active = navItems.find((item) => isActive(item));
     return active?.label || 'Teacher Portal';
-});
-
-const unreadNotifications = computed(() => {
-    const count = Number(page.props.notifications?.unread_count ?? page.props.unread_notifications ?? 0);
-    return Number.isFinite(count) ? Math.max(0, count) : 0;
 });
 
 const userInitial = computed(() => {
@@ -269,10 +272,7 @@ onBeforeUnmount(() => {
             <h1 class="teacher-header-title">{{ resolvedPageTitle }}</h1>
 
             <div class="teacher-header-actions">
-                <Link :href="route('teacher.chat')" class="teacher-notification-button" aria-label="Open notifications">
-                    <BellIcon class="teacher-notification-icon" aria-hidden="true" />
-                    <span v-if="unreadNotifications > 0" class="teacher-notification-badge">{{ unreadNotifications }}</span>
-                </Link>
+                <NotificationBell audience="teacher" />
 
                 <div ref="menuRef" class="teacher-user-menu">
                     <button type="button" class="teacher-user-trigger" @click.stop="toggleMenu">

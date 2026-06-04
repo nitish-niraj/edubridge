@@ -10,6 +10,7 @@ use App\Models\SavedTeacher;
 use App\Models\TeacherProfile;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class SavedTeacherController extends Controller
@@ -48,7 +49,7 @@ class SavedTeacherController extends Controller
 
         $totalCount = $query->count();
         $teachers = $query->cursorPaginate($perPage)->withQueryString();
-        
+
         return TeacherCardResource::collection($teachers)->additional(['meta' => ['total' => $totalCount]]);
     }
 
@@ -84,14 +85,21 @@ class SavedTeacherController extends Controller
         ], 201);
     }
 
-    public function destroy(SavedTeacherToggleRequest $request, int $teacher_id): JsonResponse
+    /**
+     * Spec §4.5: students must still be able to unsave a teacher after the teacher is
+     * suspended or soft-deleted (the saved_teachers record stays in the database, but the
+     * teacher disappears from the visible saved list). We therefore do NOT require the
+     * teacher to still be active here — the `teacher_id` from the route is enough.
+     */
+    public function destroy(Request $request, int $teacher_id): JsonResponse
     {
-        $validated = $request->validated();
+        abort_unless($request->user()?->isStudent(), 403, 'Only students can unsave teachers.');
+
         $studentId = $request->user()->id;
 
         SavedTeacher::query()
             ->where('student_id', $studentId)
-            ->where('teacher_id', (int) $validated['teacher_id'])
+            ->where('teacher_id', $teacher_id)
             ->delete();
 
         return response()->json([

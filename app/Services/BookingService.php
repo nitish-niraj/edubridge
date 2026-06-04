@@ -19,9 +19,10 @@ class BookingService
      * Cancel a booking and handle refunds per cancellation policy.
      *
      * Policy:
-     * - Teacher cancels → full refund always
-     * - Student cancels >2 hours before → full refund
-     * - Student cancels <2 hours before → no refund
+     * - Teacher cancels ≥1 hour before start → full refund to student.
+     * - Teacher cancels <1 hour before start → no refund to student (teacher pays penalty).
+     * - Student cancels ≥2 hours before start → full refund.
+     * - Student cancels <2 hours before start → no refund.
      */
     public function cancelBooking(Booking $booking, User $cancelledBy): array
     {
@@ -36,7 +37,7 @@ class BookingService
         }
 
         if ($isTeacher) {
-            $refundAmount = (float) $booking->price; // Teacher always full refund
+            $refundAmount = $minutesUntilSession > 60 ? (float) $booking->price : 0;
         } elseif ($isStudent) {
             $refundAmount = $minutesUntilSession > 120 ? (float) $booking->price : 0;
         }
